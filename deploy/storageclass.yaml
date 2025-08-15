@@ -1,0 +1,29 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-csi
+provisioner: rclone.csi.veloxpack.io
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: false
+parameters:
+  # Required: rclone remote name (e.g., "s3", "gcs", "myremote")
+  remote: "myremote"
+  # Optional: path within remote (supports dynamic substitution using PVC/PV metadata)
+  # Template variables: ${pvc.metadata.name}, ${pvc.metadata.namespace}, ${pv.metadata.name}
+  # Example: remotePath: "buckets/${pvc.metadata.namespace}/${pvc.metadata.name}"
+  # Example: remotePath: "volumes/${pv.metadata.name}"
+  remotePath: ""
+  # Optional: rclone configuration data (can also be provided via secret)
+  # configData: |
+  #   [myremote]
+  #   type = s3
+  #   provider = AWS
+  #   access_key_id = xxx
+  #   secret_access_key = yyy
+  # Optional: additional rclone flags (space-separated)
+# Optional: Reference to secret containing sensitive parameters
+# Secrets are merged with parameters above (parameters override secrets)
+# csi.storage.k8s.io/node-publish-secret-name: "rclone-secret"
+# csi.storage.k8s.io/node-publish-secret-namespace: "default"
