@@ -1,0 +1,16 @@
+# Adds namespace to all resources.
+namespace: veloxpack
+
+# Value of this field is prepended to the
+# names of all resources, e.g. a deployment named
+# "wordpress" becomes "alices-wordpress".
+# Note that it should also match with the prefix (text before '-') of the namespace
+# field above.
+# namePrefix: veloxpack-
+
+resources:
+  - namespace-csi-rclone.yaml
+  - rbac-csi-rclone.yaml
+  - csi-rclone-driverinfo.yaml
+  - csi-rclone-controller.yaml
+  - csi-rclone-node.yaml
