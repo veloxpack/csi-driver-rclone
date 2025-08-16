@@ -1,0 +1,67 @@
+---
+# Google Cloud Storage Storage Class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-gcs
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  remote: "gcs"
+  remotePath: "my-gcs-bucket"
+csi.storage.k8s.io/node-publish-secret-name: "rclone-gcs-secret"
+csi.storage.k8s.io/node-publish-secret-namespace: "default"
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+---
+# GCS Service Account Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rclone-gcs-secret
+  namespace: default
+type: Opaque
+stringData:
+  remote: "gcs"
+  remotePath: "my-gcs-bucket"
+  configData: |
+    [gcs]
+    type = google cloud storage
+    project_number = 12345678
+    service_account_file = /path/to/service-account.json
+    # Alternative: Use service account key directly
+    # service_account_credentials = {"type":"service_account","project_id":"my-project",...}
+    # Alternative: Use OAuth
+    # token = {"access_token":"ya29.c.b0Aaeb...","token_type":"Bearer","refresh_token":"1//04...","expiry":"2024-01-01T00:00:00Z"}
+---
+# Example PVC using GCS storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-gcs-example
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: rclone-gcs
+---
+# Example Pod using GCS storage
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-gcs-example
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: gcs-storage
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: gcs-storage
+    persistentVolumeClaim:
+      claimName: pvc-gcs-example

@@ -1,0 +1,69 @@
+---
+# MinIO S3-Compatible Storage Class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-minio
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  remote: "minio"
+  remotePath: "my-minio-bucket"
+csi.storage.k8s.io/node-publish-secret-name: "rclone-minio-secret"
+csi.storage.k8s.io/node-publish-secret-namespace: "default"
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+---
+# MinIO Credentials Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rclone-minio-secret
+  namespace: default
+type: Opaque
+stringData:
+  remote: "minio"
+  remotePath: "my-minio-bucket"
+  configData: |
+    [minio]
+    type = s3
+    provider = Minio
+    endpoint = http://minio.minio:9000
+    access_key_id = minioadmin
+    secret_access_key = minioadmin
+    # Optional: Use HTTPS
+    # endpoint = https://minio.minio:9000
+    # Optional: Use custom region
+    # region = us-east-1
+---
+# Example PVC using MinIO storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-minio-example
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: rclone-minio
+---
+# Example Pod using MinIO storage
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-minio-example
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: minio-storage
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: minio-storage
+    persistentVolumeClaim:
+      claimName: pvc-minio-example

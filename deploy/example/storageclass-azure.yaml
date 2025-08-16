@@ -1,0 +1,68 @@
+---
+# Azure Blob Storage Storage Class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-azure
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  remote: "azureblob"
+  remotePath: "my-azure-container"
+csi.storage.k8s.io/node-publish-secret-name: "rclone-azure-secret"
+csi.storage.k8s.io/node-publish-secret-namespace: "default"
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+---
+# Azure Storage Account Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rclone-azure-secret
+  namespace: default
+type: Opaque
+stringData:
+  remote: "azureblob"
+  remotePath: "my-azure-container"
+  configData: |
+    [azureblob]
+    type = azureblob
+    account = your_storage_account
+    key = your_storage_key
+    endpoint = https://your_storage_account.blob.core.windows.net/
+    # Alternative: Use connection string
+    # connection_string = DefaultEndpointsProtocol=https;AccountName=your_storage_account;AccountKey=your_storage_key;EndpointSuffix=core.windows.net
+    # Alternative: Use SAS token
+    # sas_url = https://your_storage_account.blob.core.windows.net/?sv=2020-08-04&ss=b&srt=sco&sp=rwdlacup&se=2024-01-01T00:00:00Z&st=2023-01-01T00:00:00Z&spr=https&sig=...
+---
+# Example PVC using Azure storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-azure-example
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: rclone-azure
+---
+# Example Pod using Azure storage
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-azure-example
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: azure-storage
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: azure-storage
+    persistentVolumeClaim:
+      claimName: pvc-azure-example

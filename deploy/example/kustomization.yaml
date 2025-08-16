@@ -1,0 +1,11 @@
+## Rclone CSI Driver Examples
+resources:
+- minio-deploy.yaml
+- rclone-pv-example.yaml
+- storageclass-s3.yaml
+- storageclass-gcs.yaml
+- storageclass-azure.yaml
+- storageclass-minio.yaml
+- secret-dropbox.yaml
+- secret-sftp.yaml
+- storageclass.yaml

@@ -1,0 +1,143 @@
+# Template Variable Examples
+#
+# This file demonstrates various ways to use template variables in remotePath
+# for different organizational patterns and multi-tenancy scenarios.
+
+---
+# Example 1: Organize by PV name (useful for persistent storage across namespaces)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-by-pv
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  remote: "s3"
+  # Organize volumes by PV name: volumes/pvc-abc123-def456
+  remotePath: "volumes/${pv.metadata.name}"
+  configData: |
+    [s3]
+    type = s3
+    provider = AWS
+    region = us-east-1
+
+---
+# Example 2: Namespace isolation (all PVCs in same namespace share a folder)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-namespace-isolated
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  remote: "gcs"
+  # All volumes in same namespace go to: tenants/<namespace>/volumes/<pvc-name>
+  remotePath: "tenants/${pvc.metadata.namespace}/volumes/${pvc.metadata.name}"
+  configData: |
+    [gcs]
+    type = google cloud storage
+    project_number = 123456789
+
+---
+# Example 3: Flat structure with unique names
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-flat
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  remote: "b2"
+  # Simple flat structure: <namespace>-<pvc-name>
+  remotePath: "${pvc.metadata.namespace}-${pvc.metadata.name}"
+  configData: |
+    [b2]
+    type = b2
+    account = 000000000000000000000001
+    key = K000000000000000000000000000000000000001
+
+---
+# Example 4: Static base path with dynamic suffix
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-shared-base
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  remote: "azureblob"
+  # Shared base path with namespace organization: shared/data/<namespace>/<pvc-name>
+  remotePath: "shared/data/${pvc.metadata.namespace}/${pvc.metadata.name}"
+  configData: |
+    [azureblob]
+    type = azureblob
+    account = mystorageaccount
+    key = base64key
+
+---
+# Example 5: Year/Month organization (for time-series data)
+# Note: This creates the path at provision time - date won't change
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-time-series
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  remote: "s3"
+  # Organize by namespace and PVC: archives/<namespace>/<pvc-name>
+  # For actual time-based organization, use application-level logic
+  remotePath: "archives/${pvc.metadata.namespace}/${pvc.metadata.name}"
+  configData: |
+    [s3]
+    type = s3
+    provider = Minio
+    endpoint = http://minio.default.svc:9000
+
+---
+# Example 6: No template variables (static path for all)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-static-shared
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  remote: "dropbox"
+  # All volumes mount the same shared folder
+  remotePath: "shared-folder"
+  configData: |
+    [dropbox]
+    type = dropbox
+    token = {"access_token":"..."}
+
+---
+# Sample PVC using namespace-isolated storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-data
+  namespace: team-alpha
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: rclone-namespace-isolated
+  resources:
+    requests:
+      storage: 20Gi
+# This PVC will be provisioned at: tenants/team-alpha/volumes/app-data
+
+---
+# Sample Pod using the PVC
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-pod
+  namespace: team-alpha
+spec:
+  containers:
+    - name: app
+      image: busybox
+      command: ["/bin/sh"]
+      args: ["-c", "echo 'Hello from team-alpha/app-data' > /data/hello.txt && sleep 3600"]
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: app-data
