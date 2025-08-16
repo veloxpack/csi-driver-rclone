@@ -1,0 +1,68 @@
+---
+# Amazon S3 Storage Class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-s3
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  remote: "s3"
+  remotePath: "my-s3-bucket"
+csi.storage.k8s.io/node-publish-secret-name: "rclone-s3-secret"
+csi.storage.k8s.io/node-publish-secret-namespace: "default"
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+---
+# S3 Credentials Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rclone-s3-secret
+  namespace: default
+type: Opaque
+stringData:
+  remote: "s3"
+  remotePath: "my-s3-bucket"
+  configData: |
+    [s3]
+    type = s3
+    provider = AWS
+    access_key_id = YOUR_ACCESS_KEY_ID
+    secret_access_key = YOUR_SECRET_ACCESS_KEY
+    region = us-east-1
+    # Optional: Use IAM role instead of access keys
+    # use_role = true
+    # role_arn = arn:aws:iam::123456789012:role/MyRole
+---
+# Example PVC using S3 storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-s3-example
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: rclone-s3
+---
+# Example Pod using S3 storage
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-s3-example
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: s3-storage
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: s3-storage
+    persistentVolumeClaim:
+      claimName: pvc-s3-example

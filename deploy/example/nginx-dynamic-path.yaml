@@ -1,0 +1,124 @@
+# Example: Dynamic Path Generation with StorageClass
+#
+# This example demonstrates the new template variable syntax for multi-tenant storage.
+# The CSI driver will automatically substitute PVC/PV metadata into the remotePath.
+#
+# Supported template variables:
+#   ${pvc.metadata.name}       - Name of the PersistentVolumeClaim
+#   ${pvc.metadata.namespace}  - Namespace of the PersistentVolumeClaim
+#   ${pv.metadata.name}        - Name of the PersistentVolume
+
+---
+# StorageClass with dynamic path generation
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-s3-multitenant
+provisioner: rclone.csi.veloxpack.io
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: false
+parameters:
+  # Remote configuration (Minio S3)
+  remote: "s3"
+
+  # Dynamic path with namespace and PVC name isolation
+  # Each PVC gets its own isolated directory: buckets/<namespace>/<pvc-name>
+  remotePath: "buckets/${pvc.metadata.namespace}/${pvc.metadata.name}"
+
+  # Rclone configuration (for demo - use secrets in production!)
+  configData: |
+    [s3]
+    type = s3
+    provider = Minio
+    endpoint = http://localhost:9000
+    access_key_id = admin
+    secret_access_key = password
+
+---
+# PersistentVolumeClaim in the 'production' namespace
+# Will result in remotePath: buckets/production/data-store
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-store
+  namespace: production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: rclone-s3-multitenant
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# PersistentVolumeClaim in the 'staging' namespace
+# Will result in remotePath: buckets/staging/cache-volume
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cache-volume
+  namespace: staging
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: rclone-s3-multitenant
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# Pod using the production PVC
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-production
+  namespace: production
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+      ports:
+        - containerPort: 80
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      volumeMounts:
+        - name: storage
+          mountPath: /usr/share/nginx/html
+  volumes:
+    - name: storage
+      persistentVolumeClaim:
+        claimName: data-store
+
+---
+# Pod using the staging PVC
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-staging
+  namespace: staging
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+      ports:
+        - containerPort: 80
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      volumeMounts:
+        - name: cache
+          mountPath: /var/cache/nginx
+  volumes:
+    - name: cache
+      persistentVolumeClaim:
+        claimName: cache-volume

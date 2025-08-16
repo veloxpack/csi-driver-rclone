@@ -1,0 +1,85 @@
+---
+# Rclone CSI Driver Storage Class
+# This is a template StorageClass that can be customized for different backends
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-csi
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  # Required: Rclone remote name (backend type)
+  remote: "s3"
+  # Optional: Path within the remote storage
+  remotePath: "my-bucket"
+  # Optional: Additional rclone mount flags
+  flags: "--vfs-cache-mode=writes --vfs-cache-max-size=10G --dir-cache-time=30s"
+# Reference to secret containing sensitive configuration
+csi.storage.k8s.io/node-publish-secret-name: "rclone-secret"
+csi.storage.k8s.io/node-publish-secret-namespace: "default"
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+---
+# Example Secret for S3 Configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rclone-secret
+  namespace: default
+type: Opaque
+stringData:
+  # Remote name (must match StorageClass parameter)
+  remote: "s3"
+  # Remote path (must match StorageClass parameter)
+  remotePath: "my-bucket"
+  # Rclone configuration in INI format
+  configData: |
+    [s3]
+    type = s3
+    provider = AWS
+    access_key_id = YOUR_ACCESS_KEY_ID
+    secret_access_key = YOUR_SECRET_ACCESS_KEY
+    region = us-east-1
+    # Optional: Use IAM role instead of access keys
+    # use_role = true
+    # role_arn = arn:aws:iam::123456789012:role/MyRole
+    # Optional: Use custom endpoint for S3-compatible storage
+    # endpoint = https://s3.amazonaws.com
+    # Optional: Use path-style URLs
+    # force_path_style = true
+    # Optional: Use server-side encryption
+    # server_side_encryption = AES256
+    # Optional: Use KMS encryption
+    # sse_kms_key_id = arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012
+---
+# Example PVC using the StorageClass
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-rclone-example
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: rclone-csi
+---
+# Example Pod using the PVC
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-rclone-example
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: rclone-storage
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: rclone-storage
+    persistentVolumeClaim:
+      claimName: pvc-rclone-example
