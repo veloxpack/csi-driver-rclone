@@ -1,0 +1,169 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: {{ .Values.controller.name }}
+  namespace: {{ .Release.Namespace }}
+  {{- include "rclone.labels" . | nindent 2 }}
+spec:
+  replicas: {{ .Values.controller.replicas }}
+  strategy:
+    type: {{ .Values.controller.strategyType }}
+  selector:
+    matchLabels:
+      app: {{ .Values.controller.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.controller.name }}
+        {{- include "rclone.labels" . | nindent 8 }}
+    spec:
+      hostNetwork: true  # controller also needs to mount rclone to create dir
+      dnsPolicy: {{ .Values.controller.dnsPolicy }}
+      serviceAccountName: {{ include "rclone.serviceAccountName.controller" . }}
+      {{- if .Values.controller.runOnMaster }}
+      nodeSelector:
+        kubernetes.io/os: linux
+        kubernetes.io/role: master
+      {{- else if .Values.controller.runOnControlPlane }}
+      nodeSelector:
+        kubernetes.io/os: linux
+        node-role.kubernetes.io/control-plane: ""
+      {{- else }}
+      nodeSelector:
+        kubernetes.io/os: linux
+        {{- if .Values.controller.nodeSelector }}
+        {{- toYaml .Values.controller.nodeSelector | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      priorityClassName: {{ .Values.controller.priorityClassName }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      tolerations:
+        {{- toYaml .Values.controller.tolerations | nindent 8 }}
+      {{- if .Values.controller.affinity }}
+      affinity:
+        {{- toYaml .Values.controller.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: csi-provisioner
+          image: {{ .Values.image.csiProvisioner.repository }}:{{ .Values.image.csiProvisioner.tag }}
+          imagePullPolicy: {{ .Values.image.csiProvisioner.pullPolicy }}
+          args:
+            - "-v={{ .Values.controller.logLevel }}"
+            - "--csi-address=$(ADDRESS)"
+            - "--leader-election"
+            - "--leader-election-namespace=$(POD_NAMESPACE)"
+            - "--extra-create-metadata=true"
+            - "--feature-gates=HonorPVReclaimPolicy=true"
+            - "--timeout=1200s"
+            - "--retry-interval-max=30m"
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+          resources:
+            {{- toYaml .Values.controller.resources.csiProvisioner | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+        - name: csi-resizer
+          image: {{ .Values.image.csiResizer.repository }}:{{ .Values.image.csiResizer.tag }}
+          imagePullPolicy: {{ .Values.image.csiResizer.pullPolicy }}
+          args:
+            - "-v={{ .Values.controller.logLevel }}"
+            - "--csi-address=$(ADDRESS)"
+            - "--leader-election"
+            - "--leader-election-namespace=$(POD_NAMESPACE)"
+            - "--timeout=1200s"
+            - "--retry-interval-max=30m"
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+          resources:
+            {{- toYaml .Values.controller.resources.csiResizer | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+        - name: liveness-probe
+          image: {{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}
+          imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
+          args:
+            - --csi-address=/csi/csi.sock
+            - --probe-timeout=3s
+            - --http-endpoint=localhost:{{ .Values.controller.livenessProbe.healthPort }}
+            - --v={{ .Values.controller.logLevel }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+          resources:
+            {{- toYaml .Values.controller.resources.livenessProbe | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+        - name: rclone
+          image: {{ .Values.image.rclone.repository }}:{{ .Values.image.rclone.tag }}
+          imagePullPolicy: {{ .Values.image.rclone.pullPolicy }}
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["SYS_ADMIN"]
+              drop:
+                - ALL
+            allowPrivilegeEscalation: true
+          args:
+            - "-v={{ .Values.controller.logLevel }}"
+            - "--nodeid=$(NODE_ID)"
+            - "--endpoint=$(CSI_ENDPOINT)"
+          env:
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              host: localhost
+              path: /healthz
+              port: {{ .Values.controller.livenessProbe.healthPort }}
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 30
+          volumeMounts:
+            - name: pods-mount-dir
+              mountPath: /var/lib/kubelet/pods
+              mountPropagation: "Bidirectional"
+            - mountPath: /csi
+              name: socket-dir
+          resources:
+            {{- toYaml .Values.controller.resources.rclone | nindent 12 }}
+      volumes:
+        - name: pods-mount-dir
+          hostPath:
+            path: /var/lib/kubelet/pods
+            type: Directory
+        - name: socket-dir
+          emptyDir: {}

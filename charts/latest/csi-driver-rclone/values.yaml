@@ -1,0 +1,191 @@
+customLabels: {}
+image:
+    baseRepo: gcr.io
+    rclone:
+        repository: gcr.io/veloxpack/rcloneplugin
+        tag: latest
+        pullPolicy: IfNotPresent
+    csiProvisioner:
+        repository: registry.k8s.io/sig-storage/csi-provisioner
+        tag: v5.3.0
+        pullPolicy: IfNotPresent
+    csiResizer:
+        repository: registry.k8s.io/sig-storage/csi-resizer
+        tag: v1.14.0
+        pullPolicy: IfNotPresent
+    livenessProbe:
+        repository: registry.k8s.io/sig-storage/livenessprobe
+        tag: v2.17.0
+        pullPolicy: IfNotPresent
+    nodeDriverRegistrar:
+        repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
+        tag: v2.15.0
+        pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true # When true, service accounts will be created for you. Set to false if you want to use your own.
+  controller: csi-rclone-controller-sa # Name of Service Account to be created or used
+  node: csi-rclone-node-sa # Name of Service Account to be created or used
+
+rbac:
+  create: true
+  name: rclone
+
+driver:
+  name: rclone.csi.veloxpack.io
+  mountPermissions: 0
+
+feature:
+  enableFSGroupPolicy: true
+  enableInlineVolume: false
+  propagateHostMountOptions: false
+
+kubeletDir: /var/lib/kubelet
+
+controller:
+  name: csi-rclone-controller
+  replicas: 1
+  strategyType: Recreate
+  runOnMaster: false
+  runOnControlPlane: false
+  livenessProbe:
+    healthPort: 29652
+  logLevel: 5
+  workingMountDir: /tmp
+  dnsPolicy: ClusterFirstWithHostNet  # available values: Default, ClusterFirstWithHostNet, ClusterFirst
+  defaultOnDeletePolicy: delete  # available values: delete, retain
+  affinity: {}
+  nodeSelector: {}
+  priorityClassName: system-cluster-critical
+  tolerations:
+    - key: "node-role.kubernetes.io/master"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/controlplane"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "CriticalAddonsOnly"
+      operator: "Exists"
+      effect: "NoSchedule"
+  resources:
+    csiProvisioner:
+      limits:
+        memory: 400Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    csiResizer:
+      limits:
+        memory: 400Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    livenessProbe:
+      limits:
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    rclone:
+      limits:
+        memory: 200Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+
+node:
+  name: csi-rclone-node
+  dnsPolicy: ClusterFirstWithHostNet  # available values: Default, ClusterFirstWithHostNet, ClusterFirst
+  maxUnavailable: 1
+  logLevel: 5
+  livenessProbe:
+    healthPort: 29653
+  affinity: {}
+  nodeSelector: {}
+  priorityClassName: system-cluster-critical
+  tolerations:
+    - operator: "Exists"
+  resources:
+    livenessProbe:
+      limits:
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    nodeDriverRegistrar:
+      limits:
+        memory: 100Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    rclone:
+      limits:
+        memory: 300Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+
+
+## Reference to one or more secrets to be used when pulling images
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+##
+imagePullSecrets: []
+# - name: "image-pull-secret"
+
+## StorageClass resource example:
+storageClass:
+  create: false
+#   name: rclone-csi
+#   annotations:
+#     storageclass.kubernetes.io/is-default-class: "true"
+#   parameters:
+#     remote: "s3"
+#     remotePath: "my-bucket"
+#     configData: |
+#       [s3]
+#       type = s3
+#       provider = AWS
+#       access_key_id = YOUR_ACCESS_KEY_ID
+#       secret_access_key = YOUR_SECRET_ACCESS_KEY
+#   reclaimPolicy: Delete
+#   volumeBindingMode: Immediate
+#   mountOptions:
+#     - vfs-cache-mode=writes
+#     - vfs-cache-max-size=10G
+
+## StorageClass resources for creating multiple storage classes:
+## If you want multiple storage classes with different configurations, use this instead of storageClass above
+# storageClasses:
+#   - name: rclone-s3
+#     annotations:
+#       storageclass.kubernetes.io/is-default-class: "true"
+#     parameters:
+#       remote: "s3"
+#       remotePath: "my-bucket"
+#       configData: |
+#         [s3]
+#         type = s3
+#         provider = AWS
+#         access_key_id = YOUR_ACCESS_KEY_ID
+#         secret_access_key = YOUR_SECRET_ACCESS_KEY
+#     reclaimPolicy: Delete
+#     volumeBindingMode: Immediate
+#     mountOptions:
+#       - vfs-cache-mode=writes
+#       - vfs-cache-max-size=10G
+#   - name: rclone-gcs
+#     parameters:
+#       remote: "gcs"
+#       remotePath: "my-bucket"
+#       configData: |
+#         [gcs]
+#         type = gcs
+#         project_number = 123456789
+#         service_account_file = /path/to/service-account.json
+#     reclaimPolicy: Delete
+#     volumeBindingMode: Immediate
+#     mountOptions:
+#       - vfs-cache-mode=writes

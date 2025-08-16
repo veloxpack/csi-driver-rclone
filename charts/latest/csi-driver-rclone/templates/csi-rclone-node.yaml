@@ -1,0 +1,142 @@
+---
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: {{ .Values.node.name }}
+  namespace: {{ .Release.Namespace }}
+  {{- include "rclone.labels" . | nindent 2 }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.node.name }}
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: {{ .Values.node.maxUnavailable }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.node.name }}
+        {{- include "rclone.labels" . | nindent 8 }}
+    spec:
+      hostNetwork: true
+      dnsPolicy: {{ .Values.node.dnsPolicy }}
+      serviceAccountName: {{ include "rclone.serviceAccountName.node" . }}
+      nodeSelector:
+        kubernetes.io/os: linux
+        {{- if .Values.node.nodeSelector }}
+        {{- toYaml .Values.node.nodeSelector | nindent 8 }}
+        {{- end }}
+      priorityClassName: {{ .Values.node.priorityClassName }}
+      tolerations:
+        {{- toYaml .Values.node.tolerations | nindent 8 }}
+      {{- if .Values.node.affinity }}
+      affinity:
+        {{- toYaml .Values.node.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: liveness-probe
+          image: {{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}
+          imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
+          args:
+            - --csi-address=/csi/csi.sock
+            - --probe-timeout=3s
+            - --http-endpoint=localhost:{{ .Values.node.livenessProbe.healthPort }}
+            - --v={{ .Values.node.logLevel }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+          resources:
+            {{- toYaml .Values.node.resources.livenessProbe | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+        - name: node-driver-registrar
+          image: {{ .Values.image.nodeDriverRegistrar.repository }}:{{ .Values.image.nodeDriverRegistrar.tag }}
+          imagePullPolicy: {{ .Values.image.nodeDriverRegistrar.pullPolicy }}
+          args:
+            - "--v={{ .Values.node.logLevel }}"
+            - "--csi-address=$(ADDRESS)"
+            - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "rm -rf /registration/rclone.csi.veloxpack.io /registration/rclone.csi.veloxpack.io-reg.sock"]
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            - name: DRIVER_REG_SOCK_PATH
+              value: {{ .Values.kubeletDir }}/plugins/rclone.csi.veloxpack.io/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
+          resources:
+            {{- toYaml .Values.node.resources.nodeDriverRegistrar | nindent 12 }}
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+        - name: rclone
+          image: {{ .Values.image.rclone.repository }}:{{ .Values.image.rclone.tag }}
+          imagePullPolicy: {{ .Values.image.rclone.pullPolicy }}
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["SYS_ADMIN"]
+              drop:
+                - ALL
+            allowPrivilegeEscalation: true
+          args:
+            - "-v={{ .Values.node.logLevel }}"
+            - "--nodeid=$(NODE_ID)"
+            - "--endpoint=$(CSI_ENDPOINT)"
+          env:
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              host: localhost
+              path: /healthz
+              port: {{ .Values.node.livenessProbe.healthPort }}
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 30
+          volumeMounts:
+            - name: pods-mount-dir
+              mountPath: /var/lib/kubelet/pods
+              mountPropagation: "Bidirectional"
+            - mountPath: /csi
+              name: socket-dir
+          resources:
+            {{- toYaml .Values.node.resources.rclone | nindent 12 }}
+      volumes:
+        - name: pods-mount-dir
+          hostPath:
+            path: /var/lib/kubelet/pods
+            type: Directory
+        - name: socket-dir
+          emptyDir: {}
+        - name: plugin-dir
+          hostPath:
+            path: {{ .Values.kubeletDir }}/plugins/rclone.csi.veloxpack.io
+            type: DirectoryOrCreate
+        - name: registration-dir
+          hostPath:
+            path: {{ .Values.kubeletDir }}/plugins_registry
+            type: DirectoryOrCreate

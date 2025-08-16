@@ -1,0 +1,13 @@
+apiVersion: v1
+entries:
+  csi-driver-rclone:
+  - apiVersion: v1
+    appVersion: latest
+    created: "2025-10-12T22:18:26.000Z"
+    description: CSI Rclone Driver for Kubernetes - Mount cloud storage as persistent volumes
+    digest: placeholder
+    name: csi-driver-rclone
+    urls:
+    - https://github.com/veloxpack/csi-driver-rclone/releases/download/v0.0.0/csi-driver-rclone-v0.0.0.tgz
+    version: v0.0.0
+generated: "2025-10-12T22:18:26.000Z"
