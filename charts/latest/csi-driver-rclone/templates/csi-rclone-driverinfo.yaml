@@ -1,0 +1,24 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: {{ .Values.driver.name }}
+  namespace: {{ .Release.Namespace }}
+  {{- include "rclone.labels" . | nindent 2 }}
+spec:
+  attachRequired: false
+  podInfoOnMount: true
+  volumeLifecycleModes:
+    - Persistent
+    {{- if .Values.feature.enableInlineVolume }}
+    - Ephemeral
+    {{- end }}
+  {{- if .Values.feature.enableFSGroupPolicy }}
+  fsGroupPolicy: File
+  {{- end }}
+  {{- if .Values.feature.propagateHostMountOptions }}
+  volumeMountOptions: true
+  {{- end }}
+  {{- if .Values.driver.mountPermissions }}
+  mountPermissions: {{ .Values.driver.mountPermissions }}
+  {{- end }}

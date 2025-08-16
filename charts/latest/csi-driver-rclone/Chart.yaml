@@ -1,0 +1,19 @@
+apiVersion: v1
+appVersion: latest
+description: CSI Rclone Driver for Kubernetes - Mount cloud storage as persistent volumes
+name: csi-driver-rclone
+version: v0.0.0
+keywords:
+  - csi
+  - rclone
+  - storage
+  - cloud
+  - persistent-volume
+home: https://github.com/veloxpack/csi-driver-rclone
+sources:
+  - https://github.com/veloxpack/csi-driver-rclone
+maintainers:
+  - name: VeloxPack
+    email: support@veloxpack.io
+annotations:
+  category: Storage

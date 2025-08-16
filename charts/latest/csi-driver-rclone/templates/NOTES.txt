@@ -1,0 +1,61 @@
+1. CSI Rclone Driver has been installed successfully!
+
+2. The driver is now ready to provision persistent volumes from cloud storage backends.
+
+3. To create a StorageClass, you can use the following example:
+
+   ```yaml
+   apiVersion: storage.k8s.io/v1
+   kind: StorageClass
+   metadata:
+     name: rclone-s3
+   provisioner: rclone.csi.veloxpack.io
+   parameters:
+     remote: "s3"
+     remotePath: "my-bucket"
+     configData: |
+       [s3]
+       type = s3
+       provider = AWS
+       access_key_id = YOUR_ACCESS_KEY_ID
+       secret_access_key = YOUR_SECRET_ACCESS_KEY
+   reclaimPolicy: Delete
+   volumeBindingMode: Immediate
+   mountOptions:
+     - vfs-cache-mode=writes
+     - vfs-cache-max-size=10G
+   ```
+
+4. To create a PersistentVolumeClaim:
+
+   ```yaml
+   apiVersion: v1
+   kind: PersistentVolumeClaim
+   metadata:
+     name: rclone-pvc
+   spec:
+     accessModes:
+       - ReadWriteMany
+     resources:
+       requests:
+         storage: 10Gi
+     storageClassName: rclone-s3
+   ```
+
+5. For more examples and configuration options, see:
+   - https://github.com/veloxpack/csi-driver-rclone
+   - https://rclone.org/commands/rclone_mount/
+
+6. To check the driver status:
+   ```bash
+   kubectl get pods -n {{ .Release.Namespace }} -l app=csi-rclone-controller
+   kubectl get pods -n {{ .Release.Namespace }} -l app=csi-rclone-node
+   ```
+
+7. To view driver logs:
+   ```bash
+   kubectl logs -n {{ .Release.Namespace }} -l app=csi-rclone-controller
+   kubectl logs -n {{ .Release.Namespace }} -l app=csi-rclone-node
+   ```
+
+Happy cloud storage mounting! 🚀

@@ -1,0 +1,57 @@
+{{- if .Values.storageClass.create }}
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .Values.storageClass.name | default "rclone-csi" }}
+  {{- if .Values.storageClass.annotations }}
+  annotations:
+    {{- toYaml .Values.storageClass.annotations | nindent 4 }}
+  {{- end }}
+  {{- include "rclone.labels" . | nindent 2 }}
+provisioner: {{ .Values.driver.name }}
+{{- if .Values.storageClass.parameters }}
+parameters:
+  {{- toYaml .Values.storageClass.parameters | nindent 2 }}
+{{- end }}
+{{- if .Values.storageClass.reclaimPolicy }}
+reclaimPolicy: {{ .Values.storageClass.reclaimPolicy }}
+{{- end }}
+{{- if .Values.storageClass.volumeBindingMode }}
+volumeBindingMode: {{ .Values.storageClass.volumeBindingMode }}
+{{- end }}
+{{- if .Values.storageClass.mountOptions }}
+mountOptions:
+  {{- toYaml .Values.storageClass.mountOptions | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.storageClasses }}
+{{- range .Values.storageClasses }}
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ .name }}
+  {{- if .annotations }}
+  annotations:
+    {{- toYaml .annotations | nindent 4 }}
+  {{- end }}
+  {{- include "rclone.labels" $ | nindent 2 }}
+provisioner: {{ $.Values.driver.name }}
+{{- if .parameters }}
+parameters:
+  {{- toYaml .parameters | nindent 2 }}
+{{- end }}
+{{- if .reclaimPolicy }}
+reclaimPolicy: {{ .reclaimPolicy }}
+{{- end }}
+{{- if .volumeBindingMode }}
+volumeBindingMode: {{ .volumeBindingMode }}
+{{- end }}
+{{- if .mountOptions }}
+mountOptions:
+  {{- toYaml .mountOptions | nindent 2 }}
+{{- end }}
+{{- end }}
+{{- end }}
