@@ -1,0 +1,31 @@
+version: 2
+updates:
+- package-ecosystem: gomod
+  directory: "/"
+  schedule:
+    interval: daily
+  labels:
+    - "area/dependency"
+    - "release-note-none"
+    - "ok-to-test"
+  open-pull-requests-limit: 1
+- package-ecosystem: "github-actions"
+  directory: "/"
+  schedule:
+      interval: "daily"
+  labels:
+    - "area/dependency"
+    - "release-note-none"
+    - "ok-to-test"
+  open-pull-requests-limit: 1
+- package-ecosystem: "docker"
+  directory: "./"
+  schedule:
+    interval: "daily"
+    time: "01:00"
+    timezone: "Asia/Shanghai"
+  labels:
+    - "area/dependency"
+    - "release-note-none"
+    - "ok-to-test"
+    - "kind/cleanup"
