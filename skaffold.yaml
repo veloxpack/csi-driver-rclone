@@ -1,0 +1,16 @@
+apiVersion: skaffold/v4beta13
+kind: Config
+metadata:
+  name: veloxpack
+build:
+  tagPolicy:
+    customTemplate:
+      template: "{{.IMAGE_NAME}}:latest"
+  artifacts:
+    - image: gcr.io/veloxpack/rcloneplugin
+      docker:
+        dockerfile: Dockerfile
+manifests:
+  kustomize:
+    paths:
+      - deploy/
