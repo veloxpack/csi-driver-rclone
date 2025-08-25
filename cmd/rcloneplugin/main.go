@@ -97,13 +97,13 @@ func main() {
 
 	// Default param values (can be overridden by CLI flags)
 	defaultParams := map[string]string{
-		"cache-info-age":             "48h", // Reduced from 72h for better memory usage
-		"cache-chunk-clean-interval": "10m", // More frequent cleanup
+		"cache-info-age":             "24h", // Further reduced for better memory usage
+		"cache-chunk-clean-interval": "5m",  // More frequent cleanup
 		"cache-dir":                  "/tmp/rclone-vfs-cache/",
-		"vfs-cache-max-age":          "12h", // Reduced cache retention for better performance
-		"dir-cache-time":             "3s",  // Faster directory listing
-		"vfs-cache-max-size":         "1G",  // Limit cache size
-		"vfs-cache-min-free-space":   "2G",  // Ensure free space
+		"vfs-cache-max-age":          "6h",  // Further reduced cache retention
+		"dir-cache-time":             "2s",  // Even faster directory listing
+		"vfs-cache-max-size":         "512M", // Smaller cache size for better performance
+		"vfs-cache-min-free-space":   "1G",   // Reduced free space requirement
 	}
 
 	// Apply defaults *before* parsing CLI flags, so they can be overridden
