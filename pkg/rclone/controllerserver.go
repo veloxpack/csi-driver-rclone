@@ -62,7 +62,7 @@ func (cs *ControllerServer) CreateVolume(_ context.Context, req *csi.CreateVolum
 	klog.V(2).Infof("CreateVolume: received %d parameters", len(parameters))
 	for k, v := range parameters {
 		// Mask sensitive parameters in logs
-		if strings.Contains(strings.ToLower(k), "key") || strings.Contains(strings.ToLower(k), "secret") || strings.Contains(strings.ToLower(k), "password") {
+		if strings.Contains(strings.ToLower(k), "key") || strings.Contains(strings.ToLower(k), "secret") || strings.Contains(strings.ToLower(k), "password") || strings.Contains(strings.ToLower(k), "token") {
 			klog.V(4).Infof("CreateVolume parameter: %q = [MASKED]", k)
 		} else {
 			klog.V(4).Infof("CreateVolume parameter: %q = %q", k, v)
