@@ -360,9 +360,9 @@ func (ns *NodeServer) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpubl
 		// Wait for VFS cache sync
 		klog.V(2).Infof("Waiting for VFS cache sync (remote: %s)", mc.remoteName)
 
-		timeout := time.Now().Add(5 * time.Minute) // Reduced timeout for better responsiveness
+		timeout := time.Now().Add(2 * time.Minute) // Further reduced timeout for better responsiveness
 		retryCount := 0
-		maxRetries := 10
+		maxRetries := 5
 
 		for time.Now().Before(timeout) && retryCount < maxRetries {
 			allClear := true
