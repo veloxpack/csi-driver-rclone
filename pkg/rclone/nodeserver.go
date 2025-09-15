@@ -231,8 +231,8 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		klog.V(4).Infof("Parsed and merged %d config parameters from configData", len(parsedConfig))
 	}
 
-	// Create in-memory remote configuration
-	remoteName := fmt.Sprintf("csi-remote-%s-%d", sanitizeRemoteName(volumeID), time.Now().Unix())
+	// Create in-memory remote configuration with better naming
+	remoteName := fmt.Sprintf("csi-remote-%s-%d", sanitizeRemoteName(volumeID), time.Now().UnixNano())
 
 	// Convert params to rc.Params for CreateRemote
 	rcParams := make(rc.Params)
