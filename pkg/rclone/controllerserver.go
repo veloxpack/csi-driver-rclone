@@ -119,8 +119,13 @@ func (cs *ControllerServer) CreateVolume(_ context.Context, req *csi.CreateVolum
 
 	klog.V(2).Infof("CreateVolume: name=%s, remote=%s, remotePath=%s", name, remote, remotePath)
 
-	// Generate volume ID
+	// Generate volume ID with better validation
 	volumeID := fmt.Sprintf("%s%s%s", remote, separator, name)
+	
+	// Validate volume ID length to prevent issues
+	if len(volumeID) > 128 {
+		return nil, status.Error(codes.InvalidArgument, "generated volume ID exceeds maximum length")
+	}
 
 	// Build volumeContext from parameters, including the resolved remotePath
 	volumeContext := make(map[string]string)
