@@ -357,7 +357,7 @@ func (ns *NodeServer) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpubl
 	// Get mount context
 	mc := ns.getMountContext(targetPath)
 	if mc != nil && mc.mountPoint != nil {
-		// Wait for VFS cache sync
+		// Wait for VFS cache sync with improved error handling
 		klog.V(2).Infof("Waiting for VFS cache sync (remote: %s)", mc.remoteName)
 
 		timeout := time.Now().Add(2 * time.Minute) // Further reduced timeout for better responsiveness
@@ -387,7 +387,12 @@ func (ns *NodeServer) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpubl
 			}
 
 			retryCount++
-			time.Sleep(5 * time.Second)
+			// Exponential backoff for better performance
+			sleepDuration := time.Duration(retryCount) * 2 * time.Second
+			if sleepDuration > 10*time.Second {
+				sleepDuration = 10 * time.Second
+			}
+			time.Sleep(sleepDuration)
 		}
 
 		if retryCount >= maxRetries {
