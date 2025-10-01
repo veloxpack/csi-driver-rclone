@@ -309,7 +309,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	mountPoint := mountlib.NewMountPoint(mountFn, targetPath, rcloneFs, rcloneMountOpts, rcloneVFSOptions)
 
 	// Create context with cancellation for VFS goroutines
-	_, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 
 	// Mount the filesystem
 	_, err = mountPoint.Mount()
