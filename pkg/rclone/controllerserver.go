@@ -83,6 +83,9 @@ func (cs *ControllerServer) CreateVolume(_ context.Context, req *csi.CreateVolum
 
 	// Log parameter validation for debugging
 	klog.V(4).Infof("Validating parameters for volume %s", name)
+	
+	// Track unknown parameters for better debugging
+	var unknownParams []string
 
 	for k, v := range parameters {
 		// Trim whitespace from parameter values
@@ -103,12 +106,17 @@ func (cs *ControllerServer) CreateVolume(_ context.Context, req *csi.CreateVolum
 		case pvNameKey:
 			remotePathReplaceMap[pvNameMetadata] = v
 		default:
-			klog.V(2).Infof("unknown parameter %q in storage class", k)
+			unknownParams = append(unknownParams, k)
 		}
 	}
 
 	if remote == "" {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("%v is a required parameter", paramRemote))
+	}
+	
+	// Log unknown parameters for debugging
+	if len(unknownParams) > 0 {
+		klog.V(2).Infof("Unknown parameters in storage class: %v", unknownParams)
 	}
 
 	// Apply dynamic path substitution to remotePath if template variables are present
