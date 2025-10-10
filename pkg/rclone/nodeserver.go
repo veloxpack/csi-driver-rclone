@@ -193,6 +193,11 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return &csi.NodePublishVolumeResponse{}, nil
 		}
 	}
+	
+	// Ensure target directory has correct permissions
+	if err := os.Chmod(targetPath, 0755); err != nil {
+		klog.Warningf("Failed to set permissions on target path %s: %v", targetPath, err)
+	}
 
 	// If already mounted, verify the mount is valid
 	if !notMnt {
