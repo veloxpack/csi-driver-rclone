@@ -8,7 +8,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.26.0
 	github.com/onsi/gomega v1.38.2
 	github.com/pborman/uuid v1.2.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/unknwon/goconfig v1.0.0
 	golang.org/x/net v0.46.0
 	google.golang.org/grpc v1.76.0
