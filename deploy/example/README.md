@@ -171,14 +171,6 @@ parameters:
 - **Configuration**: Host, username, password/key
 - **Example**: [`secret-sftp.yaml`](secret-sftp.yaml)
 
-## Performance Tuning
-
-### VFS Cache Options
-```yaml
-parameters:
-  flags: "--vfs-cache-mode=writes --vfs-cache-max-size=10G --dir-cache-time=30s"
-```
-
 ### Resource Limits
 ```yaml
 resources:

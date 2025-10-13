@@ -83,7 +83,7 @@ func (cs *ControllerServer) CreateVolume(_ context.Context, req *csi.CreateVolum
 
 	// Log parameter validation for debugging
 	klog.V(4).Infof("Validating parameters for volume %s", name)
-	
+
 	// Track unknown parameters for better debugging
 	var unknownParams []string
 
@@ -113,7 +113,7 @@ func (cs *ControllerServer) CreateVolume(_ context.Context, req *csi.CreateVolum
 	if remote == "" {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("%v is a required parameter", paramRemote))
 	}
-	
+
 	// Log unknown parameters for debugging
 	if len(unknownParams) > 0 {
 		klog.V(2).Infof("Unknown parameters in storage class: %v", unknownParams)
@@ -129,11 +129,6 @@ func (cs *ControllerServer) CreateVolume(_ context.Context, req *csi.CreateVolum
 
 	// Generate volume ID with better validation
 	volumeID := fmt.Sprintf("%s%s%s", remote, separator, name)
-	
-	// Validate volume ID length to prevent issues
-	if len(volumeID) > 128 {
-		return nil, status.Error(codes.InvalidArgument, "generated volume ID exceeds maximum length")
-	}
 
 	// Build volumeContext from parameters, including the resolved remotePath
 	volumeContext := make(map[string]string)

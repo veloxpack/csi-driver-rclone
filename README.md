@@ -35,10 +35,6 @@ Please refer to [`rclone.csi.veloxpack.io` driver parameters](./docs/driver-para
 ## Kubernetes Development
 Please refer to [development guide](./docs/csi-dev.md)
 
-### View CI Results
- - testgrid [sig-storage-csi-rclone](https://testgrid.k8s.io/sig-storage-csi-other) dashboard.
- - Driver image build pipeline: [post-csi-driver-rclone-push-images](https://testgrid.k8s.io/sig-storage-image-build#post-csi-driver-rclone-push-images)
-
 ## Features
 
 - **50+ Storage Providers**: Supports Amazon S3, Google Cloud Storage, Azure Blob, Dropbox, SFTP, and many more
@@ -175,7 +171,7 @@ The driver supports all rclone backends, including:
 - **Backblaze B2**
 - **WebDAV**
 - **FTP**
-- **And 60+ more backends**
+- **And 50+ more backends**
 
 See [examples](./deploy/example/README.md) for configuration examples.
 
@@ -195,16 +191,6 @@ parameters:
   remote: "s3"
   remotePath: "my-bucket/${pvc.metadata.namespace}/${pvc.metadata.name}"
 ```
-
-## Performance Tuning
-
-### Optimized Default Configuration
-The driver now includes optimized default settings for better performance:
-- **Cache Info Age**: 48h (reduced from 72h for better memory usage)
-- **Cache Cleanup**: Every 10 minutes (increased frequency)
-- **Cache Max Age**: 12h (reduced for better performance)
-- **Directory Cache**: 3s (faster directory listing)
-- **Cache Size Limits**: 1GB with 2GB free space requirement
 
 ### VFS Cache Options
 ```yaml
@@ -297,7 +283,7 @@ make push
 The driver supports two backend configurations for different use cases:
 
 #### Full Backend Support (Default)
-Includes all 70+ rclone backends for maximum compatibility:
+Includes all 50+ rclone backends for maximum compatibility:
 
 ```bash
 # Build with all backends (default)
@@ -378,11 +364,6 @@ This driver is based on the [csi-driver-nfs](https://github.com/kubernetes-csi/c
 3. **Network Policies**: Consider using network policies to restrict access
 4. **Image Security**: Use trusted container images
 5. **Credential Rotation**: Regularly rotate storage backend credentials
-
-## Monitoring
-
-### Prometheus Metrics
-The driver exposes Prometheus metrics at `/metrics` endpoint.
 
 ### Log Levels
 Set log level for debugging:

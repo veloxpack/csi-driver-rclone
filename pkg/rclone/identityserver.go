@@ -54,12 +54,12 @@ func (ids *IdentityServer) Probe(_ context.Context, _ *csi.ProbeRequest) (*csi.P
 	if ids.Driver == nil || ids.Driver.name == "" {
 		return &csi.ProbeResponse{Ready: &wrapperspb.BoolValue{Value: false}}, nil
 	}
-	
+
 	// Additional health checks for better reliability
 	if ids.Driver.version == "" {
 		return &csi.ProbeResponse{Ready: &wrapperspb.BoolValue{Value: false}}, nil
 	}
-	
+
 	return &csi.ProbeResponse{Ready: &wrapperspb.BoolValue{Value: true}}, nil
 }
 

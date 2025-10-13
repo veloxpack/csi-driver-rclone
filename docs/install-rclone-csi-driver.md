@@ -328,15 +328,6 @@ parameters:
 4. **Image Security**: Use trusted container images
 5. **Credential Rotation**: Regularly rotate storage backend credentials
 
-## Performance Tuning
-
-### VFS Cache Settings
-
-```yaml
-parameters:
-  flags: "--vfs-cache-mode=writes --vfs-cache-max-size=10G --dir-cache-time=30s"
-```
-
 ### Resource Limits
 
 ```yaml
@@ -348,12 +339,6 @@ resources:
     memory: "512Mi"
     cpu: "500m"
 ```
-
-## Monitoring
-
-### Prometheus Metrics
-
-The driver exposes Prometheus metrics at `/metrics` endpoint. You can scrape these metrics for monitoring.
 
 ### Log Levels
 
