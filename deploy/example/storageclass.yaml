@@ -11,8 +11,6 @@ parameters:
   remote: "s3"
   # Optional: Path within the remote storage
   remotePath: "my-bucket"
-  # Optional: Additional rclone mount flags
-  flags: "--vfs-cache-mode=writes --vfs-cache-max-size=10G --dir-cache-time=30s"
 # Reference to secret containing sensitive configuration
 csi.storage.k8s.io/node-publish-secret-name: "rclone-secret"
 csi.storage.k8s.io/node-publish-secret-namespace: "default"
