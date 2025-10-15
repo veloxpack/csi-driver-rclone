@@ -97,20 +97,24 @@ func TestProbe(t *testing.T) {
 
 func TestProbeWithDifferentDriverStates(t *testing.T) {
 	tests := []struct {
-		desc   string
-		driver *Driver
+		desc        string
+		driver      *Driver
+		expectReady bool
 	}{
 		{
-			desc:   "Driver with empty name",
-			driver: NewEmptyDriver("name"),
+			desc:        "Driver with empty name",
+			driver:      NewEmptyDriver("name"),
+			expectReady: false,
 		},
 		{
-			desc:   "Driver with empty version",
-			driver: NewEmptyDriver("version"),
+			desc:        "Driver with empty version",
+			driver:      NewEmptyDriver("version"),
+			expectReady: false,
 		},
 		{
-			desc:   "Driver with all fields",
-			driver: NewEmptyDriver(""),
+			desc:        "Driver with all fields",
+			driver:      NewEmptyDriver(""),
+			expectReady: true,
 		},
 	}
 
@@ -125,7 +129,7 @@ func TestProbeWithDifferentDriverStates(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, resp)
 			assert.NotNil(t, resp.Ready)
-			assert.Equal(t, true, resp.Ready.Value)
+			assert.Equal(t, test.expectReady, resp.Ready.Value)
 		})
 	}
 }
@@ -136,6 +140,13 @@ func TestGetPluginCapabilities(t *testing.T) {
 			Type: &csi.PluginCapability_Service_{
 				Service: &csi.PluginCapability_Service{
 					Type: csi.PluginCapability_Service_CONTROLLER_SERVICE,
+				},
+			},
+		},
+		{
+			Type: &csi.PluginCapability_VolumeExpansion_{
+				VolumeExpansion: &csi.PluginCapability_VolumeExpansion{
+					Type: csi.PluginCapability_VolumeExpansion_ONLINE,
 				},
 			},
 		},
@@ -179,12 +190,21 @@ func TestGetPluginCapabilitiesWithMultipleDrivers(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, resp)
 			assert.NotNil(t, resp.Capabilities)
-			assert.Equal(t, 1, len(resp.Capabilities))
+			assert.Equal(t, 2, len(resp.Capabilities))
 
-			// Verify it's the CONTROLLER_SERVICE capability
-			cap := resp.Capabilities[0]
-			assert.NotNil(t, cap.GetService())
-			assert.Equal(t, csi.PluginCapability_Service_CONTROLLER_SERVICE, cap.GetService().Type)
+			// Verify it has the CONTROLLER_SERVICE capability
+			hasControllerService := false
+			hasVolumeExpansion := false
+			for _, cap := range resp.Capabilities {
+				if cap.GetService() != nil && cap.GetService().Type == csi.PluginCapability_Service_CONTROLLER_SERVICE {
+					hasControllerService = true
+				}
+				if cap.GetVolumeExpansion() != nil && cap.GetVolumeExpansion().Type == csi.PluginCapability_VolumeExpansion_ONLINE {
+					hasVolumeExpansion = true
+				}
+			}
+			assert.True(t, hasControllerService, "Should have CONTROLLER_SERVICE capability")
+			assert.True(t, hasVolumeExpansion, "Should have ONLINE volume expansion capability")
 		})
 	}
 }

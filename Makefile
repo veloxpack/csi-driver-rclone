@@ -19,6 +19,11 @@ PKG = github.com/veloxpack/csi-driver-rclone
 GINKGO_FLAGS = -ginkgo.v
 GO111MODULE = on
 GOPATH ?= $(shell go env GOPATH)
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 GOBIN ?= $(GOPATH)/bin
 DOCKER_CLI_EXPERIMENTAL = enabled
 export GOPATH GOBIN GO111MODULE DOCKER_CLI_EXPERIMENTAL
@@ -48,22 +53,15 @@ OUTPUT_TYPE ?= docker
 
 ALL_ARCH.linux = arm64 amd64 ppc64le
 ALL_OS_ARCH = linux-arm64 linux-arm-v7 linux-amd64 linux-ppc64le
+GOLANGCI_LINT_VERSION ?=  v2.5.0
 
 .EXPORT_ALL_VARIABLES:
 
 all: rclone
 
-.PHONY: verify
-verify: unit-test
-	hack/verify-all.sh
-
 .PHONY: unit-test
 unit-test:
 	go test -covermode=count -coverprofile=profile.cov ./pkg/... -v
-
-.PHONY: sanity-test
-sanity-test: rclone
-	./test/sanity/run-test.sh
 
 .PHONY: local-build-push
 local-build-push: rclone
@@ -148,4 +146,23 @@ e2e-test:
 		bash ./test/external-e2e/run.sh;\
 	else \
 		go test -v -timeout=0 ./test/e2e ${GINKGO_FLAGS};\
+	fi
+
+.PHONY: lint
+lint: golangci-lint ## Run golangci-lint linter
+	$(GOLANGCI_LINT) run --no-config ./cmd/... ./pkg/...
+
+.PHONY: lint-fix
+lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
+	$(GOLANGCI_LINT) run --no-config --fix ./cmd/... ./pkg/...
+
+.PHONY: lint-config
+lint-config: golangci-lint ## Verify golangci-lint linter configuration
+	$(GOLANGCI_LINT) config verify
+
+.PHONY: golangci-lint
+golangci-lint: $(LOCALBIN) ## Download golangci-lint locally if necessary
+	@if [ ! -f $(GOLANGCI_LINT) ]; then \
+		echo "Downloading golangci-lint $(GOLANGCI_LINT_VERSION)"; \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION); \
 	fi

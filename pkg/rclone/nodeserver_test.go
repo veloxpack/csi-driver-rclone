@@ -29,6 +29,9 @@ import (
 
 func getTestNodeServer() (NodeServer, error) {
 	d := NewEmptyDriver("")
+	d.AddNodeServiceCapabilities([]csi.NodeServiceCapability_RPC_Type{
+		csi.NodeServiceCapability_RPC_UNKNOWN,
+	})
 	mounter, err := NewFakeMounter()
 	if err != nil {
 		return NodeServer{}, errors.New("failed to get fake mounter")

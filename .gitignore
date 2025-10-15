@@ -25,3 +25,4 @@ go.work
 *.swp
 *.swo
 *~
+*.cov

@@ -173,7 +173,7 @@ func TestCreateVolume(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name: "valid request with empty remotePath",
+			name: "remotePath parameter missing",
 			req: &csi.CreateVolumeRequest{
 				Name: testVolumeName,
 				VolumeCapabilities: []*csi.VolumeCapability{
@@ -190,7 +190,7 @@ func TestCreateVolume(t *testing.T) {
 					paramRemote: testRemote,
 				},
 			},
-			expectErr: false,
+			expectErr: true,
 		},
 	}
 

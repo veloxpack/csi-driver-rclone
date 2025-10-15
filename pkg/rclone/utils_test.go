@@ -156,9 +156,11 @@ func TestParseEndpoint(t *testing.T) {
 			expectErr:    false,
 		},
 		{
-			desc:      "Invalid endpoint - no scheme",
-			endpoint:  "/tmp/csi.sock",
-			expectErr: true,
+			desc:         "Unix endpoint without scheme (backward compatibility)",
+			endpoint:     "/tmp/csi.sock",
+			expectScheme: "unix",
+			expectAddr:   "/tmp/csi.sock",
+			expectErr:    false,
 		},
 		{
 			desc:      "Invalid endpoint - empty address",
