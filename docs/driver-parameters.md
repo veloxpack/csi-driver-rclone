@@ -223,10 +223,6 @@ The rcloneplugin binary directly supports many rclone mount flags as command-lin
 
 **Common Performance Options:**
 - `--vfs-cache-mode=writes` - Cache mode (off|minimal|writes|full)
-- `--vfs-cache-max-size=10G` - Maximum size of cache
-- `--vfs-cache-max-age=1h` - Maximum age of cached objects
-- `--dir-cache-time=30s` - Time to cache directory listings
-- `--vfs-read-ahead=1M` - Extra read ahead buffer size
 
 **Complete Flag Reference:**
 For the complete list of all supported flags and their descriptions, see the [official rclone mount documentation](https://rclone.org/commands/rclone_mount/).

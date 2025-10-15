@@ -29,11 +29,12 @@ import (
 )
 
 var (
-	endpoint   = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
-	nodeID     = flag.String("nodeid", "", "node id")
-	driverName = flag.String("drivername", rclone.DefaultDriverName, "name of the driver")
-	uid        = flag.Uint("uid", 1000, "Override the uid field set by the filesystem (not supported on Windows)")
-	gid        = flag.Uint("gid", 1000, "Override the gid field set by the filesystem (not supported on Windows)")
+	endpoint     = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	nodeID       = flag.String("nodeid", "", "node id")
+	driverName   = flag.String("drivername", rclone.DefaultDriverName, "name of the driver")
+	uid          = flag.Uint("uid", 1000, "Override the uid field set by the filesystem (not supported on Windows)")
+	gid          = flag.Uint("gid", 1000, "Override the gid field set by the filesystem (not supported on Windows)")
+	chunkStreams = flag.Int("vfs-read-chunk-streams", 0, "The number of parallel streams to read at once")
 )
 
 func main() {
@@ -79,6 +80,11 @@ func main() {
 	flag.BoolVar(&vfsOpts.Links, "vfs-links", false, "Translate symlinks to/from .rclonelink extension files for the VFS")
 	flag.StringVar(&vfsOpts.MetadataExtension, "vfs-metadata-extension", "", "Set the extension to read metadata from")
 	flag.Var(&vfsOpts.ReadAhead, "vfs-read-ahead", "Extra read ahead over --buffer-size when using cache-mode full")
+
+	flag.Var(&vfsOpts.ChunkSize, "vfs-read-chunk-size", "Read the source objects in chunks (default 128Mi)")
+	flag.Var(&vfsOpts.ChunkSizeLimit, "vfs-read-chunk-size-limit", "If greater than --vfs-read-chunk-size, double the chunk size after each chunk read, until the limit is reached ('off' is unlimited) (default off)")
+	// flag.Var((&vfsOpts.ChunkStreams), "vfs-read-chunk-streams", "The number of parallel streams to read at once")
+
 	flag.DurationVar((*time.Duration)(&vfsOpts.ReadWait), "vfs-read-wait", 20*time.Millisecond, "Time to wait for in-sequence read before seeking")
 	flag.BoolVar(&vfsOpts.Refresh, "vfs-refresh", false, "Refreshes the directory cache recursively in the background on start")
 	flag.BoolVar(&vfsOpts.UsedIsSize, "vfs-used-is-size", false, "Use rclone size algorithm for Used size")
@@ -116,6 +122,7 @@ func main() {
 	// Assign flag values to vfsOpts
 	vfsOpts.UID = uint32(*uid)
 	vfsOpts.GID = uint32(*gid)
+	vfsOpts.ChunkStreams = *chunkStreams
 
 	// Cache mode
 	if vfsOpts.CacheMode.String() == "" {
