@@ -26,6 +26,10 @@ $(LOCALBIN):
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 GOBIN ?= $(GOPATH)/bin
 DOCKER_CLI_EXPERIMENTAL = enabled
+
+# Architecture configuration - defaults to host architecture
+ARCH ?= $(shell go env GOARCH)
+
 export GOPATH GOBIN GO111MODULE DOCKER_CLI_EXPERIMENTAL
 
 GIT_COMMIT = $(shell git rev-parse HEAD)
@@ -70,11 +74,11 @@ local-build-push: rclone
 
 .PHONY: rclone
 rclone:
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -a -ldflags "${LDFLAGS} ${EXT_LDFLAGS}" -mod vendor -o bin/${ARCH}/rcloneplugin ./cmd/rcloneplugin
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -a -ldflags "${LDFLAGS} ${EXT_LDFLAGS}" -o bin/${ARCH}/rcloneplugin ./cmd/rcloneplugin
 
 .PHONY: rclone-armv7
 rclone-armv7:
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -a -ldflags "${LDFLAGS} ${EXT_LDFLAGS}" -mod vendor -o bin/arm/v7/rcloneplugin ./cmd/rcloneplugin
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -a -ldflags "${LDFLAGS} ${EXT_LDFLAGS}" -o bin/arm/v7/rcloneplugin ./cmd/rcloneplugin
 
 .PHONY: container-build
 container-build:

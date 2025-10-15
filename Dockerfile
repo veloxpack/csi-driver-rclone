@@ -45,7 +45,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
     cmd/rcloneplugin/main.go
 
 # Use alpine as base image to package the rcloneplugin binary with rclone
-FROM alpine:3.20
+FROM alpine:3.22.2
 WORKDIR /
 
 # Install required dependencies
