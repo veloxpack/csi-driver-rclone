@@ -3,7 +3,7 @@ module github.com/veloxpack/csi-driver-rclone
 go 1.25.0
 
 require (
-	github.com/container-storage-interface/spec v1.11.0
+	github.com/container-storage-interface/spec v1.12.0
 	github.com/kubernetes-csi/csi-lib-utils v0.21.0
 	github.com/onsi/ginkgo/v2 v2.26.0
 	github.com/onsi/gomega v1.38.2
