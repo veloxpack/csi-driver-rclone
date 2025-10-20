@@ -1,8 +1,8 @@
 customLabels: {}
 image:
-    baseRepo: gcr.io
+    baseRepo: docker.io
     rclone:
-        repository: gcr.io/veloxpack/rcloneplugin
+        repository: veloxpack/rcloneplugin
         tag: latest
         pullPolicy: IfNotPresent
     csiProvisioner:

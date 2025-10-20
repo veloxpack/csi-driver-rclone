@@ -42,7 +42,7 @@ jobs:
         uses: docker/metadata-action@v5
         continue-on-error: true
         with:
-          images: veloxpack/csi-driver-rclone
+          images: veloxpack/rcloneplugin
           github-token: ${{ github.token }}
           tags: |
             type=semver,pattern={{version}}

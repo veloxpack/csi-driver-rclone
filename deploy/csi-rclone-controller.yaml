@@ -89,7 +89,7 @@ spec:
               drop:
                 - ALL
         - name: rclone
-          image: gcr.io/veloxpack/rcloneplugin:latest
+          image: veloxpack/rcloneplugin:latest
           securityContext:
             privileged: true
             capabilities:

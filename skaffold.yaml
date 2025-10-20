@@ -7,7 +7,7 @@ build:
     customTemplate:
       template: "{{.IMAGE_NAME}}:latest"
   artifacts:
-    - image: gcr.io/veloxpack/rcloneplugin
+    - image: veloxpack/rcloneplugin
       docker:
         dockerfile: Dockerfile
 manifests:
