@@ -1,10 +1,3 @@
-<!--  Thanks for sending a pull request!  Here are some tips for you:
-
-1. If this is your first time, please read our contributor guidelines: https://git.k8s.io/community/contributors/guide#your-first-contribution and developer guide https://git.k8s.io/community/contributors/devel/development.md#development-guide
-2. Follow the instructions for writing a release note: https://git.k8s.io/community/contributors/guide/release-notes.md
-3. If the PR is unfinished, see how to mark it: https://git.k8s.io/community/contributors/guide/pull-requests.md#marking-unfinished-pull-requests
--->
-
 **What type of PR is this?**
 > Uncomment only one ` /kind <>` line, hit enter to put that in a new line, and remove leading whitespaces from that line:
 >
