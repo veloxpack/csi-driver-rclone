@@ -1,7 +1,6 @@
 # Rclone CSI Driver for Kubernetes
 ![build status](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/test.yaml/badge.svg)
 [![Trivy vulnerability scanner](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/trivy.yaml/badge.svg?branch=main)](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/trivy.yaml)
-[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/csi-driver-rclone)](https://artifacthub.io/packages/search?repo=csi-driver-rclone)
 
 ### Overview
 
@@ -10,13 +9,52 @@ This is a repository for [Rclone](https://rclone.org/) [CSI](https://kubernetes-
 ### Container Images & Kubernetes Compatibility:
 |driver version  | supported k8s version | status |
 |----------------|-----------------------|--------|
-|master branch   | 1.20+                 | GA     |
-|v1.0.0          | 1.20+                 | GA     |
+|main branch     | 1.20+                 | GA     |
+|v0.1.0          | 1.20+                 | GA     |
 
 ### Install driver on a Kubernetes cluster
-> [install Rclone CSI driver on microk8s](https://microk8s.io/docs/how-to-rclone)
- - install via [helm charts](./charts)
- - install via [kubectl](./docs/install-rclone-csi-driver.md)
+
+#### Option 1: Install via Helm (Recommended)
+
+Install directly from the OCI registry:
+
+```bash
+# Install with default configuration
+helm install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone
+
+# Install in a specific namespace
+helm install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
+  --namespace veloxpack --create-namespace
+
+# Install with custom values
+helm install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone
+```
+
+Pull and inspect the chart:
+
+```bash
+# Pull the chart
+helm pull oci://ghcr.io/veloxpack/charts/csi-driver-rclone
+
+# Show chart information
+helm show chart oci://ghcr.io/veloxpack/charts/csi-driver-rclone
+
+# Show default values
+helm show values oci://ghcr.io/veloxpack/charts/csi-driver-rclone
+```
+
+Verify the installation:
+
+```bash
+# Check release status
+helm list -n veloxpack
+
+# Verify pods are running
+kubectl get pods -n veloxpack -l app.kubernetes.io/name=csi-driver-rclone
+```
+
+#### Option 2: Install via kubectl
+Follow the [manual installation guide](./docs/install-rclone-csi-driver.md)
 
 ### Driver parameters
 Please refer to [`rclone.csi.veloxpack.io` driver parameters](./docs/driver-parameters.md)

@@ -3,7 +3,7 @@ image:
     baseRepo: docker.io
     rclone:
         repository: veloxpack/rcloneplugin
-        tag: latest
+        tag: latest # change
         pullPolicy: IfNotPresent
     csiProvisioner:
         repository: registry.k8s.io/sig-storage/csi-provisioner

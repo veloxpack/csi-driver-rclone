@@ -1,0 +1,61 @@
+name: Helm Chart Release
+
+on:
+  push:
+    branches:
+      - main
+      - feat/helm-chart-release
+    paths:
+      - 'charts/**'
+  pull_request:
+    paths:
+      - 'charts/**'
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  CHARTS_DIR: charts
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+
+      - name: Lint
+        run: helm lint ${{ env.CHARTS_DIR }} --strict
+
+      - name: Template
+        run: helm template test ${{ env.CHARTS_DIR }}
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+
+      - name: Release to OCI
+        uses: bitdeps/helm-oci-charts-releaser@v0.1.4
+        with:
+          oci_registry: ${{ env.REGISTRY }}/${{ github.repository_owner }}/charts
+          oci_username: ${{ github.actor }}
+          oci_password: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          charts_dir: ${{ env.CHARTS_DIR }}
