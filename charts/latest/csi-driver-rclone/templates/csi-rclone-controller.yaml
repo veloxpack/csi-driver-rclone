@@ -16,7 +16,7 @@ spec:
     metadata:
       labels:
         app: {{ .Values.controller.name }}
-        {{- include "rclone.labels" . | nindent 8 }}
+        {{- include "rclone.commonLabels" . | nindent 8 }}
     spec:
       hostNetwork: true  # controller also needs to mount rclone to create dir
       dnsPolicy: {{ .Values.controller.dnsPolicy }}
@@ -75,32 +75,6 @@ spec:
               name: socket-dir
           resources:
             {{- toYaml .Values.controller.resources.csiProvisioner | nindent 12 }}
-          securityContext:
-            capabilities:
-              drop:
-                - ALL
-        - name: csi-resizer
-          image: {{ .Values.image.csiResizer.repository }}:{{ .Values.image.csiResizer.tag }}
-          imagePullPolicy: {{ .Values.image.csiResizer.pullPolicy }}
-          args:
-            - "-v={{ .Values.controller.logLevel }}"
-            - "--csi-address=$(ADDRESS)"
-            - "--leader-election"
-            - "--leader-election-namespace=$(POD_NAMESPACE)"
-            - "--timeout=1200s"
-            - "--retry-interval-max=30m"
-          env:
-            - name: ADDRESS
-              value: /csi/csi.sock
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-          volumeMounts:
-            - mountPath: /csi
-              name: socket-dir
-          resources:
-            {{- toYaml .Values.controller.resources.csiResizer | nindent 12 }}
           securityContext:
             capabilities:
               drop:
