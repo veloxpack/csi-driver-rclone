@@ -79,32 +79,6 @@ spec:
             capabilities:
               drop:
                 - ALL
-        - name: csi-resizer
-          image: {{ .Values.image.csiResizer.repository }}:{{ .Values.image.csiResizer.tag }}
-          imagePullPolicy: {{ .Values.image.csiResizer.pullPolicy }}
-          args:
-            - "-v={{ .Values.controller.logLevel }}"
-            - "--csi-address=$(ADDRESS)"
-            - "--leader-election"
-            - "--leader-election-namespace=$(POD_NAMESPACE)"
-            - "--timeout=1200s"
-            - "--retry-interval-max=30m"
-          env:
-            - name: ADDRESS
-              value: /csi/csi.sock
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-          volumeMounts:
-            - mountPath: /csi
-              name: socket-dir
-          resources:
-            {{- toYaml .Values.controller.resources.csiResizer | nindent 12 }}
-          securityContext:
-            capabilities:
-              drop:
-                - ALL
         - name: liveness-probe
           image: {{ .Values.image.livenessProbe.repository }}:{{ .Values.image.livenessProbe.tag }}
           imagePullPolicy: {{ .Values.image.livenessProbe.pullPolicy }}
