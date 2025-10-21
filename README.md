@@ -20,27 +20,11 @@ Install directly from the OCI registry:
 
 ```bash
 # Install with default configuration
-helm install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone
+helm install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts
 
 # Install in a specific namespace
-helm install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
+helm install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
   --namespace veloxpack --create-namespace
-
-# Install with custom values
-helm install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone
-```
-
-Pull and inspect the chart:
-
-```bash
-# Pull the chart
-helm pull oci://ghcr.io/veloxpack/charts/csi-driver-rclone
-
-# Show chart information
-helm show chart oci://ghcr.io/veloxpack/charts/csi-driver-rclone
-
-# Show default values
-helm show values oci://ghcr.io/veloxpack/charts/csi-driver-rclone
 ```
 
 Verify the installation:

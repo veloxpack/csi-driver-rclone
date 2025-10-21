@@ -1,8 +1,7 @@
 apiVersion: v2
-appVersion: latest
 description: CSI Rclone Driver for Kubernetes - Mount cloud storage as persistent volumes
 name: csi-driver-rclone
-version: v0.1.0
+version: 0.0.0
 keywords:
   - csi
   - rclone
