@@ -48,7 +48,7 @@ spec:
             - --http-endpoint=localhost:{{ .Values.node.livenessProbe.healthPort }}
             - --v={{ .Values.node.logLevel }}
           volumeMounts:
-            - name: socket-dir
+            - name: plugin-dir
               mountPath: /csi
           resources:
             {{- toYaml .Values.node.resources.livenessProbe | nindent 12 }}
@@ -122,7 +122,7 @@ spec:
               mountPath: /var/lib/kubelet/pods
               mountPropagation: "Bidirectional"
             - mountPath: /csi
-              name: socket-dir
+              name: plugin-dir
           resources:
             {{- toYaml .Values.node.resources.rclone | nindent 12 }}
       volumes:
