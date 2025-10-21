@@ -5,17 +5,22 @@
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{/* Common label key-value pairs (without the "labels:" key) */}}
+{{- define "rclone.commonLabels" -}}
+app.kubernetes.io/instance: "{{ .Release.Name }}"
+app.kubernetes.io/managed-by: "{{ .Release.Service }}"
+app.kubernetes.io/name: "{{ template "rclone.name" . }}"
+app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
+helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+{{- if .Values.customLabels }}
+{{ toYaml .Values.customLabels }}
+{{- end }}
+{{- end -}}
+
 {{/* labels for helm resources */}}
 {{- define "rclone.labels" -}}
 labels:
-  app.kubernetes.io/instance: "{{ .Release.Name }}"
-  app.kubernetes.io/managed-by: "{{ .Release.Service }}"
-  app.kubernetes.io/name: "{{ template "rclone.name" . }}"
-  app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
-  helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
-  {{- if .Values.customLabels }}
-{{ toYaml .Values.customLabels | indent 2 -}}
-  {{- end }}
+  {{- include "rclone.commonLabels" . | nindent 2 }}
 {{- end -}}
 
 {{/* Create the name of the service account to use */}}

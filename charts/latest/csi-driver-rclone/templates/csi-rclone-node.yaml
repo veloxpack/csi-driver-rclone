@@ -17,7 +17,7 @@ spec:
     metadata:
       labels:
         app: {{ .Values.node.name }}
-        {{- include "rclone.labels" . | nindent 8 }}
+        {{- include "rclone.commonLabels" . | nindent 8 }}
     spec:
       hostNetwork: true
       dnsPolicy: {{ .Values.node.dnsPolicy }}

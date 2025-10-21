@@ -16,7 +16,7 @@ spec:
     metadata:
       labels:
         app: {{ .Values.controller.name }}
-        {{- include "rclone.labels" . | nindent 8 }}
+        {{- include "rclone.commonLabels" . | nindent 8 }}
     spec:
       hostNetwork: true  # controller also needs to mount rclone to create dir
       dnsPolicy: {{ .Values.controller.dnsPolicy }}
