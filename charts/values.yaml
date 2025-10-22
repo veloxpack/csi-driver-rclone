@@ -118,6 +118,55 @@ node:
         cpu: 10m
         memory: 20Mi
 
+  # Additional command-line arguments like mount options, vfs options, metrics etc.
+  # These are passed directly to the rcloneplugin binary
+  # Example: helm template ./charts --set node.extraArgs.allow-other=true
+  extraArgs:
+    # Mount options
+    # uid: "1000"
+    # gid: "1000"
+    # allow-non-empty: "true"
+    # allow-other: "true"
+    # async-read: "true"
+    # attr-timeout: "1s"
+    # default-permissions: "true"
+    # direct-io: "true"
+    # write-back-cache: "true"
+    # debug-fuse: "true"
+    # max-read-ahead: "128k"
+
+    # VFS options
+    # vfs-cache-mode: writes
+    # vfs-cache-max-age: "1h"
+    # vfs-cache-poll-interval: "1m"
+    # vfs-cache-max-size: "10G"
+    # vfs-read-chunk-size: "128Mi"
+    # vfs-read-chunk-size-limit: off
+    # vfs-read-wait: "20ms"
+    # vfs-read-chunk-streams: "4"
+    # vfs-read-ahead: "256k"
+    # vfs-write-back: "5s"
+    # vfs-write-wait: "1s"
+    # dir-cache-time: "5s"
+    # umask: "002"
+    # dir-perms: "0777"
+    # file-perms: "0666"
+    # read-only: "true"
+    # no-seek: "true"
+    # no-modtime: "true"
+    # no-checksum: "true"
+    # vfs-case-insensitive: "true"
+    # vfs-block-norm-dupes: "true"
+    # vfs-refresh: "true"
+    # vfs-used-is-size: "true"
+
+    # Metrics Options
+    metrics-enabled: "false"
+    # metrics-path: /metrics
+    # metrics-port: "9090"
+    # metrics-read-timeout: 10s
+    # metrics-write-timeout: 10s
+    # metrics-idle-timeout: 60s
 
 ## Reference to one or more secrets to be used when pulling images
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/

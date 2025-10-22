@@ -35,6 +35,14 @@ helm install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-c
 # Install in a specific namespace
 helm install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
   --namespace veloxpack --create-namespace
+
+# You can customize rclone command-line flags using the `extraArgs` map in your Helm values or via `--set` overrides
+helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
+  --namespace veloxpack --create-namespace \
+  --set node.extraArgs.allow-other=true \
+  --set node.extraArgs.vfs-cache-mode=writes \
+  --set node.extraArgs.metrics-enabled=true \
+  --set node.extraArgs.metrics-port=9090
 ```
 
 Verify the installation:

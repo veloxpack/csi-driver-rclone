@@ -101,6 +101,9 @@ spec:
             - "-v={{ .Values.node.logLevel }}"
             - "--nodeid=$(NODE_ID)"
             - "--endpoint=$(CSI_ENDPOINT)"
+            {{- range $key, $value := .Values.node.extraArgs }}
+            - "--{{ $key }}={{ $value }}"
+            {{- end }}
           env:
             - name: NODE_ID
               valueFrom:
