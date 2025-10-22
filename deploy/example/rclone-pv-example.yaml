@@ -27,7 +27,7 @@ spec:
         [s3]
         type = s3
         provider = Minio
-        endpoint = http://localhost:30900
+        endpoint = http://minio.default.svc.cluster.local:9000
         access_key_id = admin
         secret_access_key = password
 ---

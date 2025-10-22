@@ -233,51 +233,6 @@ func TestSanitizeRemoteName(t *testing.T) {
 	}
 }
 
-func TestParseConfigData(t *testing.T) {
-	tests := []struct {
-		desc       string
-		configData string
-		remoteName string
-		expectErr  bool
-	}{
-		{
-			desc: "Valid INI config",
-			configData: `[s3]
-type = s3
-provider = AWS
-access_key_id = test`,
-			remoteName: "s3",
-			expectErr:  false,
-		},
-		{
-			desc:       "Invalid INI format",
-			configData: "not valid ini",
-			remoteName: "s3",
-			expectErr:  true,
-		},
-		{
-			desc: "Remote not found",
-			configData: `[s3]
-type = s3`,
-			remoteName: "gcs",
-			expectErr:  true,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.desc, func(t *testing.T) {
-			result, err := parseConfigData(test.configData, test.remoteName)
-
-			if test.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, result)
-			}
-		})
-	}
-}
-
 func TestUnimplementedNodeMethods(t *testing.T) {
 	ns, err := getTestNodeServer()
 	assert.NoError(t, err)

@@ -83,7 +83,6 @@ spec:
       protocol: TCP
       port: 9000
       targetPort: 9000
-      nodePort: 30900  # Accessible on any node at <node-ip>:30900
     - name: console
       protocol: TCP
       port: 9001
