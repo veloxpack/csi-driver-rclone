@@ -1,0 +1,188 @@
+---
+# Example: Using Nested Remotes (Crypt, Alias, Chunker, Union)
+# This demonstrates the fix for issue #15 - nested remotes support
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-nested-remotes-secret
+  namespace: default
+type: Opaque
+stringData:
+  # Full rclone configuration with nested remotes
+  # The CSI driver will load ALL sections and let rclone resolve the chain
+  configData: |
+    ########################################
+    # Base MinIO Remote (S3-compatible)
+    ########################################
+    [minio-sample]
+    type = s3
+    provider = Minio
+    endpoint = http://minio.default.svc.cluster.local:9000
+    access_key_id = admin
+    secret_access_key = password
+    region = us-east-1
+    acl = private
+
+    ########################################
+    # Alias layer (prevents nested remote bug)
+    # Points to /encrypted path on base remote
+    ########################################
+    [minio-encrypted-base]
+    type = alias
+    remote = minio-sample:/encrypted
+
+    ########################################
+    # Crypt Remote (encryption layer)
+    # Encrypts files and directories
+    ########################################
+    [minio-sample-crypt]
+    type = crypt
+    remote = minio-encrypted-base:
+    filename_encryption = standard
+    directory_name_encryption = true
+    # Generate with: rclone obscure <password>
+    password = xK8eIuJdPQmcQiq5G5u2IQ
+    password2 = bM7zjvZfBbFvx3zO7S9KOA
+
+    ########################################
+    # Chunker Remote (splits large files)
+    ########################################
+    [minio-sample-chunker]
+    type = chunker
+    remote = minio-sample-crypt:
+    chunk_size = 128Mi
+
+    ########################################
+    # Union Remote (combines multiple sources)
+    ########################################
+    [minio-union]
+    type = union
+    upstreams = minio-sample-chunker: minio-sample-crypt:
+    create_policy = epff
+    search_policy = ff
+    action_policy = epff
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-minio-crypt
+spec:
+  accessModes:
+  - ReadWriteMany
+  capacity:
+    storage: 10Gi
+  storageClassName: rclone
+  csi:
+    driver: rclone.csi.veloxpack.io
+    volumeHandle: minio-crypt-volume
+    volumeAttributes:
+      # Use the crypt remote name directly
+      # The CSI driver will resolve: minio-sample-crypt -> minio-encrypted-base -> minio-sample
+      remote: "minio-sample-crypt"
+      remotePath: "data"
+    nodePublishSecretRef:
+      name: minio-nested-remotes-secret
+      namespace: default
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-minio-crypt
+  namespace: default
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: rclone
+  volumeName: pv-minio-crypt
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-minio-crypt
+  namespace: default
+spec:
+  containers:
+  - name: test
+    image: busybox
+    command:
+    - sleep
+    - "3600"
+    volumeMounts:
+    - name: encrypted-storage
+      mountPath: /data
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+  volumes:
+  - name: encrypted-storage
+    persistentVolumeClaim:
+      claimName: pvc-minio-crypt
+
+---
+# Example 2: Using Chunker Remote
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-minio-chunker
+spec:
+  accessModes:
+  - ReadWriteMany
+  capacity:
+    storage: 10Gi
+  storageClassName: rclone
+  csi:
+    driver: rclone.csi.veloxpack.io
+    volumeHandle: minio-chunker-volume
+    volumeAttributes:
+      # Use the chunker remote which wraps crypt which wraps alias which wraps s3
+      # Full chain: minio-sample-chunker -> minio-sample-crypt -> minio-encrypted-base -> minio-sample
+      remote: "minio-sample-chunker"
+      remotePath: "large-files"
+    nodePublishSecretRef:
+      name: minio-nested-remotes-secret
+      namespace: default
+
+---
+# Example 3: Using Union Remote
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-minio-union
+spec:
+  accessModes:
+  - ReadWriteMany
+  capacity:
+    storage: 20Gi
+  storageClassName: rclone
+  csi:
+    driver: rclone.csi.veloxpack.io
+    volumeHandle: minio-union-volume
+    volumeAttributes:
+      # Use the union remote that combines multiple encrypted sources
+      remote: "minio-union"
+      remotePath: ""
+    nodePublishSecretRef:
+      name: minio-nested-remotes-secret
+      namespace: default
+
+# Testing Notes:
+# 1. Deploy the secret with configData containing all remote definitions
+# 2. The CSI driver will load ALL config sections into in-memory storage
+# 3. When you reference "minio-sample-crypt", rclone will automatically:
+#    - Look up minio-sample-crypt -> type=crypt, remote=minio-encrypted-base:
+#    - Look up minio-encrypted-base -> type=alias, remote=minio-sample:/encrypted
+#    - Look up minio-sample -> type=s3, connect to MinIO
+# 4. Files written to /data in the pod will be encrypted transparently
+# Example test:
+  # kubectl apply -f nested-remotes-example.yaml
+  # kubectl exec -it test-minio-crypt -- sh -c 'echo "Hello, MinIO encrypted storage!" > /data/hello.txt'
+  # kubectl exec test-minio-crypt -- cat /data/hello.txt
+  # kubectl delete -f nested-remotes-example.yaml
