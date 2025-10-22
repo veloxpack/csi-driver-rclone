@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/rclone/rclone/cmd/mountlib"
 	"github.com/rclone/rclone/vfs/vfscommon"
+	"github.com/veloxpack/csi-driver-rclone/internal/metrics"
 	"github.com/veloxpack/csi-driver-rclone/pkg/rclone"
 	"k8s.io/klog/v2"
 )
@@ -42,6 +44,7 @@ func main() {
 	_ = flag.Set("logtostderr", "true")
 	mountOpts := &mountlib.Options{}
 	vfsOpts := &vfscommon.Options{}
+	metricsOpts := metrics.NewOptions()
 
 	// Mount Options
 	flag.BoolVar(&mountOpts.AllowNonEmpty, "allow-non-empty", true, "Allow mounting over a non-empty directory (not supported on Windows)")
@@ -101,6 +104,14 @@ func main() {
 	flag.Var(&vfsOpts.DirPerms, "dir-perms", "Directory permissions")
 	flag.Var(&vfsOpts.FilePerms, "file-perms", "File permissions")
 
+	// Metrics Options
+	flag.BoolVar(&metricsOpts.Enabled, "metrics-enabled", metricsOpts.Enabled, "Enable metrics server")
+	flag.IntVar(&metricsOpts.MetricsPort, "metrics-port", metricsOpts.MetricsPort, "Metrics server port")
+	flag.StringVar(&metricsOpts.MetricsPath, "metrics-path", metricsOpts.MetricsPath, "HTTP path where metrics are exposed")
+	flag.DurationVar(&metricsOpts.ReadTimeout, "metrics-read-timeout", metricsOpts.ReadTimeout, "Metrics server read timeout")
+	flag.DurationVar(&metricsOpts.WriteTimeout, "metrics-write-timeout", metricsOpts.WriteTimeout, "Metrics server write timeout")
+	flag.DurationVar(&metricsOpts.IdleTimeout, "metrics-idle-timeout", metricsOpts.IdleTimeout, "Metrics server idle timeout")
+
 	// Default param values (can be overridden by CLI flags)
 	defaultParams := map[string]string{
 		"cache-info-age":             "24h",
@@ -127,6 +138,32 @@ func main() {
 	// Cache mode
 	if vfsOpts.CacheMode.String() == "" {
 		vfsOpts.CacheMode = vfscommon.CacheModeWrites
+	}
+
+	// Start metrics server if enabled
+	if metricsOpts.Enabled {
+		ctx := context.Background()
+
+		// Initialize CSI collector with node ID
+		if err := metrics.InitCollector(ctx, *nodeID, *driverName, *endpoint); err != nil {
+			klog.Fatalf("Failed to initialize CSI collector: %v", err)
+		}
+
+		// Start metrics server
+		metricsSrv, err := metrics.Start(metricsOpts)
+		if err != nil {
+			klog.Fatalf("Failed to start metrics server: %v", err)
+		}
+		if metricsSrv != nil {
+			klog.Infof("Metrics server listening on http://%s%s", metricsSrv.Addr(), metricsOpts.MetricsPath)
+			defer func() {
+				shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+				if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+					klog.Errorf("Error shutting down metrics server: %v", err)
+				}
+			}()
+		}
 	}
 
 	driverOptions := rclone.DriverOptions{

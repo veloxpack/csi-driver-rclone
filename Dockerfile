@@ -30,6 +30,7 @@ RUN go mod download
 # Copy the go source
 COPY cmd/rcloneplugin/ cmd/rcloneplugin
 COPY pkg/ pkg/
+COPY internal/ internal/
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command
