@@ -101,6 +101,12 @@ spec:
             - "-v={{ .Values.node.logLevel }}"
             - "--nodeid=$(NODE_ID)"
             - "--endpoint=$(CSI_ENDPOINT)"
+            {{- range .Values.node.mountOptions }}
+            - {{ . | quote }}
+            {{- end }}
+            {{- range .Values.node.vfsOptions }}
+            - {{ . | quote }}
+            {{- end }}
           env:
             - name: NODE_ID
               valueFrom:

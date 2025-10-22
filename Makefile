@@ -44,13 +44,14 @@ override IMAGE_VERSION := e2e-$(GIT_COMMIT)
 endif
 endif
 IMAGENAME ?= rcloneplugin
-REGISTRY ?= andyzhangx
+REGISTRY ?= veloxpack
 REGISTRY_NAME ?= $(shell echo $(REGISTRY) | sed "s/.azurecr.io//g")
 IMAGE_TAG = $(REGISTRY)/$(IMAGENAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST = $(REGISTRY)/$(IMAGENAME):latest
 
 E2E_HELM_OPTIONS ?= --set image.rclone.repository=$(REGISTRY)/$(IMAGENAME) --set image.rclone.tag=$(IMAGE_VERSION) --set image.rclone.pullPolicy=Always --set feature.enableInlineVolume=true --set externalSnapshotter.enabled=true --set controller.runOnControlPlane=true
 E2E_HELM_OPTIONS += ${EXTRA_HELM_OPTIONS}
+HELM_CHARTS_PATH = charts
 
 # Output type of docker buildx build
 OUTPUT_TYPE ?= docker
@@ -170,3 +171,11 @@ golangci-lint: $(LOCALBIN) ## Download golangci-lint locally if necessary
 		echo "Downloading golangci-lint $(GOLANGCI_LINT_VERSION)"; \
 		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION); \
 	fi
+
+.PHONY: helm-lint
+helm-lint:
+	helm lint ${HELM_CHARTS_PATH} --strict
+
+.PHONY: helm-validate
+helm-validate:
+	helm template test ${HELM_CHARTS_PATH}
