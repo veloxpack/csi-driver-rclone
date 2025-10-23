@@ -183,6 +183,33 @@ func sanitizeFlag(remote, key string) string {
 		key = removePrefixCaseInsensitive(key, prefix)
 	}
 
+	return normalizeRcloneFlag(key)
+}
+
+// normalizeRcloneFlag normalizes rclone flag names by standardizing their format.
+// It performs several transformations to ensure consistent flag naming across
+// different input formats and makes them compatible with rclone's internal
+// configuration system.
+//
+// Transformations applied:
+//  1. Remove leading "--" prefix (used for long command-line options)
+//  2. Replace all hyphens with underscores for consistency
+//  3. Convert to lowercase for case-insensitive matching
+//
+// This function is used to ensure that flag names from various sources
+// (command line, config files, volume parameters) are normalized to a
+// consistent format that rclone can understand.
+//
+// Example transformations:
+//
+//	"--cache-mode" -> "cache_mode"
+//	"Cache-Mode" -> "cache_mode"
+//	"vfs-read-ahead" -> "vfs_read_ahead"
+func normalizeRcloneFlag(key string) string {
+	if key == "" {
+		return key
+	}
+
 	// Remove any leading "--" prefix (used for long command-line options)
 	// even though we don't normally pass prefixed args, we keep this for correctness
 	key = strings.TrimPrefix(key, flagLongPrefix)

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,7 +29,10 @@ import (
 	"github.com/rclone/rclone/cmd/mountlib"
 	"github.com/rclone/rclone/fs"
 	"github.com/rclone/rclone/fs/config"
+	"github.com/rclone/rclone/fs/config/configmap"
+	"github.com/rclone/rclone/fs/config/configstruct"
 	"github.com/rclone/rclone/fs/rc" //nolint:misspell // Don't include misspell when running golangci-lint - unknwon is the package author's username
+	"github.com/rclone/rclone/vfs/vfscommon"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
@@ -148,14 +152,36 @@ func setRcloneConfigFlags(params map[string]string) error {
 		klog.V(4).Infof("Set rclone temp directory to: %s", tempDir)
 	}
 
+	// Get Rclone config
+	ci := fs.GetConfig(context.TODO())
+	configMap := configmap.Simple{}
+
+	// Set all golbal
+	for key, value := range params {
+		rcloneKey := normalizeRcloneFlag(key)
+		if opt := fs.ConfigOptionsInfo.Get(rcloneKey); opt != nil {
+			configMap.Set(rcloneKey, value)
+		}
+	}
+
+	// Apply the changes to the global config
+	if err := configstruct.Set(configMap, ci); err != nil {
+		return fmt.Errorf("failed to update global config: %v", err)
+	}
+
+	// CRITICAL: Call Reload to make changes take effect
+	if err := ci.Reload(context.TODO()); err != nil {
+		return fmt.Errorf("failed to reload config changes: %v", err)
+	}
+
 	return nil
 }
 
 // mergeVolumeParameters merges driver params, secrets, and volume context
 func (ns *NodeServer) mergeVolumeParameters(req *csi.NodePublishVolumeRequest, targetPath string) (map[string]string, error) {
-	params := ns.Driver.rcloneOtherParams
-	if cacheDirPrefix, ok := params[paramCacheDir]; ok {
-		params[paramCacheDir] = path.Join(cacheDirPrefix, targetPath)
+	params := map[string]string{
+		paramCacheDir: path.Join(config.GetCacheDir(), targetPath),
+		paramTmpDir:   path.Join(os.TempDir(), targetPath),
 	}
 
 	// First, load values from secrets (defaults)
@@ -344,30 +370,34 @@ func (ns *NodeServer) cleanupConfigRemotes(remotes []string) {
 }
 
 // createAndMountFilesystem initializes and mounts the rclone filesystem
-func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targetPath string, mountOptions []string, readOnly bool) (*mountlib.MountPoint, context.CancelFunc, error) {
+func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targetPath string, mountOptions []string) (*mountlib.MountPoint, context.CancelFunc, error) {
 	// Initialize filesystem
 	rcloneFs, err := fs.NewFs(ctx, fsPath)
 	if err != nil {
 		return nil, nil, status.Errorf(codes.Internal, "failed to initialize filesystem: %v", err)
 	}
 
-	// Create mount options mapper
-	mapper := NewMountOptionsMapper(ns.Driver.rcloneMountOptions, ns.Driver.rcloneVFSOptions)
-
-	// Parse mount options and apply them
-	rcloneMountOpts, rcloneVFSOptions, err := mapper.ParseMountOptions(mountOptions)
+	// Extract volume mount options
+	volumeMountOpts, err := extractVolumeMountOptions(mountOptions)
 	if err != nil {
-		return nil, nil, status.Errorf(codes.InvalidArgument, "failed to parse mount options: %v", err)
+		return nil, nil, status.Errorf(codes.Internal, "failed to parse volume mount options: %v", err)
 	}
 
-	// Set read-only if specified in volume capability
-	if readOnly {
-		rcloneVFSOptions.ReadOnly = true
+	// Extract Rclone mount options
+	mountOpts, err := extractMountOptions(volumeMountOpts)
+	if err != nil {
+		return nil, nil, status.Errorf(codes.Internal, "failed to parse mount options: %v", err)
+	}
+
+	// Extract Rclone VFS options
+	vfsOpts, err := extractVFSOptions(volumeMountOpts)
+	if err != nil {
+		return nil, nil, status.Errorf(codes.Internal, "failed to parse VFS options: %v", err)
 	}
 
 	// Set device name if not already set
-	if rcloneMountOpts.DeviceName == "" {
-		rcloneMountOpts.DeviceName = fsPath
+	if mountOpts.DeviceName == "" {
+		mountOpts.DeviceName = fsPath
 	}
 
 	// Get mount function
@@ -379,7 +409,7 @@ func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targ
 	klog.V(4).Infof("Using mount method: %s", mountType)
 
 	// Create mount point
-	mountPoint := mountlib.NewMountPoint(mountFn, targetPath, rcloneFs, rcloneMountOpts, rcloneVFSOptions)
+	mountPoint := mountlib.NewMountPoint(mountFn, targetPath, rcloneFs, mountOpts, vfsOpts)
 
 	// Create context with cancellation for VFS goroutines
 	_, cancel := context.WithCancel(context.Background())
@@ -442,6 +472,124 @@ func waitForVFSCacheSync(mc *mountContext) {
 	}
 
 	klog.V(2).Infof("Cache sync complete, proceeding with unmount")
+}
+
+// extractVFSOptions extracts and configures VFS (Virtual File System) options from parameters.
+// It loads the default VFS options from rclone's configuration system and then applies
+// any overrides provided in the params map. This allows the CSI driver to customize
+// VFS behavior such as caching, read-ahead, and file permissions based on volume
+// configuration parameters.
+func extractVFSOptions(params map[string]string) (*vfscommon.Options, error) {
+	vfsOpts := new(vfscommon.Options)
+
+	// Load VFS options from parsed flags
+	configMap := fs.ConfigMap("", vfscommon.OptionsInfo, "", nil)
+	if err := configstruct.Set(configMap, vfsOpts); err != nil {
+		return nil, fmt.Errorf("failed to load VFS options: %v", err)
+	}
+
+	// Create a mutable config map and update it
+	mutableMap := configmap.Simple{}
+
+	// Copy existing values from the read-only config map
+	for _, opt := range vfscommon.OptionsInfo {
+		// Set defaults
+		if value, ok := configMap.Get(opt.Name); ok {
+			mutableMap.Set(opt.Name, value)
+		}
+
+		// Override with vfs options in the params
+		if value, ok := params[opt.Name]; ok {
+			mutableMap.Set(opt.Name, value)
+		}
+	}
+
+	// update the mutable config
+	if err := configstruct.Set(mutableMap, vfsOpts); err != nil {
+		return nil, fmt.Errorf("failed to update VFS options: %v", err)
+	}
+
+	return vfsOpts, nil
+}
+
+// extractMountOptions extracts and configures mount options from parameters.
+// It loads the default mount options from rclone's configuration system and then applies
+// any overrides provided in the params map. This allows the CSI driver to customize
+// mount behavior such as FUSE options, permissions, and performance settings based on
+// volume configuration parameters.
+func extractMountOptions(params map[string]string) (*mountlib.Options, error) {
+	mountOpts := new(mountlib.Options)
+
+	// Load mount options from parsed flags
+	configMap := fs.ConfigMap("", mountlib.OptionsInfo, "", nil)
+	if err := configstruct.Set(configMap, mountOpts); err != nil {
+		return nil, fmt.Errorf("failed to load mount options: %v", err)
+	}
+
+	// Create a mutable config map and update it
+	mutableMap := configmap.Simple{}
+
+	// Copy existing values from the read-only config map
+	for _, opt := range mountlib.OptionsInfo {
+		// Set defaults
+		if value, ok := configMap.Get(opt.Name); ok {
+			mutableMap.Set(opt.Name, value)
+		}
+
+		// Override with mount options in the params
+		if value, ok := params[opt.Name]; ok {
+			mutableMap.Set(opt.Name, value)
+		}
+	}
+
+	// update the mutable config
+	if err := configstruct.Set(mutableMap, mountOpts); err != nil {
+		return nil, fmt.Errorf("failed to update mount options: %v", err)
+	}
+
+	return mountOpts, nil
+}
+
+// extractVolumeMountOptions parses CSI mount options into a key-value map.
+// It handles both key=value format options and boolean flags (without values).
+// Boolean flags are automatically set to "true" when no value is provided.
+//
+// This function is used to convert mount options from the CSI NodePublishVolume
+// request into a format that can be used with rclone's configuration system.
+//
+// Supported formats:
+//   - "key=value" -> map["key"] = "value"
+//   - "boolean_flag" -> map["boolean_flag"] = "true"
+//
+// Example:
+//
+//	Input:  ["ro", "noatime", "uid=1000", "gid=1000"]
+//	Output: map[string]string{
+//	          "ro": "true",
+//	          "noatime": "true",
+//	          "uid": "1000",
+//	          "gid": "1000"
+//	        }
+func extractVolumeMountOptions(mountOptions []string) (map[string]string, error) {
+	volumeMountOptions := make(map[string]string)
+
+	for _, option := range mountOptions {
+		if strings.Contains(option, "=") {
+			parts := strings.SplitN(option, "=", 2)
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid mount option format: %s", option)
+			}
+
+			rcloneKey := normalizeRcloneFlag(parts[0])
+			volumeMountOptions[rcloneKey] = parts[1]
+		} else {
+			rcloneKey := normalizeRcloneFlag(option)
+			// Default a boolean value
+			volumeMountOptions[rcloneKey] = "true"
+		}
+	}
+
+	return volumeMountOptions, nil
 }
 
 // unmountVolume unmounts the volume and performs cleanup
@@ -512,7 +660,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	readOnly := req.GetReadonly()
 	mountOptions := req.GetVolumeCapability().GetMount().GetMountFlags()
 	if readOnly {
-		mountOptions = append(mountOptions, "ro")
+		mountOptions = append(mountOptions, "read-only")
 	}
 
 	// Merge parameters from secrets and volume context
@@ -567,7 +715,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}()
 
 	// Create and mount the filesystem
-	mountPoint, cancel, err := ns.createAndMountFilesystem(ctx, fsPath, targetPath, mountOptions, readOnly)
+	mountPoint, cancel, err := ns.createAndMountFilesystem(ctx, fsPath, targetPath, mountOptions)
 	if err != nil {
 		return nil, err
 	}

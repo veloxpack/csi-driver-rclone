@@ -20,8 +20,6 @@ import (
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/rclone/rclone/cmd/mountlib"
-	"github.com/rclone/rclone/vfs/vfscommon"
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 )
@@ -41,27 +39,21 @@ const (
 
 // DriverOptions defines driver parameters specified in driver deployment
 type DriverOptions struct {
-	NodeID             string
-	DriverName         string
-	Endpoint           string
-	RcloneOtherParams  map[string]string
-	RcloneMountOptions *mountlib.Options
-	RcloneVFSOptions   *vfscommon.Options
+	NodeID     string
+	DriverName string
+	Endpoint   string
 }
 
 // Driver is the main driver structure
 type Driver struct {
-	name               string
-	nodeID             string
-	version            string
-	endpoint           string
-	ns                 *NodeServer
-	cscap              []*csi.ControllerServiceCapability
-	nscap              []*csi.NodeServiceCapability
-	volumeLocks        *VolumeLocks
-	rcloneMountOptions *mountlib.Options
-	rcloneVFSOptions   *vfscommon.Options
-	rcloneOtherParams  map[string]string
+	name        string
+	nodeID      string
+	version     string
+	endpoint    string
+	ns          *NodeServer
+	cscap       []*csi.ControllerServiceCapability
+	nscap       []*csi.NodeServiceCapability
+	volumeLocks *VolumeLocks
 }
 
 // NewDriver creates a new driver instance
@@ -72,13 +64,10 @@ func NewDriver(options *DriverOptions) *Driver {
 	InitRcloneLogging()
 
 	d := &Driver{
-		name:               options.DriverName,
-		version:            driverVersion,
-		nodeID:             options.NodeID,
-		endpoint:           options.Endpoint,
-		rcloneVFSOptions:   options.RcloneVFSOptions,
-		rcloneMountOptions: options.RcloneMountOptions,
-		rcloneOtherParams:  options.RcloneOtherParams,
+		name:     options.DriverName,
+		version:  driverVersion,
+		nodeID:   options.NodeID,
+		endpoint: options.Endpoint,
 	}
 
 	d.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{
