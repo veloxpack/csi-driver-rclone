@@ -370,7 +370,7 @@ func (ns *NodeServer) cleanupConfigRemotes(remotes []string) {
 }
 
 // createAndMountFilesystem initializes and mounts the rclone filesystem
-func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targetPath string, mountOptions []string) (*mountlib.MountPoint, context.CancelFunc, error) {
+func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targetPath string, mountOptions []string, params map[string]string) (*mountlib.MountPoint, context.CancelFunc, error) {
 	// Initialize filesystem
 	rcloneFs, err := fs.NewFs(ctx, fsPath)
 	if err != nil {
@@ -383,14 +383,17 @@ func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targ
 		return nil, nil, status.Errorf(codes.Internal, "failed to parse volume mount options: %v", err)
 	}
 
+	// Merge both params and mount options
+	opts := mergeCopy(params, volumeMountOpts)
+
 	// Extract Rclone mount options
-	mountOpts, err := extractMountOptions(volumeMountOpts)
+	mountOpts, err := extractMountOptions(opts)
 	if err != nil {
 		return nil, nil, status.Errorf(codes.Internal, "failed to parse mount options: %v", err)
 	}
 
 	// Extract Rclone VFS options
-	vfsOpts, err := extractVFSOptions(volumeMountOpts)
+	vfsOpts, err := extractVFSOptions(opts)
 	if err != nil {
 		return nil, nil, status.Errorf(codes.Internal, "failed to parse VFS options: %v", err)
 	}
@@ -715,7 +718,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}()
 
 	// Create and mount the filesystem
-	mountPoint, cancel, err := ns.createAndMountFilesystem(ctx, fsPath, targetPath, mountOptions)
+	mountPoint, cancel, err := ns.createAndMountFilesystem(ctx, fsPath, targetPath, mountOptions, pvp.params)
 	if err != nil {
 		return nil, err
 	}

@@ -350,3 +350,26 @@ func generateRecloneConfigFromParams(params rc.Params, remoteType, remoteName st
 
 	return sb.String()
 }
+
+// mergeCopy returns a new map containing all key-value pairs
+// from both m1 and m2. Neither input map is modified.
+//
+// If the same key exists in both maps, the value from m2
+// overwrites the value from m1.
+//
+// Example:
+//
+//	m1 := map[string]int{"a": 1, "b": 2}
+//	m2 := map[string]int{"b": 3, "c": 4}
+//	merged := MergeCopy(m1, m2)
+//	// merged == map[string]int{"a":1, "b":3, "c":4}
+func mergeCopy[K comparable, V any](m1, m2 map[K]V) map[K]V {
+	merged := make(map[K]V)
+	for k, v := range m1 {
+		merged[k] = v
+	}
+	for k, v := range m2 {
+		merged[k] = v
+	}
+	return merged
+}
