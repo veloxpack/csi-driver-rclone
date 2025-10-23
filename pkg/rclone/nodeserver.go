@@ -37,6 +37,7 @@ import (
 
 const (
 	paramCacheDir    = "cache-dir"
+	paramTmpDir      = "temp-dir"
 	paramBackendType = "remoteType"
 )
 
@@ -46,6 +47,8 @@ var reservedParams = map[string]bool{
 	paramRemotePath:  true,
 	paramConfigData:  true,
 	paramBackendType: true,
+	paramCacheDir:    true,
+	paramTmpDir:      true,
 }
 
 // mountContext stores context information for each mount with direct rclone objects
@@ -125,6 +128,29 @@ type publishVolumeParams struct {
 	configData string
 	remoteType string
 	params     map[string]string
+}
+
+// setRcloneConfigFlags sets global rclone configuration flags
+func setRcloneConfigFlags(params map[string]string) error {
+	// Set cache directory if provided
+	if cacheDir, ok := params[paramCacheDir]; ok {
+		if err := config.SetCacheDir(cacheDir); err != nil {
+			return status.Errorf(codes.Internal, "failed to set cache directory: %v", err)
+		}
+		klog.V(4).Infof("Set rclone cache directory to: %s", cacheDir)
+	}
+
+	// Set tmp directory if provided
+	if tempDir, ok := params[paramTmpDir]; ok {
+		if err := config.SetTempDir(tempDir); err != nil {
+			return status.Errorf(codes.Internal, "failed to set temp directory: %v", err)
+		}
+		klog.V(4).Infof("Set rclone temp directory to: %s", tempDir)
+	}
+
+	// ci := fs.GetConfig(context.Background())
+	// window := int64(ci.BufferSize)
+	return nil
 }
 
 // mergeVolumeParameters merges driver params, secrets, and volume context
@@ -494,6 +520,11 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// Merge parameters from secrets and volume context
 	params, err := ns.mergeVolumeParameters(req, targetPath)
 	if err != nil {
+		return nil, err
+	}
+
+	// Set rclone configuration flags
+	if err := setRcloneConfigFlags(params); err != nil {
 		return nil, err
 	}
 
