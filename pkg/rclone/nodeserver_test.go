@@ -191,48 +191,6 @@ func TestNodeServerMountContext(t *testing.T) {
 	assert.Nil(t, mc)
 }
 
-func TestSanitizeRemoteName(t *testing.T) {
-	tests := []struct {
-		desc     string
-		input    string
-		expected string
-	}{
-		{
-			desc:     "Simple alphanumeric",
-			input:    "test-volume-123",
-			expected: "test-volume-123",
-		},
-		{
-			desc:     "With special characters",
-			input:    "test@volume#name",
-			expected: "test_volume_name",
-		},
-		{
-			desc:     "With spaces",
-			input:    "test volume name",
-			expected: "test_volume_name",
-		},
-		{
-			desc:     "Long name gets truncated",
-			input:    "this-is-a-very-long-volume-name-that-exceeds-the-maximum-length",
-			expected: "this-is-a-very-long-volume-name-",
-		},
-		{
-			desc:     "Mixed case with symbols",
-			input:    "Test-Volume_Name!@#",
-			expected: "Test-Volume_Name___",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.desc, func(t *testing.T) {
-			result := sanitizeRemoteName(test.input)
-			assert.Equal(t, test.expected, result)
-			assert.LessOrEqual(t, len(result), 32, "sanitized name should be <= 32 characters")
-		})
-	}
-}
-
 func TestUnimplementedNodeMethods(t *testing.T) {
 	ns, err := getTestNodeServer()
 	assert.NoError(t, err)

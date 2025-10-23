@@ -17,12 +17,10 @@ limitations under the License.
 package rclone
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -30,39 +28,35 @@ import (
 	"github.com/rclone/rclone/cmd/mountlib"
 	"github.com/rclone/rclone/fs"
 	"github.com/rclone/rclone/fs/config"
-	"github.com/rclone/rclone/fs/rc"
-	"github.com/unknwon/goconfig" //nolint:misspell // Don't include misspell when running golangci-lint - unknwon is the package author's username
+	"github.com/rclone/rclone/fs/rc" //nolint:misspell // Don't include misspell when running golangci-lint - unknwon is the package author's username
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
-
-	_ "github.com/rclone/rclone/backend/azureblob"
-	_ "github.com/rclone/rclone/backend/b2"
-	_ "github.com/rclone/rclone/backend/box"
-	_ "github.com/rclone/rclone/backend/drive"
-	_ "github.com/rclone/rclone/backend/dropbox"
-	_ "github.com/rclone/rclone/backend/ftp"
-	_ "github.com/rclone/rclone/backend/googlecloudstorage"
-	_ "github.com/rclone/rclone/backend/local"
-	_ "github.com/rclone/rclone/backend/onedrive"
-	_ "github.com/rclone/rclone/backend/s3"
-	_ "github.com/rclone/rclone/backend/sftp"
-	_ "github.com/rclone/rclone/backend/swift"
-	_ "github.com/rclone/rclone/backend/webdav"
-	_ "github.com/rclone/rclone/cmd/mount2"
 )
 
 const (
-	paramCacheDir = "cache-dir"
+	paramCacheDir    = "cache-dir"
+	paramTmpDir      = "temp-dir"
+	paramBackendType = "remoteType"
 )
+
+// reservedParams contains parameter names that should not be passed to rclone backend
+var reservedParams = map[string]bool{
+	paramRemote:      true,
+	paramRemotePath:  true,
+	paramConfigData:  true,
+	paramBackendType: true,
+	paramCacheDir:    true,
+	paramTmpDir:      true,
+}
 
 // mountContext stores context information for each mount with direct rclone objects
 type mountContext struct {
-	mountPoint     *mountlib.MountPoint // Direct access to rclone mount point
-	remoteName     string               // Created remote name (for backwards compatibility)
-	loadedSections []string             // Config sections loaded for nested remotes
-	cancel         context.CancelFunc   // Context cancellation for VFS goroutines
+	mountPoint *mountlib.MountPoint // Direct access to rclone mount point
+	remoteName string               // Created remote name (for backwards compatibility)
+	remotes    []string             // Remotes loaded for nested remotes
+	cancel     context.CancelFunc   // Context cancellation for VFS goroutines
 }
 
 // NodeServer implements the CSI Node service
@@ -102,40 +96,65 @@ func (ns *NodeServer) deleteMountContext(targetPath string) {
 	delete(ns.mountContext, targetPath)
 }
 
-// NodePublishVolume mounts the rclone volume using direct rclone library integration
-//
-//nolint:lll,gocyclo // Complex function but necessary for CSI spec compliance and error handling
-func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-	volumeID := req.GetVolumeId()
-	if len(volumeID) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+// validatePublishVolumeRequest validates the NodePublishVolumeRequest
+func validatePublishVolumeRequest(req *csi.NodePublishVolumeRequest) error {
+	if len(req.GetVolumeId()) == 0 {
+		return status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+	if len(req.GetTargetPath()) == 0 {
+		return status.Error(codes.InvalidArgument, "Target path not provided")
+	}
+	if req.GetVolumeCapability() == nil {
+		return status.Error(codes.InvalidArgument, "Volume capability missing in request")
+	}
+	return nil
+}
+
+// validateUnpublishVolumeRequest validates the NodeUnpublishVolumeRequest
+func validateUnpublishVolumeRequest(req *csi.NodeUnpublishVolumeRequest) error {
+	if len(req.GetVolumeId()) == 0 {
+		return status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+	if len(req.GetTargetPath()) == 0 {
+		return status.Error(codes.InvalidArgument, "Target path missing in request")
+	}
+	return nil
+}
+
+// publishVolumeParams holds parameters for volume publishing
+type publishVolumeParams struct {
+	remoteName string
+	remotePath string
+	configData string
+	remoteType string
+	params     map[string]string
+}
+
+// setRcloneConfigFlags sets global rclone configuration flags
+func setRcloneConfigFlags(params map[string]string) error {
+	// Set cache directory if provided
+	if cacheDir, ok := params[paramCacheDir]; ok {
+		if err := config.SetCacheDir(cacheDir); err != nil {
+			return status.Errorf(codes.Internal, "failed to set cache directory: %v", err)
+		}
+		klog.V(4).Infof("Set rclone cache directory to: %s", cacheDir)
 	}
 
-	targetPath := req.GetTargetPath()
-	if len(targetPath) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Target path not provided")
+	// Set tmp directory if provided
+	if tempDir, ok := params[paramTmpDir]; ok {
+		if err := config.SetTempDir(tempDir); err != nil {
+			return status.Errorf(codes.Internal, "failed to set temp directory: %v", err)
+		}
+		klog.V(4).Infof("Set rclone temp directory to: %s", tempDir)
 	}
 
-	volCap := req.GetVolumeCapability()
-	if volCap == nil {
-		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
-	}
+	// ci := fs.GetConfig(context.Background())
+	// window := int64(ci.BufferSize)
+	return nil
+}
 
-	// Acquire lock for this volume operation
-	lockKey := fmt.Sprintf("%s-%s", volumeID, targetPath)
-	if acquired := ns.Driver.volumeLocks.TryAcquire(lockKey); !acquired {
-		return nil, status.Errorf(codes.Aborted, volumeOperationAlreadyExistsFmt, volumeID)
-	}
-	defer ns.Driver.volumeLocks.Release(lockKey)
-
-	// Get mount options from VolumeCapability (CSI standard)
-	readOnly := req.GetReadonly()
-	mountOptions := volCap.GetMount().GetMountFlags()
-	if readOnly {
-		mountOptions = append(mountOptions, "ro")
-	}
-
-	// Merge secrets with volume context (volumeContext overrides secrets)
+// mergeVolumeParameters merges driver params, secrets, and volume context
+func (ns *NodeServer) mergeVolumeParameters(req *csi.NodePublishVolumeRequest, targetPath string) (map[string]string, error) {
 	params := ns.Driver.rcloneOtherParams
 	if cacheDirPrefix, ok := params[paramCacheDir]; ok {
 		params[paramCacheDir] = path.Join(cacheDirPrefix, targetPath)
@@ -156,42 +175,54 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		params[k] = v
 	}
 
-	// Extract reserved parameters
-	remote := params[paramRemote]
-	remotePath := params[paramRemotePath]
-	configData := params[paramConfigData]
+	return params, nil
+}
 
-	if remote == "" {
+// extractPublishParams extracts and validates required parameters
+func extractPublishParams(params map[string]string) (*publishVolumeParams, error) {
+	pvp := &publishVolumeParams{
+		remoteName: params[paramRemote],
+		remotePath: params[paramRemotePath],
+		configData: params[paramConfigData],
+		remoteType: params[paramBackendType],
+		params:     make(map[string]string),
+	}
+
+	if pvp.remoteName == "" {
 		return nil, status.Error(codes.InvalidArgument, "remote is required (provide via volumeAttributes or secrets)")
 	}
 
-	// Remove reserved parameters from params, leaving only backend-specific config
-	delete(params, paramRemote)
-	delete(params, paramRemotePath)
-	delete(params, paramConfigData)
-
-	// Normalize parameter keys by removing remote prefix (e.g., "s3-endpoint" -> "endpoint")
-	for k, v := range params {
-		k = sanitizeFlag(remote, k)
-		params[k] = v
+	if pvp.configData == "" && pvp.remoteType == "" {
+		return nil, status.Error(codes.InvalidArgument, "either configData or remoteType must be provided")
 	}
 
-	// Create target directory if it doesn't exist
+	// Copy all params except reserved ones
+	for k, v := range params {
+		if !reservedParams[k] {
+			pvp.params[k] = v
+		}
+	}
+
+	return pvp, nil
+}
+
+// prepareTargetDirectory ensures the target directory exists and is not already mounted
+func (ns *NodeServer) prepareTargetDirectory(targetPath string, volumeID string) error {
 	notMnt, err := ns.mounter.IsLikelyNotMountPoint(targetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(targetPath, 0755); err != nil {
-				return nil, status.Error(codes.Internal, err.Error())
+				return status.Error(codes.Internal, err.Error())
 			}
 			notMnt = true
 		} else {
-			return nil, status.Error(codes.Internal, err.Error())
+			return status.Error(codes.Internal, err.Error())
 		}
 	} else {
 		// Check if already mounted
 		if !notMnt {
 			klog.V(2).Infof("Target path %s is already mounted", targetPath)
-			return &csi.NodePublishVolumeResponse{}, nil
+			return nil // Signal that mount already exists
 		}
 	}
 
@@ -204,7 +235,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if !notMnt {
 		if _, err := os.ReadDir(targetPath); err == nil {
 			klog.V(4).Infof("Volume %s already mounted to %s and accessible", volumeID, targetPath)
-			return &csi.NodePublishVolumeResponse{}, nil
+			return nil
 		}
 
 		// Mount appears to exist but is not accessible - recover
@@ -212,106 +243,114 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 		if err := ns.mounter.Unmount(targetPath); err != nil {
 			klog.Errorf("Failed to unmount corrupted mount point %s: %v", targetPath, err)
-			return nil, status.Errorf(codes.Internal, "corrupted mount could not be cleaned up: %v", err)
+			return status.Errorf(codes.Internal, "corrupted mount could not be cleaned up: %v", err)
 		}
 
 		klog.V(2).Infof("Successfully unmounted corrupted mount point %s, will remount", targetPath)
 	}
 
-	klog.V(2).Infof("NodePublishVolume: mounting %s:%s at %s", remote, remotePath, targetPath)
+	return nil
+}
 
-	var loadedSections []string
-	var fsPath string
+// generateConfigData generates rclone config from parameters if needed
+func generateConfigData(pvp *publishVolumeParams) error {
+	if pvp.configData == "" && pvp.remoteType != "" {
+		klog.V(2).Infof("Generating dynmaic rcone config for remote type: %s", pvp.remoteType)
 
-	// Handle configData - supports both single remotes and nested remotes (crypt, alias, chunker, union, etc.)
-	if configData != "" {
-		// Parse ALL sections from configData to support nested remotes
-		allSections, err := parseAllConfigSections(configData)
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "failed to parse configData: %v", err)
-		}
+		// Extract remote params
+		remoteParams := extractRemoteTypeParams(pvp.params, pvp.remoteType)
 
-		klog.V(4).Infof("Parsed %d config sections from configData", len(allSections))
-
-		// Load all sections into rclone's in-memory config storage
-		// This allows nested remotes (crypt->alias->s3) to resolve automatically via fs.NewFs
-		ns.configMu.Lock()
-		for sectionName, sectionData := range allSections {
-			for key, value := range sectionData {
-				config.LoadedData().SetValue(sectionName, key, value)
-			}
-			loadedSections = append(loadedSections, sectionName)
-			klog.V(4).Infof("Loaded config section: %s with %d keys", sectionName, len(sectionData))
-		}
-		ns.configMu.Unlock()
-
-		// Build fsPath using the remote name directly - fs.NewFs will resolve nested remotes
-		if remotePath != "" {
-			fsPath = fmt.Sprintf("%s:%s", remote, remotePath)
-		} else {
-			fsPath = fmt.Sprintf("%s:", remote)
-		}
-
-		klog.V(2).Infof("Using configData with %d sections, resolving remote: %s", len(allSections), fsPath)
-	} else {
-		// Legacy path: create a single in-memory remote using params
-		// This is for backwards compatibility when configData is not provided
-
-		// Merge params for the single remote
-		remoteName := fmt.Sprintf("csi-remote-%s-%d", sanitizeRemoteName(volumeID), time.Now().UnixNano())
-
-		// Convert params to rc.Params for CreateRemote
-		rcParams := make(rc.Params)
-		for k, v := range params {
-			rcParams[k] = v
-		}
-
-		// Create remote using rclone API - thread-safe with mutex
-		ns.configMu.Lock()
-		_, err = config.CreateRemote(ctx, remoteName, remote, rcParams, config.UpdateRemoteOpt{
-			NonInteractive: true,
-			NoObscure:      false,
-		})
-		ns.configMu.Unlock()
-
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to create remote config: %v", err)
-		}
-
-		loadedSections = []string{remoteName}
-		klog.V(2).Infof("Created single remote: %s (type: %s)", remoteName, remote)
-
-		// Build full remote path
-		if remotePath != "" {
-			fsPath = fmt.Sprintf("%s:%s", remoteName, remotePath)
-		} else {
-			fsPath = fmt.Sprintf("%s:", remoteName)
+		if len(remoteParams) > 0 {
+			pvp.configData = generateRecloneConfigFromParams(remoteParams, pvp.remoteType, pvp.remoteName)
+			klog.V(4).Infof("Generated configData: %d bytes", len(pvp.configData))
 		}
 	}
 
-	// Ensure cleanup on failure
-	var mountSuccess bool
-	defer func() {
-		if !mountSuccess && len(loadedSections) > 0 {
-			ns.configMu.Lock()
-			for _, section := range loadedSections {
-				if configData != "" {
-					// For configData mode, delete from in-memory storage
-					config.LoadedData().DeleteSection(section)
-				} else {
-					// For legacy mode, use DeleteRemote
-					config.DeleteRemote(section)
+	if pvp.configData == "" {
+		return status.Error(codes.InvalidArgument, "failed to parse configData")
+	}
+
+	return nil
+}
+
+// loadRcloneConfig loads config into rclone's in-memory storage
+func (ns *NodeServer) loadRcloneConfig(ctx context.Context, pvp *publishVolumeParams) ([]string, error) {
+	var remotes []string
+
+	if pvp.configData == "" {
+		return remotes, nil
+	}
+
+	// Parse ALL remotes from configData to support nested remotes
+	allRemotes, err := parseAllConfigRemotes(pvp.configData)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "failed to parse configData: %v", err)
+	}
+
+	klog.V(4).Infof("Parsed %d remotes from configData", len(allRemotes))
+
+	updateRemoteOpts := config.UpdateRemoteOpt{
+		NonInteractive: true,
+		NoObscure:      false,
+	}
+
+	// Load all remotes into rclone's in-memory config storage
+	ns.configMu.Lock()
+	defer ns.configMu.Unlock()
+
+	for remoteName, remoteData := range allRemotes {
+		for key, value := range remoteData {
+			// Set remote config
+			config.LoadedData().SetValue(remoteName, key, value)
+
+			// Get params for a given remote type
+			if key == "type" && len(pvp.params) > 0 {
+				remoteParams := extractRemoteTypeParams(pvp.params, value)
+
+				if len(remoteParams) > 0 {
+					// Set the remaining values (params)
+					if _, err := config.UpdateRemote(ctx, remoteName, remoteParams, updateRemoteOpts); err != nil {
+						return nil, status.Errorf(codes.Internal, "failed to update remote: %v", err)
+					}
 				}
 			}
-			ns.configMu.Unlock()
-			klog.V(4).Infof("Cleaned up %d config sections after failure", len(loadedSections))
 		}
-	}()
+		remotes = append(remotes, remoteName)
+		klog.V(4).Infof("Loaded config remote: %s with %d keys", remoteName, len(remoteData))
+	}
 
+	return remotes, nil
+}
+
+// buildFsPath constructs the filesystem path for rclone
+func buildFsPath(remoteName, remotePath string) string {
+	if remotePath != "" {
+		return fmt.Sprintf("%s:%s", remoteName, remotePath)
+	}
+	return fmt.Sprintf("%s:", remoteName)
+}
+
+// cleanupConfigRemotes removes loaded remotes from rclone
+func (ns *NodeServer) cleanupConfigRemotes(remotes []string) {
+	if len(remotes) == 0 {
+		return
+	}
+
+	ns.configMu.Lock()
+	defer ns.configMu.Unlock()
+
+	for _, remoteName := range remotes {
+		config.LoadedData().DeleteSection(remoteName)
+	}
+	klog.V(4).Infof("Cleaned up %d remotes", len(remotes))
+}
+
+// createAndMountFilesystem initializes and mounts the rclone filesystem
+func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targetPath string, mountOptions []string, readOnly bool) (*mountlib.MountPoint, context.CancelFunc, error) {
 	// Initialize filesystem
 	rcloneFs, err := fs.NewFs(ctx, fsPath)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to initialize filesystem: %v", err)
+		return nil, nil, status.Errorf(codes.Internal, "failed to initialize filesystem: %v", err)
 	}
 
 	// Create mount options mapper
@@ -320,7 +359,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// Parse mount options and apply them
 	rcloneMountOpts, rcloneVFSOptions, err := mapper.ParseMountOptions(mountOptions)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "failed to parse mount options: %v", err)
+		return nil, nil, status.Errorf(codes.InvalidArgument, "failed to parse mount options: %v", err)
 	}
 
 	// Set read-only if specified in volume capability
@@ -336,7 +375,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// Get mount function
 	mountType, mountFn := mountlib.ResolveMountMethod("")
 	if mountFn == nil {
-		return nil, status.Error(codes.Internal, "no mount method available (FUSE not installed?)")
+		return nil, nil, status.Error(codes.Internal, "no mount method available (FUSE not installed?)")
 	}
 
 	klog.V(4).Infof("Using mount method: %s", mountType)
@@ -351,92 +390,67 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	_, err = mountPoint.Mount()
 	if err != nil {
 		cancel()
-		return nil, status.Errorf(codes.Internal, "failed to mount: %v", err)
+		return nil, nil, status.Errorf(codes.Internal, "failed to mount: %v", err)
 	}
 
-	mountSuccess = true
-
-	// Store mount context
-	ns.setMountContext(targetPath, &mountContext{
-		mountPoint:     mountPoint,
-		remoteName:     remote, // Store original remote name for logging
-		loadedSections: loadedSections,
-		cancel:         cancel,
-	})
-
-	klog.V(2).Infof("Successfully mounted volume %s to %s (remote: %s)", volumeID, targetPath, remote)
-	return &csi.NodePublishVolumeResponse{}, nil
+	return mountPoint, cancel, nil
 }
 
-// NodeUnpublishVolume unmounts the rclone volume using direct stats access
-//
-//nolint:lll
-func (ns *NodeServer) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
-	volumeID := req.GetVolumeId()
-	if len(volumeID) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+// waitForVFSCacheSync waits for VFS cache uploads to complete before unmount
+func waitForVFSCacheSync(mc *mountContext) {
+	if mc == nil || mc.mountPoint == nil {
+		return
 	}
 
-	targetPath := req.GetTargetPath()
-	if len(targetPath) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
-	}
+	klog.V(2).Infof("Waiting for VFS cache sync (remote: %s)", mc.remoteName)
 
-	// Acquire lock for this volume operation
-	lockKey := fmt.Sprintf("%s-%s", volumeID, targetPath)
-	if acquired := ns.Driver.volumeLocks.TryAcquire(lockKey); !acquired {
-		return nil, status.Errorf(codes.Aborted, volumeOperationAlreadyExistsFmt, volumeID)
-	}
-	defer ns.Driver.volumeLocks.Release(lockKey)
+	timeout := time.Now().Add(2 * time.Minute)
+	retryCount := 0
+	maxRetries := 5
 
-	klog.V(2).Infof("NodeUnpublishVolume: unmounting volume %s from %s", volumeID, targetPath)
+	for time.Now().Before(timeout) && retryCount < maxRetries {
+		allClear := true
 
-	// Get mount context
-	mc := ns.getMountContext(targetPath)
-	if mc != nil && mc.mountPoint != nil {
-		// Wait for VFS cache sync with improved error handling
-		klog.V(2).Infof("Waiting for VFS cache sync (remote: %s)", mc.remoteName)
+		// Check VFS cache uploads with improved error handling
+		stats := mc.mountPoint.VFS.Stats()
+		if diskCache, ok := stats["diskCache"].(rc.Params); ok {
+			uploadsInProgress, _ := diskCache["uploadsInProgress"].(int)
+			uploadsQueued, _ := diskCache["uploadsQueued"].(int)
 
-		timeout := time.Now().Add(2 * time.Minute) // Further reduced timeout for better responsiveness
-		retryCount := 0
-		maxRetries := 5
-
-		for time.Now().Before(timeout) && retryCount < maxRetries {
-			allClear := true
-
-			// Check VFS cache uploads with improved error handling
-			stats := mc.mountPoint.VFS.Stats()
-			if diskCache, ok := stats["diskCache"].(rc.Params); ok {
-				uploadsInProgress, _ := diskCache["uploadsInProgress"].(int)
-				uploadsQueued, _ := diskCache["uploadsQueued"].(int)
-
-				if uploadsInProgress > 0 || uploadsQueued > 0 {
-					klog.V(4).Infof("Waiting for VFS cache uploads (in progress: %d, queued: %d, retry: %d/%d)", uploadsInProgress, uploadsQueued, retryCount+1, maxRetries)
-					allClear = false
-				}
-			} else {
-				klog.Warningf("Failed to get VFS cache stats, retry %d/%d", retryCount+1, maxRetries)
+			if uploadsInProgress > 0 || uploadsQueued > 0 {
+				klog.V(4).Infof("Waiting for VFS cache uploads (in progress: %d, queued: %d, retry: %d/%d)", uploadsInProgress, uploadsQueued, retryCount+1, maxRetries)
 				allClear = false
 			}
-
-			if allClear {
-				break
-			}
-
-			retryCount++
-			// Exponential backoff for better performance
-			sleepDuration := time.Duration(retryCount) * 2 * time.Second
-			if sleepDuration > 10*time.Second {
-				sleepDuration = 10 * time.Second
-			}
-			time.Sleep(sleepDuration)
+		} else {
+			klog.Warningf("Failed to get VFS cache stats, retry %d/%d", retryCount+1, maxRetries)
+			allClear = false
 		}
 
-		if retryCount >= maxRetries {
-			klog.Warningf("VFS cache sync timeout after %d retries, proceeding with unmount", maxRetries)
+		if allClear {
+			break
 		}
 
-		klog.V(2).Infof("Cache sync complete, proceeding with unmount")
+		retryCount++
+		// Exponential backoff for better performance
+		sleepDuration := time.Duration(retryCount) * 2 * time.Second
+		if sleepDuration > 10*time.Second {
+			sleepDuration = 10 * time.Second
+		}
+		time.Sleep(sleepDuration)
+	}
+
+	if retryCount >= maxRetries {
+		klog.Warningf("VFS cache sync timeout after %d retries, proceeding with unmount", maxRetries)
+	}
+
+	klog.V(2).Infof("Cache sync complete, proceeding with unmount")
+}
+
+// unmountVolume unmounts the volume and performs cleanup
+func (ns *NodeServer) unmountVolume(mc *mountContext, targetPath string) error {
+	if mc != nil && mc.mountPoint != nil {
+		// Wait for cache sync
+		waitForVFSCacheSync(mc)
 
 		// Unmount using mountPoint's built-in unmount
 		if err := mc.mountPoint.Unmount(); err != nil {
@@ -450,21 +464,16 @@ func (ns *NodeServer) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpubl
 			mc.cancel()
 		}
 
-		// Clean up loaded config sections (for both configData and legacy modes)
-		if len(mc.loadedSections) > 0 {
+		// Clean up loaded remotes
+		if len(mc.remotes) > 0 {
 			ns.configMu.Lock()
-			for _, section := range mc.loadedSections {
-				// Try both methods to ensure cleanup works for all modes
-				config.LoadedData().DeleteSection(section)
-				config.DeleteRemote(section)
+			for _, remoteName := range mc.remotes {
+				config.LoadedData().DeleteSection(remoteName)
 			}
 			ns.configMu.Unlock()
-			klog.V(4).Infof("Deleted %d config sections", len(mc.loadedSections))
+			klog.V(4).Infof("Deleted %d remotes from config", len(mc.remotes))
 		}
 	}
-
-	// Remove mount context
-	ns.deleteMountContext(targetPath)
 
 	// Use k8s mounter as fallback for cleanup
 	klog.V(2).Infof("Performing final unmount cleanup for %s", targetPath)
@@ -478,9 +487,136 @@ func (ns *NodeServer) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpubl
 		klog.V(4).Infof("Using standard cleanup")
 		err = mount.CleanupMountPoint(targetPath, ns.mounter, extensiveMountPointCheck)
 	}
+
+	return err
+}
+
+// NodePublishVolume mounts the rclone volume using direct rclone library integration
+//
+//nolint:lll
+func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+	// Validate request
+	if err := validatePublishVolumeRequest(req); err != nil {
+		return nil, err
+	}
+
+	volumeID := req.GetVolumeId()
+	targetPath := req.GetTargetPath()
+
+	// Acquire lock for this volume operation
+	lockKey := fmt.Sprintf("%s-%s", volumeID, targetPath)
+	if acquired := ns.Driver.volumeLocks.TryAcquire(lockKey); !acquired {
+		return nil, status.Errorf(codes.Aborted, volumeOperationAlreadyExistsFmt, volumeID)
+	}
+	defer ns.Driver.volumeLocks.Release(lockKey)
+
+	// Get mount options from VolumeCapability (CSI standard)
+	readOnly := req.GetReadonly()
+	mountOptions := req.GetVolumeCapability().GetMount().GetMountFlags()
+	if readOnly {
+		mountOptions = append(mountOptions, "ro")
+	}
+
+	// Merge parameters from secrets and volume context
+	params, err := ns.mergeVolumeParameters(req, targetPath)
 	if err != nil {
+		return nil, err
+	}
+
+	// Set rclone configuration flags
+	if err := setRcloneConfigFlags(params); err != nil {
+		return nil, err
+	}
+
+	// Extract and validate required parameters
+	pvp, err := extractPublishParams(params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Prepare target directory and check if already mounted
+	if err := ns.prepareTargetDirectory(targetPath, volumeID); err != nil {
+		if err.Error() == "" {
+			// Already mounted and accessible
+			return &csi.NodePublishVolumeResponse{}, nil
+		}
+		return nil, err
+	}
+
+	klog.V(2).Infof("NodePublishVolume: mounting %s:%s at %s", pvp.remoteName, pvp.remotePath, targetPath)
+
+	// Generate config data if needed
+	if err := generateConfigData(pvp); err != nil {
+		return nil, err
+	}
+
+	// Load rclone config
+	remotes, err := ns.loadRcloneConfig(ctx, pvp)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build filesystem path
+	fsPath := buildFsPath(pvp.remoteName, pvp.remotePath)
+	klog.V(2).Infof("Using configData with %d remotes, resolving remote: %s", len(remotes), fsPath)
+
+	// Ensure cleanup on failure
+	var mountSuccess bool
+	defer func() {
+		if !mountSuccess {
+			ns.cleanupConfigRemotes(remotes)
+		}
+	}()
+
+	// Create and mount the filesystem
+	mountPoint, cancel, err := ns.createAndMountFilesystem(ctx, fsPath, targetPath, mountOptions, readOnly)
+	if err != nil {
+		return nil, err
+	}
+
+	mountSuccess = true
+
+	// Store mount context
+	ns.setMountContext(targetPath, &mountContext{
+		mountPoint: mountPoint,
+		remoteName: pvp.remoteName,
+		remotes:    remotes,
+		cancel:     cancel,
+	})
+
+	klog.V(2).Infof("Successfully mounted volume %s to %s (remote: %s)", volumeID, targetPath, pvp.remoteName)
+	return &csi.NodePublishVolumeResponse{}, nil
+}
+
+// NodeUnpublishVolume unmounts the rclone volume using direct stats access
+//
+//nolint:lll
+func (ns *NodeServer) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+	// Validate request
+	if err := validateUnpublishVolumeRequest(req); err != nil {
+		return nil, err
+	}
+
+	volumeID := req.GetVolumeId()
+	targetPath := req.GetTargetPath()
+
+	// Acquire lock for this volume operation
+	lockKey := fmt.Sprintf("%s-%s", volumeID, targetPath)
+	if acquired := ns.Driver.volumeLocks.TryAcquire(lockKey); !acquired {
+		return nil, status.Errorf(codes.Aborted, volumeOperationAlreadyExistsFmt, volumeID)
+	}
+	defer ns.Driver.volumeLocks.Release(lockKey)
+
+	klog.V(2).Infof("NodeUnpublishVolume: unmounting volume %s from %s", volumeID, targetPath)
+
+	// Get mount context and unmount
+	mc := ns.getMountContext(targetPath)
+	if err := ns.unmountVolume(mc, targetPath); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to unmount target %q: %v", targetPath, err)
 	}
+
+	// Remove mount context
+	ns.deleteMountContext(targetPath)
 
 	klog.V(2).Infof("Successfully unmounted volume %s from %s", volumeID, targetPath)
 	return &csi.NodeUnpublishVolumeResponse{}, nil
@@ -528,57 +664,4 @@ func (ns *NodeServer) NodeGetVolumeStats(_ context.Context, _ *csi.NodeGetVolume
 //nolint:lll
 func (ns *NodeServer) NodeExpandVolume(_ context.Context, _ *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
-}
-
-// sanitizeRemoteName sanitizes a volume ID to be a valid remote name
-func sanitizeRemoteName(volumeID string) string {
-	// Replace invalid characters with underscore
-	sanitized := strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
-			return r
-		}
-		return '_'
-	}, volumeID)
-
-	// Limit length
-	if len(sanitized) > 32 {
-		sanitized = sanitized[:32]
-	}
-
-	return sanitized
-}
-
-// parseAllConfigSections parses rclone config data (INI format) and extracts all sections
-// This supports nested remotes (crypt, alias, chunker, union, etc.) by loading the entire config
-func parseAllConfigSections(configData string) (map[string]map[string]string, error) {
-	// Parse INI-style config data using goconfig
-	gc, err := goconfig.LoadFromReader(bytes.NewReader([]byte(configData)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse config data: %w", err)
-	}
-
-	allSections := make(map[string]map[string]string)
-
-	// Iterate through all sections in the config
-	for _, sectionName := range gc.GetSectionList() {
-		// Skip the default section
-		if sectionName == "DEFAULT" {
-			continue
-		}
-
-		sectionData := make(map[string]string)
-		keys := gc.GetKeyList(sectionName)
-
-		// Extract all key-value pairs for this section
-		for _, key := range keys {
-			value, err := gc.GetValue(sectionName, key)
-			if err == nil {
-				sectionData[key] = value
-			}
-		}
-
-		allSections[sectionName] = sectionData
-	}
-
-	return allSections, nil
 }
