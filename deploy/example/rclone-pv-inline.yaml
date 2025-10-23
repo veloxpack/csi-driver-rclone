@@ -1,0 +1,75 @@
+---
+# Rclone CSI Driver - PersistentVolume Example
+# This example demonstrates how to create a PersistentVolume with inline rclone configuration
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  annotations:
+    pv.kubernetes.io/provisioned-by: rclone.csi.veloxpack.io
+  name: pv-rclone-example
+  namespace: default
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany  # Rclone supports ReadWriteMany for cloud storage
+  persistentVolumeReclaimPolicy: Delete
+  mountOptions:
+    - debug-fuse
+  csi:
+    driver: rclone.csi.veloxpack.io
+    volumeHandle: rclone-pv-example-volume
+    volumeAttributes:
+      remote: "minio-sample"
+      remotePath: "mybucket"
+      # Inline rclone configuration for MinIO S3-compatible storage
+      remoteType: "s3"
+      s3-provider: Minio
+      s3-endpoint: http://minio.default.svc.cluster.local:9000
+      s3-access-key-id: admin
+      s3-secret-access-key: "password"
+---
+# PersistentVolumeClaim that references the above PV
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pvc-rclone-example
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  volumeName: pv-rclone-example
+  storageClassName: ""  # Empty string means no dynamic provisioning
+---
+# Example application pod using the rclone volume
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rclone-test-app
+  namespace: default
+spec:
+  containers:
+  - name: test
+    image: busybox
+    command:
+    - sleep
+    - "3600"
+    volumeMounts:
+    - name: rclone-storage
+      mountPath: /data
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+  volumes:
+  - name: rclone-storage
+    persistentVolumeClaim:
+      claimName: pvc-rclone-example
+
+# kubectl apply -f rclone-pv-inline.yaml
+# kubectl exec -it rclone-test-app -- sh -c 'echo "Hello from rclone!" > /data/test.txt'
+# kubectl exec rclone-test-app -- cat /data/test.txt
+# kubectl delete -f rclone-pv-inline.yaml
