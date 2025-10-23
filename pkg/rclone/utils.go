@@ -212,9 +212,9 @@ func removePrefixCaseInsensitive(s, prefix string) string {
 	return s
 }
 
-// parseAllConfigSections parses rclone config data (INI format) and extracts all sections
+// parseAllConfigRemotes parses rclone config data (INI format) and extracts all sections
 // This supports nested remotes (crypt, alias, chunker, union, etc.) by loading the entire config
-func parseAllConfigSections(configData string) (map[string]map[string]string, error) {
+func parseAllConfigRemotes(configData string) (map[string]map[string]string, error) {
 	// Parse INI-style config data using goconfig
 	gc, err := goconfig.LoadFromReader(bytes.NewReader([]byte(configData)))
 	if err != nil {
