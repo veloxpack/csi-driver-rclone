@@ -17,12 +17,15 @@ limitations under the License.
 package rclone
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
+	"github.com/rclone/rclone/fs/rc"
+	"github.com/unknwon/goconfig"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -207,4 +210,116 @@ func removePrefixCaseInsensitive(s, prefix string) string {
 	}
 
 	return s
+}
+
+// parseAllConfigSections parses rclone config data (INI format) and extracts all sections
+// This supports nested remotes (crypt, alias, chunker, union, etc.) by loading the entire config
+func parseAllConfigSections(configData string) (map[string]map[string]string, error) {
+	// Parse INI-style config data using goconfig
+	gc, err := goconfig.LoadFromReader(bytes.NewReader([]byte(configData)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse config data: %w", err)
+	}
+
+	allSections := make(map[string]map[string]string)
+
+	// Iterate through all sections in the config
+	for _, sectionName := range gc.GetSectionList() {
+		// Skip the default section
+		if sectionName == "DEFAULT" {
+			continue
+		}
+
+		sectionData := make(map[string]string)
+		keys := gc.GetKeyList(sectionName)
+
+		// Extract all key-value pairs for this section
+		for _, key := range keys {
+			value, err := gc.GetValue(sectionName, key)
+			if err == nil {
+				sectionData[key] = value
+			}
+		}
+
+		allSections[sectionName] = sectionData
+	}
+
+	return allSections, nil
+}
+
+// extractRemoteTypeParams filters and returns parameters for a given remote type.
+//
+// It scans through the given `params` map and collects only the key–value pairs
+// where the key starts with the specified `remoteType` prefix (e.g., "s3", "b2").
+// The matching keys are sanitized with `sanitizeFlag` before being added to the
+// resulting `rc.Params` map.
+//
+// Example:
+//
+//	params := map[string]string{
+//		"s3_bucket": "my-bucket",
+//		"s3_region": "us-east-1",
+//		"b2_key":    "abcd1234",
+//	}
+//
+//	rcParams := getRemoteTypeParams(params, "s3")
+//
+//	// rcParams will contain:
+//	// {
+//	//   "bucket": "mybucket",
+//	//   "region": "us-east-1",
+//	// }
+//
+// Note: The `sanitizeFlag` function is expected to remove the prefix and clean
+// the key name (e.g., turning "s3_bucket" into "bucket").
+func extractRemoteTypeParams(params map[string]string, remoteType string) rc.Params {
+	rcParams := make(rc.Params)
+
+	for k, v := range params {
+		if strings.HasPrefix(strings.ToLower(k), strings.ToLower(remoteType)) {
+			delete(params, k)
+			// Remove the remote type prefix
+			k = sanitizeFlag(remoteType, k)
+			rcParams[k] = v
+		}
+	}
+
+	return rcParams
+}
+
+// generateRecloneConfigFromParams builds and returns an INI-formatted string
+// given a section header and key-value pairs.
+//
+// Example:
+//
+// input:
+//
+//	header = "minio-sample"
+//	params = map[string]string{
+//	    "type": "s3",
+//	    "provider": "Minio",
+//	    "endpoint": "http://localhost:9000",
+//	}
+//
+// output:
+//
+//	[minio-sample]
+//	type = s3
+//	provider = Minio
+//	endpoint = http://localhost:9000
+func generateRecloneConfigFromParams(params rc.Params, remoteType, remoteName string) string {
+	var sb strings.Builder
+
+	// Write section header
+	sb.WriteString(fmt.Sprintf("[%s]\n", remoteName))
+
+	// Add backend type
+	sb.WriteString(fmt.Sprintf("%s = %s\n", "type", remoteType))
+
+	// Write key-value pairs
+	for key, value := range params {
+		sb.WriteString(fmt.Sprintf("%s = %s\n", key, value))
+	}
+
+	return sb.String()
 }

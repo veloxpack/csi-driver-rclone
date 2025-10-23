@@ -17,12 +17,10 @@ limitations under the License.
 package rclone
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -30,8 +28,7 @@ import (
 	"github.com/rclone/rclone/cmd/mountlib"
 	"github.com/rclone/rclone/fs"
 	"github.com/rclone/rclone/fs/config"
-	"github.com/rclone/rclone/fs/rc"
-	"github.com/unknwon/goconfig" //nolint:misspell // Don't include misspell when running golangci-lint - unknwon is the package author's username
+	"github.com/rclone/rclone/fs/rc" //nolint:misspell // Don't include misspell when running golangci-lint - unknwon is the package author's username
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
@@ -54,7 +51,8 @@ import (
 )
 
 const (
-	paramCacheDir = "cache-dir"
+	paramCacheDir    = "cache-dir"
+	paramBackendType = "remoteType"
 )
 
 // mountContext stores context information for each mount with direct rclone objects
@@ -157,24 +155,24 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 
 	// Extract reserved parameters
-	remote := params[paramRemote]
+	remoteName := params[paramRemote]
 	remotePath := params[paramRemotePath]
 	configData := params[paramConfigData]
+	remoteType := params[paramBackendType]
 
-	if remote == "" {
+	if remoteName == "" {
 		return nil, status.Error(codes.InvalidArgument, "remote is required (provide via volumeAttributes or secrets)")
+	}
+
+	if configData == "" && remoteType == "" {
+		return nil, status.Error(codes.InvalidArgument, "either configData or remoteType must be provided")
 	}
 
 	// Remove reserved parameters from params, leaving only backend-specific config
 	delete(params, paramRemote)
 	delete(params, paramRemotePath)
 	delete(params, paramConfigData)
-
-	// Normalize parameter keys by removing remote prefix (e.g., "s3-endpoint" -> "endpoint")
-	for k, v := range params {
-		k = sanitizeFlag(remote, k)
-		params[k] = v
-	}
+	delete(params, paramBackendType)
 
 	// Create target directory if it doesn't exist
 	notMnt, err := ns.mounter.IsLikelyNotMountPoint(targetPath)
@@ -218,10 +216,32 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		klog.V(2).Infof("Successfully unmounted corrupted mount point %s, will remount", targetPath)
 	}
 
-	klog.V(2).Infof("NodePublishVolume: mounting %s:%s at %s", remote, remotePath, targetPath)
+	klog.V(2).Infof("NodePublishVolume: mounting %s:%s at %s", remoteName, remotePath, targetPath)
 
 	var loadedSections []string
 	var fsPath string
+
+	updateRemoteOpts := config.UpdateRemoteOpt{
+		NonInteractive: true,
+		NoObscure:      false,
+	}
+
+	// Generate dynamic rclone config
+	if configData == "" && remoteType != "" {
+		klog.V(2).Infof("Generating dynmaic rcone config for remote type: %s", remoteType)
+
+		// Extract remote params
+		remoteParams := extractRemoteTypeParams(params, remoteType)
+
+		if len(remoteParams) > 0 {
+			configData = generateRecloneConfigFromParams(remoteParams, remoteType, remoteName)
+			klog.V(4).Infof("Generated configData: %d bytes", len(configData))
+		}
+	}
+
+	if configData == "" {
+		return nil, status.Error(codes.InvalidArgument, "failed to parse configData")
+	}
 
 	// Handle configData - supports both single remotes and nested remotes (crypt, alias, chunker, union, etc.)
 	if configData != "" {
@@ -238,7 +258,18 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		ns.configMu.Lock()
 		for sectionName, sectionData := range allSections {
 			for key, value := range sectionData {
+				// Set backend config
 				config.LoadedData().SetValue(sectionName, key, value)
+
+				// Get params for a given backend type
+				if key == "type" && len(params) > 0 {
+					remoteParams := extractRemoteTypeParams(params, value)
+
+					if len(remoteParams) > 0 {
+						// Set the remaining values (params)
+						config.UpdateRemote(ctx, sectionName, remoteParams, updateRemoteOpts)
+					}
+				}
 			}
 			loadedSections = append(loadedSections, sectionName)
 			klog.V(4).Infof("Loaded config section: %s with %d keys", sectionName, len(sectionData))
@@ -247,46 +278,12 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 		// Build fsPath using the remote name directly - fs.NewFs will resolve nested remotes
 		if remotePath != "" {
-			fsPath = fmt.Sprintf("%s:%s", remote, remotePath)
-		} else {
-			fsPath = fmt.Sprintf("%s:", remote)
-		}
-
-		klog.V(2).Infof("Using configData with %d sections, resolving remote: %s", len(allSections), fsPath)
-	} else {
-		// Legacy path: create a single in-memory remote using params
-		// This is for backwards compatibility when configData is not provided
-
-		// Merge params for the single remote
-		remoteName := fmt.Sprintf("csi-remote-%s-%d", sanitizeRemoteName(volumeID), time.Now().UnixNano())
-
-		// Convert params to rc.Params for CreateRemote
-		rcParams := make(rc.Params)
-		for k, v := range params {
-			rcParams[k] = v
-		}
-
-		// Create remote using rclone API - thread-safe with mutex
-		ns.configMu.Lock()
-		_, err = config.CreateRemote(ctx, remoteName, remote, rcParams, config.UpdateRemoteOpt{
-			NonInteractive: true,
-			NoObscure:      false,
-		})
-		ns.configMu.Unlock()
-
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to create remote config: %v", err)
-		}
-
-		loadedSections = []string{remoteName}
-		klog.V(2).Infof("Created single remote: %s (type: %s)", remoteName, remote)
-
-		// Build full remote path
-		if remotePath != "" {
 			fsPath = fmt.Sprintf("%s:%s", remoteName, remotePath)
 		} else {
 			fsPath = fmt.Sprintf("%s:", remoteName)
 		}
+
+		klog.V(2).Infof("Using configData with %d sections, resolving remote: %s", len(allSections), fsPath)
 	}
 
 	// Ensure cleanup on failure
@@ -295,13 +292,8 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		if !mountSuccess && len(loadedSections) > 0 {
 			ns.configMu.Lock()
 			for _, section := range loadedSections {
-				if configData != "" {
-					// For configData mode, delete from in-memory storage
-					config.LoadedData().DeleteSection(section)
-				} else {
-					// For legacy mode, use DeleteRemote
-					config.DeleteRemote(section)
-				}
+				// For configData mode, delete from in-memory storage
+				config.LoadedData().DeleteSection(section)
 			}
 			ns.configMu.Unlock()
 			klog.V(4).Infof("Cleaned up %d config sections after failure", len(loadedSections))
@@ -359,12 +351,12 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// Store mount context
 	ns.setMountContext(targetPath, &mountContext{
 		mountPoint:     mountPoint,
-		remoteName:     remote, // Store original remote name for logging
+		remoteName:     remoteName,
 		loadedSections: loadedSections,
 		cancel:         cancel,
 	})
 
-	klog.V(2).Infof("Successfully mounted volume %s to %s (remote: %s)", volumeID, targetPath, remote)
+	klog.V(2).Infof("Successfully mounted volume %s to %s (remote: %s)", volumeID, targetPath, remoteName)
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -528,57 +520,4 @@ func (ns *NodeServer) NodeGetVolumeStats(_ context.Context, _ *csi.NodeGetVolume
 //nolint:lll
 func (ns *NodeServer) NodeExpandVolume(_ context.Context, _ *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
-}
-
-// sanitizeRemoteName sanitizes a volume ID to be a valid remote name
-func sanitizeRemoteName(volumeID string) string {
-	// Replace invalid characters with underscore
-	sanitized := strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
-			return r
-		}
-		return '_'
-	}, volumeID)
-
-	// Limit length
-	if len(sanitized) > 32 {
-		sanitized = sanitized[:32]
-	}
-
-	return sanitized
-}
-
-// parseAllConfigSections parses rclone config data (INI format) and extracts all sections
-// This supports nested remotes (crypt, alias, chunker, union, etc.) by loading the entire config
-func parseAllConfigSections(configData string) (map[string]map[string]string, error) {
-	// Parse INI-style config data using goconfig
-	gc, err := goconfig.LoadFromReader(bytes.NewReader([]byte(configData)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse config data: %w", err)
-	}
-
-	allSections := make(map[string]map[string]string)
-
-	// Iterate through all sections in the config
-	for _, sectionName := range gc.GetSectionList() {
-		// Skip the default section
-		if sectionName == "DEFAULT" {
-			continue
-		}
-
-		sectionData := make(map[string]string)
-		keys := gc.GetKeyList(sectionName)
-
-		// Extract all key-value pairs for this section
-		for _, key := range keys {
-			value, err := gc.GetValue(sectionName, key)
-			if err == nil {
-				sectionData[key] = value
-			}
-		}
-
-		allSections[sectionName] = sectionData
-	}
-
-	return allSections, nil
 }
