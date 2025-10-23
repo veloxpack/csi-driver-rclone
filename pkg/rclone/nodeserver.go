@@ -148,8 +148,6 @@ func setRcloneConfigFlags(params map[string]string) error {
 		klog.V(4).Infof("Set rclone temp directory to: %s", tempDir)
 	}
 
-	// ci := fs.GetConfig(context.Background())
-	// window := int64(ci.BufferSize)
 	return nil
 }
 
