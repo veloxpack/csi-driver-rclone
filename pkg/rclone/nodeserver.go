@@ -41,10 +41,11 @@ import (
 )
 
 const (
-	paramCacheDir    = "cache-dir"
-	paramTmpDir      = "temp-dir"
-	paramMountType   = "mount_type"
-	paramBackendType = "remoteType"
+	paramCacheDir       = "cache-dir"
+	paramTmpDir         = "temp-dir"
+	paramMountType      = "mount_type"
+	paramBackendType    = "remoteType"
+	paramBackendTypeKey = "type"
 )
 
 // reservedParams contains parameter names that should not be passed to rclone backend
@@ -328,7 +329,7 @@ func (ns *NodeServer) loadRcloneConfig(ctx context.Context, pvp *publishVolumePa
 			config.LoadedData().SetValue(remoteName, key, value)
 
 			// Get params for a given remote type
-			if key == "type" && len(pvp.params) > 0 {
+			if key == paramBackendTypeKey && len(pvp.params) > 0 {
 				remoteParams := extractRemoteTypeParams(pvp.params, value)
 
 				if len(remoteParams) > 0 {
