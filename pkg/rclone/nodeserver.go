@@ -43,6 +43,7 @@ import (
 const (
 	paramCacheDir    = "cache-dir"
 	paramTmpDir      = "temp-dir"
+	paramMountType   = "mount_type"
 	paramBackendType = "remoteType"
 )
 
@@ -52,8 +53,6 @@ var reservedParams = map[string]bool{
 	paramRemotePath:  true,
 	paramConfigData:  true,
 	paramBackendType: true,
-	paramCacheDir:    true,
-	paramTmpDir:      true,
 }
 
 // mountContext stores context information for each mount with direct rclone objects
@@ -404,10 +403,10 @@ func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targ
 		mountOpts.DeviceName = fsPath
 	}
 
-	// Get mount function
-	mountType, mountFn := mountlib.ResolveMountMethod("")
-	if mountFn == nil {
-		return nil, nil, status.Error(codes.Internal, "no mount method available (FUSE not installed?)")
+	// Get mount function with enhanced resolution
+	mountType, mountFn, err := resolveMountMethod(opts)
+	if err != nil {
+		return nil, nil, status.Errorf(codes.InvalidArgument, "mount method resolution failed: %v", err)
 	}
 
 	klog.V(4).Infof("Using mount method: %s", mountType)
@@ -568,6 +567,33 @@ func extractVFSOptions(params map[string]string) (*vfscommon.Options, error) {
 	}
 
 	return vfsOpts, nil
+}
+
+// resolveMountMethod resolves the mount method for the current platform.
+// It supports user-specified mount methods via the "mount_type" parameter and falls back
+// to rclone's default mount method resolution.
+//
+// If user specifies a mount type, it tries that first. If not available, it returns an error.
+// If not specified, it falls back to rclone's default mount method resolution.
+func resolveMountMethod(params map[string]string) (string, mountlib.MountFn, error) {
+	// Check if user specified a mount type
+	if mountType, ok := params[paramMountType]; ok {
+		klog.V(4).Infof("Specified mount type: %s", mountType)
+		// Try the specified mount type first
+		if resolvedType, mountFn := mountlib.ResolveMountMethod(mountType); mountFn != nil {
+			return resolvedType, mountFn, nil
+		}
+		return "", nil, fmt.Errorf("specified mount type '%s' not available", mountType)
+	}
+
+	// Fallback to rclone's default resolution
+	mountType, mountFn := mountlib.ResolveMountMethod("")
+	if mountFn != nil {
+		klog.V(4).Infof("Using rclone default mount method: %s", mountType)
+		return mountType, mountFn, nil
+	}
+
+	return "", nil, fmt.Errorf("no mount methods available")
 }
 
 // extractMountOptions extracts and configures mount options from parameters.
