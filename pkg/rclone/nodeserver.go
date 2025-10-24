@@ -58,10 +58,12 @@ var reservedParams = map[string]bool{
 
 // mountContext stores context information for each mount with direct rclone objects
 type mountContext struct {
+	context.Context
 	mountPoint *mountlib.MountPoint // Direct access to rclone mount point
 	remoteName string               // Created remote name (for backwards compatibility)
 	remotes    []string             // Remotes loaded for nested remotes
 	cancel     context.CancelFunc   // Context cancellation for VFS goroutines
+	ctx        context.Context      // Context for mount goroutines
 }
 
 // NodeServer implements the CSI Node service
@@ -136,7 +138,7 @@ type publishVolumeParams struct {
 }
 
 // setRcloneConfigFlags sets global rclone configuration flags
-func setRcloneConfigFlags(params map[string]string) error {
+func setRcloneConfigFlags(ctx context.Context, ci *fs.ConfigInfo, params map[string]string) error {
 	// Set cache directory if provided
 	if cacheDir, ok := params[paramCacheDir]; ok {
 		if err := config.SetCacheDir(cacheDir); err != nil {
@@ -154,7 +156,6 @@ func setRcloneConfigFlags(params map[string]string) error {
 	}
 
 	// Get Rclone config
-	ci := fs.GetConfig(context.TODO())
 	configMap := configmap.Simple{}
 
 	// Set all golbal
@@ -171,10 +172,9 @@ func setRcloneConfigFlags(params map[string]string) error {
 	}
 
 	// CRITICAL: Call Reload to make changes take effect
-	if err := ci.Reload(context.TODO()); err != nil {
+	if err := ci.Reload(ctx); err != nil {
 		return fmt.Errorf("failed to reload config changes: %v", err)
 	}
-
 	return nil
 }
 
@@ -371,32 +371,40 @@ func (ns *NodeServer) cleanupConfigRemotes(remotes []string) {
 }
 
 // createAndMountFilesystem initializes and mounts the rclone filesystem
-func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targetPath string, mountOptions []string, params map[string]string) (*mountlib.MountPoint, context.CancelFunc, error) {
+func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targetPath string, mountOptions []string, params map[string]string) (*mountlib.MountPoint, context.Context, context.CancelFunc, error) {
+	// Create per-mount context with isolated config
+	ctx, ci := fs.AddConfig(ctx)
+
 	// Initialize filesystem
 	rcloneFs, err := fs.NewFs(ctx, fsPath)
 	if err != nil {
-		return nil, nil, status.Errorf(codes.Internal, "failed to initialize filesystem: %v", err)
+		return nil, nil, nil, status.Errorf(codes.Internal, "failed to initialize filesystem: %v", err)
 	}
 
 	// Extract volume mount options
 	volumeMountOpts, err := extractVolumeMountOptions(mountOptions)
 	if err != nil {
-		return nil, nil, status.Errorf(codes.Internal, "failed to parse volume mount options: %v", err)
+		return nil, nil, nil, status.Errorf(codes.Internal, "failed to parse volume mount options: %v", err)
 	}
 
 	// Merge both params and mount options
 	opts := mergeCopy(params, volumeMountOpts)
 
+	// Set rclone configuration flags
+	if err := setRcloneConfigFlags(ctx, ci, opts); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// Extract Rclone mount options
 	mountOpts, err := extractMountOptions(opts)
 	if err != nil {
-		return nil, nil, status.Errorf(codes.Internal, "failed to parse mount options: %v", err)
+		return nil, nil, nil, status.Errorf(codes.Internal, "failed to parse mount options: %v", err)
 	}
 
 	// Extract Rclone VFS options
 	vfsOpts, err := extractVFSOptions(opts)
 	if err != nil {
-		return nil, nil, status.Errorf(codes.Internal, "failed to parse VFS options: %v", err)
+		return nil, nil, nil, status.Errorf(codes.Internal, "failed to parse VFS options: %v", err)
 	}
 
 	// Set device name if not already set
@@ -407,7 +415,7 @@ func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targ
 	// Get mount function with enhanced resolution
 	mountType, mountFn, err := resolveMountMethod(opts)
 	if err != nil {
-		return nil, nil, status.Errorf(codes.InvalidArgument, "mount method resolution failed: %v", err)
+		return nil, nil, nil, status.Errorf(codes.InvalidArgument, "mount method resolution failed: %v", err)
 	}
 
 	klog.V(4).Infof("Using mount method: %s", mountType)
@@ -416,21 +424,21 @@ func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targ
 	mountPoint := mountlib.NewMountPoint(mountFn, targetPath, rcloneFs, mountOpts, vfsOpts)
 
 	// Create context with cancellation for VFS goroutines
-	_, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(ctx)
 
 	// Mount the filesystem
 	mountDaemon, err := mountPoint.Mount()
 	if err != nil {
 		cancel()
-		return nil, nil, status.Errorf(codes.Internal, "failed to mount: %v", err)
+		return nil, nil, nil, status.Errorf(codes.Internal, "failed to mount: %v", err)
 	}
 
 	// Handle rclone daemon if needed
 	if err := handleRcloneDaemon(mountPoint, mountDaemon, mountOpts, cancel); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return mountPoint, cancel, nil
+	return mountPoint, ctx, cancel, nil
 }
 
 // handleRcloneDaemon manages rclone daemon lifecycle for mount operations.
@@ -753,12 +761,6 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if err != nil {
 		return nil, err
 	}
-
-	// Set rclone configuration flags
-	if err := setRcloneConfigFlags(params); err != nil {
-		return nil, err
-	}
-
 	// Extract and validate required parameters
 	pvp, err := extractPublishParams(params)
 	if err != nil {
@@ -800,7 +802,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}()
 
 	// Create and mount the filesystem
-	mountPoint, cancel, err := ns.createAndMountFilesystem(ctx, fsPath, targetPath, mountOptions, pvp.params)
+	mountPoint, ctx, cancel, err := ns.createAndMountFilesystem(ctx, fsPath, targetPath, mountOptions, pvp.params)
 	if err != nil {
 		return nil, err
 	}
@@ -813,6 +815,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		remoteName: pvp.remoteName,
 		remotes:    remotes,
 		cancel:     cancel,
+		ctx:        ctx,
 	})
 
 	klog.V(2).Infof("Successfully mounted volume %s to %s (remote: %s)", volumeID, targetPath, pvp.remoteName)
