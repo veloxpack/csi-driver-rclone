@@ -416,7 +416,7 @@ func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targ
 	mountPoint := mountlib.NewMountPoint(mountFn, targetPath, rcloneFs, mountOpts, vfsOpts)
 
 	// Create context with cancellation for VFS goroutines
-	_, cancel := context.WithCancel(context.Background())
+	_, cancel := context.WithCancel(context.TODO())
 
 	// Mount the filesystem
 	mountDaemon, err := mountPoint.Mount()
