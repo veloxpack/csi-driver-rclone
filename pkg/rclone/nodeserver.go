@@ -32,6 +32,7 @@ import (
 	"github.com/rclone/rclone/fs/config/configmap"
 	"github.com/rclone/rclone/fs/config/configstruct"
 	"github.com/rclone/rclone/fs/rc" //nolint:misspell // Don't include misspell when running golangci-lint - unknwon is the package author's username
+	"github.com/rclone/rclone/lib/atexit"
 	"github.com/rclone/rclone/vfs/vfscommon"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -418,13 +419,58 @@ func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targ
 	_, cancel := context.WithCancel(context.Background())
 
 	// Mount the filesystem
-	_, err = mountPoint.Mount()
+	mountDaemon, err := mountPoint.Mount()
 	if err != nil {
 		cancel()
 		return nil, nil, status.Errorf(codes.Internal, "failed to mount: %v", err)
 	}
 
+	// Handle rclone daemon if needed
+	if err := handleRcloneDaemon(mountPoint, mountDaemon, mountOpts, cancel); err != nil {
+		return nil, nil, err
+	}
+
 	return mountPoint, cancel, nil
+}
+
+// handleRcloneDaemon manages rclone daemon lifecycle for mount operations.
+// It handles daemon process management, timeout waiting, and proper cleanup
+// when daemon mode is enabled in mount options.
+func handleRcloneDaemon(mountPoint *mountlib.MountPoint, mountDaemon *os.Process, mountOpts *mountlib.Options, cancel context.CancelFunc) error {
+	if mountOpts.Daemon {
+		config.PassConfigKeyForDaemonization = true
+	}
+
+	if mountOpts.DaemonWait <= 0 {
+		// No daemon wait configured, nothing to do
+		return nil
+	}
+
+	// Wait for mountDaemon, if any...
+	killOnce := sync.Once{}
+	killDaemon := func(reason string) {
+		killOnce.Do(func() {
+			if err := mountDaemon.Signal(os.Interrupt); err != nil {
+				klog.Errorf("%s. Failed to terminate daemon pid %d: %v", reason, mountDaemon.Pid, err)
+				return
+			}
+			klog.V(2).Infof("%s. Terminating daemon pid %d", reason, mountDaemon.Pid)
+		})
+	}
+
+	handle := atexit.Register(func() {
+		killDaemon("Got interrupt")
+	})
+
+	defer atexit.Unregister(handle)
+
+	if err := mountlib.WaitMountReady(mountPoint.MountPoint, time.Duration(mountOpts.DaemonWait), mountDaemon); err != nil {
+		killDaemon("Daemon timed out")
+		cancel()
+		return status.Errorf(codes.Internal, "failed to wait for mount: %v", err)
+	}
+
+	return nil
 }
 
 // waitForVFSCacheSync waits for VFS cache uploads to complete before unmount
