@@ -433,6 +433,16 @@ func waitForVFSCacheSync(mc *mountContext) {
 		return
 	}
 
+	// Get VFS stats to check if cache is enabled
+	stats := mc.mountPoint.VFS.Stats()
+
+	// Check if diskCache is present (only when cache mode > off)
+	_, hasDiskCache := stats["diskCache"].(rc.Params)
+	if !hasDiskCache {
+		klog.V(4).Infof("VFS cache mode is off, no cache sync needed")
+		return
+	}
+
 	klog.V(2).Infof("Waiting for VFS cache sync (remote: %s)", mc.remoteName)
 
 	timeout := time.Now().Add(2 * time.Minute)
@@ -442,7 +452,6 @@ func waitForVFSCacheSync(mc *mountContext) {
 	for time.Now().Before(timeout) && retryCount < maxRetries {
 		allClear := true
 
-		// Check VFS cache uploads with improved error handling
 		stats := mc.mountPoint.VFS.Stats()
 		if diskCache, ok := stats["diskCache"].(rc.Params); ok {
 			uploadsInProgress, _ := diskCache["uploadsInProgress"].(int)
