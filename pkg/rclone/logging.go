@@ -136,7 +136,7 @@ func InitRcloneLogging() {
 
 	// Also set the rclone log level to match our verbosity
 	// Start with INFO level - can be adjusted via klog flags
-	fs.GetConfig(context.Background()).LogLevel = fs.LogLevelInfo
+	fs.GetConfig(context.TODO()).LogLevel = fs.LogLevelInfo
 
 	klog.V(2).Info("Rclone logging initialized - logs will be redirected to klog")
 }

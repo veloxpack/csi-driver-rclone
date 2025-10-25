@@ -151,7 +151,7 @@ func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, h
 
 const (
 	// flagPrefixSeparator is the character that separates remote name from flag name
-	flagPrefixSeparator = "-"
+	flagPrefixSeparator = "_"
 	// flagLongPrefix is the prefix used for long command-line options
 	flagLongPrefix = "--"
 	// flagHyphen is the character to be replaced with underscore
@@ -180,7 +180,35 @@ func sanitizeFlag(remote, key string) string {
 	if remote != "" {
 		// Create the prefix pattern (remote + separator) and remove it case-insensitively
 		prefix := fmt.Sprintf("%s%s", remote, flagPrefixSeparator)
+		key = normalizeRcloneFlag(key)
 		key = removePrefixCaseInsensitive(key, prefix)
+	}
+
+	return normalizeRcloneFlag(key)
+}
+
+// normalizeRcloneFlag normalizes rclone flag names by standardizing their format.
+// It performs several transformations to ensure consistent flag naming across
+// different input formats and makes them compatible with rclone's internal
+// configuration system.
+//
+// Transformations applied:
+//  1. Remove leading "--" prefix (used for long command-line options)
+//  2. Replace all hyphens with underscores for consistency
+//  3. Convert to lowercase for case-insensitive matching
+//
+// This function is used to ensure that flag names from various sources
+// (command line, config files, volume parameters) are normalized to a
+// consistent format that rclone can understand.
+//
+// Example transformations:
+//
+//	"--cache-mode" -> "cache_mode"
+//	"Cache-Mode" -> "cache_mode"
+//	"vfs-read-ahead" -> "vfs_read_ahead"
+func normalizeRcloneFlag(key string) string {
+	if key == "" {
+		return key
 	}
 
 	// Remove any leading "--" prefix (used for long command-line options)
@@ -277,7 +305,6 @@ func extractRemoteTypeParams(params map[string]string, remoteType string) rc.Par
 
 	for k, v := range params {
 		if strings.HasPrefix(strings.ToLower(k), strings.ToLower(remoteType)) {
-			delete(params, k)
 			// Remove the remote type prefix
 			k = sanitizeFlag(remoteType, k)
 			rcParams[k] = v
@@ -322,4 +349,27 @@ func generateRecloneConfigFromParams(params rc.Params, remoteType, remoteName st
 	}
 
 	return sb.String()
+}
+
+// mergeCopy returns a new map containing all key-value pairs
+// from both m1 and m2. Neither input map is modified.
+//
+// If the same key exists in both maps, the value from m2
+// overwrites the value from m1.
+//
+// Example:
+//
+//	m1 := map[string]int{"a": 1, "b": 2}
+//	m2 := map[string]int{"b": 3, "c": 4}
+//	merged := MergeCopy(m1, m2)
+//	// merged == map[string]int{"a":1, "b":3, "c":4}
+func mergeCopy[K comparable, V any](m1, m2 map[K]V) map[K]V {
+	merged := make(map[K]V)
+	for k, v := range m1 {
+		merged[k] = v
+	}
+	for k, v := range m2 {
+		merged[k] = v
+	}
+	return merged
 }

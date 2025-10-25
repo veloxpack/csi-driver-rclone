@@ -1,4 +1,14 @@
-# Rclone CSI Driver for Kubernetes
+
+<h1 align="center">
+  <a href="https://www.veloxpack.io/docs/csi-driver-rclone">
+    <img src=".github/banner.png" alt="Rclone UI" width="100%">
+  </a>
+  <br>
+  <a href="https://www.veloxpack.io/docs/csi-driver-rclone">
+    Rclone CSI Driver for Kubernetes
+  </a>
+</h1>
+
 ![build status](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/test.yaml/badge.svg)
 [![Trivy vulnerability scanner](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/trivy.yaml/badge.svg?branch=main)](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/trivy.yaml)
 
