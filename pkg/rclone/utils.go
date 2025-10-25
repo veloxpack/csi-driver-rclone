@@ -151,7 +151,7 @@ func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, h
 
 const (
 	// flagPrefixSeparator is the character that separates remote name from flag name
-	flagPrefixSeparator = "-"
+	flagPrefixSeparator = "_"
 	// flagLongPrefix is the prefix used for long command-line options
 	flagLongPrefix = "--"
 	// flagHyphen is the character to be replaced with underscore
@@ -183,7 +183,7 @@ func sanitizeFlag(remote, key string) string {
 		key = removePrefixCaseInsensitive(key, prefix)
 	}
 
-	return normalizeRcloneFlag(key)
+	return key
 }
 
 // normalizeRcloneFlag normalizes rclone flag names by standardizing their format.

@@ -27,6 +27,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/rclone/rclone/cmd/mountlib"
 	"github.com/rclone/rclone/fs"
+	"github.com/rclone/rclone/fs/accounting"
 	"github.com/rclone/rclone/fs/config"
 	"github.com/rclone/rclone/fs/config/configmap"
 	"github.com/rclone/rclone/fs/config/configstruct"
@@ -40,11 +41,12 @@ import (
 )
 
 const (
-	paramCacheDir       = "cache_dir"
-	paramTmpDir         = "temp_dir"
-	paramMountType      = "mount_type"
-	paramBackendType    = "remoteType"
-	paramBackendTypeKey = "type"
+	paramCacheDir         = "cache_dir"
+	paramTmpDir           = "temp_dir"
+	paramMountType        = "mount_type"
+	paramBackendType      = "remoteType"
+	paramBackendTypeKey   = "type"
+	paramDisabledFeatures = "disable"
 )
 
 // reservedParams contains parameter names that should not be passed to rclone backend
@@ -156,6 +158,11 @@ func setRcloneConfigFlags(ctx context.Context, ci *fs.ConfigInfo, params map[str
 
 	// Get Rclone config
 	configMap := configmap.Simple{}
+
+	// Set disabled features if provided
+	if disableFeatures, ok := params[paramDisabledFeatures]; ok {
+		ci.DisableFeatures = strings.Split(disableFeatures, ",")
+	}
 
 	// Set all golbal
 	for key, value := range params {
@@ -403,11 +410,9 @@ func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targ
 	// Create per-mount context with isolated config
 	ctx, ci := fs.AddConfig(ctx)
 
-	// Initialize filesystem
-	rcloneFs, err := fs.NewFs(ctx, fsPath)
-	if err != nil {
-		return nil, nil, nil, status.Errorf(codes.Internal, "failed to initialize filesystem: %v", err)
-	}
+	// TODO: REVISIT - Per-mount accounting.Start(ctx) - Is this needed or is global accounting sufficient?
+	// Start accounting (bandwidth limiting, stats, TPS limiting)
+	accounting.Start(ctx)
 
 	// Extract volume mount options
 	volumeMountOpts, err := extractVolumeMountOptions(mountOptions)
@@ -421,6 +426,12 @@ func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targ
 	// Set rclone configuration flags
 	if err := setRcloneConfigFlags(ctx, ci, opts); err != nil {
 		return nil, nil, nil, err
+	}
+
+	// Initialize filesystem
+	rcloneFs, err := fs.NewFs(ctx, fsPath)
+	if err != nil {
+		return nil, nil, nil, status.Errorf(codes.Internal, "failed to initialize filesystem: %v", err)
 	}
 
 	// Extract Rclone mount options

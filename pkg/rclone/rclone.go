@@ -20,6 +20,9 @@ import (
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/rclone/rclone/fs"
+	"github.com/rclone/rclone/fs/accounting"
+	"golang.org/x/net/context"
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 )
@@ -98,6 +101,19 @@ func (d *Driver) Run(testMode bool) {
 		klog.Fatalf("%v", err)
 	}
 	klog.V(2).Infof("\nDRIVER INFORMATION:\n-------------------\n%s\n\nStreaming logs below:", versionMeta)
+
+	// Initialize rclone core components
+	ctx := context.Background()
+
+	// Initialize global options
+	if err := fs.GlobalOptionsInit(); err != nil {
+		klog.Fatalf("Failed to initialize rclone global options: %v", err)
+	}
+
+	// Start accounting (bandwidth limiting, stats, TPS limiting)
+	accounting.Start(ctx)
+
+	klog.V(2).Info("Rclone core initialization complete")
 
 	mounter := mount.New("")
 	d.ns = NewNodeServer(d, mounter)

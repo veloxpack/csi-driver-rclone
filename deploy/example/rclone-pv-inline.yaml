@@ -16,6 +16,10 @@ spec:
   persistentVolumeReclaimPolicy: Delete
   mountOptions:
     - debug-fuse
+    - disable=Copy,Move,DirMove,ServerSideAcrossConfigs,Purge,CleanUp,PublicLink,MergeDirs,ChangeNotify
+    - buffer-size=60Mi
+    - cache-dir=/tmp/rclone-cache
+    - temp-dir=/tmp/rclone-tmp
   csi:
     driver: rclone.csi.veloxpack.io
     volumeHandle: rclone-pv-example-volume
@@ -28,6 +32,9 @@ spec:
       s3-endpoint: http://minio.default.svc.cluster.local:9000
       s3-access-key-id: admin
       s3-secret-access-key: "password"
+      s3-region: us-east-1
+      s3-acl: private
+
 ---
 # PersistentVolumeClaim that references the above PV
 kind: PersistentVolumeClaim
