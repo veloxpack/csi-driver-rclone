@@ -180,10 +180,11 @@ func sanitizeFlag(remote, key string) string {
 	if remote != "" {
 		// Create the prefix pattern (remote + separator) and remove it case-insensitively
 		prefix := fmt.Sprintf("%s%s", remote, flagPrefixSeparator)
+		key = normalizeRcloneFlag(key)
 		key = removePrefixCaseInsensitive(key, prefix)
 	}
 
-	return key
+	return normalizeRcloneFlag(key)
 }
 
 // normalizeRcloneFlag normalizes rclone flag names by standardizing their format.
