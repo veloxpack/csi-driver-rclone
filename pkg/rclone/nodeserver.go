@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
 	"strings"
 	"sync"
 	"time"
@@ -41,8 +40,8 @@ import (
 )
 
 const (
-	paramCacheDir       = "cache-dir"
-	paramTmpDir         = "temp-dir"
+	paramCacheDir       = "cache_dir"
+	paramTmpDir         = "temp_dir"
 	paramMountType      = "mount_type"
 	paramBackendType    = "remoteType"
 	paramBackendTypeKey = "type"
@@ -160,9 +159,8 @@ func setRcloneConfigFlags(ctx context.Context, ci *fs.ConfigInfo, params map[str
 
 	// Set all golbal
 	for key, value := range params {
-		rcloneKey := normalizeRcloneFlag(key)
-		if opt := fs.ConfigOptionsInfo.Get(rcloneKey); opt != nil {
-			configMap.Set(rcloneKey, value)
+		if opt := fs.ConfigOptionsInfo.Get(key); opt != nil {
+			configMap.Set(key, value)
 		}
 	}
 
@@ -175,15 +173,40 @@ func setRcloneConfigFlags(ctx context.Context, ci *fs.ConfigInfo, params map[str
 	if err := ci.Reload(ctx); err != nil {
 		return fmt.Errorf("failed to reload config changes: %v", err)
 	}
+
 	return nil
 }
 
 // mergeVolumeParameters merges driver params, secrets, and volume context
-func (ns *NodeServer) mergeVolumeParameters(req *csi.NodePublishVolumeRequest, targetPath string) (map[string]string, error) {
-	params := map[string]string{
-		paramCacheDir: path.Join(config.GetCacheDir(), targetPath),
-		paramTmpDir:   path.Join(os.TempDir(), targetPath),
-	}
+func (ns *NodeServer) mergeVolumeParameters(req *csi.NodePublishVolumeRequest) (map[string]string, error) {
+	params := make(map[string]string)
+
+	// TODO: Implement automatic cache directory generation for performance optimization
+	//
+	// Option 1: Shared cache per PVC (recommended for performance)
+	// - Pods using same PVC share cache (warm cache on pod restart/replacement)
+	// - Different PVCs remain isolated
+	// - Cache lifecycle tied to PVC
+	//
+	// Implementation:
+	//   volumeID := req.GetVolumeId()
+	//   params[paramCacheDir] = filepath.Join("/var/lib/rclone-cache", volumeID)
+	//   params[paramTmpDir] = filepath.Join("/tmp/rclone-temp", volumeID)
+	//   klog.V(4).Infof("Using shared cache for volume %s: %s", volumeID, params[paramCacheDir])
+	//
+	// Option 2: Shared cache per remote location (maximum sharing)
+	//   remoteName := req.GetVolumeContext()[paramRemote]
+	//   remotePath := req.GetVolumeContext()[paramRemotePath]
+	//   cacheKey := fmt.Sprintf("%s-%s", remoteName, remotePath)
+	//   cacheHash := fmt.Sprintf("%x", sha256.Sum256([]byte(cacheKey)))[:16]
+	//   params[paramCacheDir] = filepath.Join("/var/lib/rclone-cache", cacheHash)
+	//
+	// Option 3: Per-pod cache (maximum isolation, no sharing)
+	//   uniqueID := fmt.Sprintf("%s-%d", req.GetVolumeId(), time.Now().UnixNano())
+	//   params[paramCacheDir] = filepath.Join("/tmp/rclone-cache", uniqueID)
+	//
+	// Currently: Users must specify cache_dir and temp_dir in volume attributes/secrets
+	// If not specified, rclone uses its default locations (may cause conflicts)
 
 	// First, load values from secrets (defaults)
 	secrets := req.GetSecrets()
@@ -224,7 +247,12 @@ func extractPublishParams(params map[string]string) (*publishVolumeParams, error
 	// Copy all params except reserved ones
 	for k, v := range params {
 		if !reservedParams[k] {
-			pvp.params[k] = v
+			rcloneKey := normalizeRcloneFlag(k)
+			if rcloneKey == "" {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid parameter name: %s", k)
+			}
+
+			pvp.params[rcloneKey] = v
 		}
 	}
 
@@ -757,7 +785,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 
 	// Merge parameters from secrets and volume context
-	params, err := ns.mergeVolumeParameters(req, targetPath)
+	params, err := ns.mergeVolumeParameters(req)
 	if err != nil {
 		return nil, err
 	}

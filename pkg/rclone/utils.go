@@ -304,7 +304,6 @@ func extractRemoteTypeParams(params map[string]string, remoteType string) rc.Par
 
 	for k, v := range params {
 		if strings.HasPrefix(strings.ToLower(k), strings.ToLower(remoteType)) {
-			delete(params, k)
 			// Remove the remote type prefix
 			k = sanitizeFlag(remoteType, k)
 			rcParams[k] = v
