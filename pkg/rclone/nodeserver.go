@@ -30,6 +30,7 @@ import (
 	"github.com/rclone/rclone/fs/config"
 	"github.com/rclone/rclone/fs/config/configmap"
 	"github.com/rclone/rclone/fs/config/configstruct"
+	"github.com/rclone/rclone/fs/log"
 	"github.com/rclone/rclone/fs/rc" //nolint:misspell // Don't include misspell when running golangci-lint - unknwon is the package author's username
 	"github.com/rclone/rclone/lib/atexit"
 	"github.com/rclone/rclone/vfs/vfscommon"
@@ -42,6 +43,7 @@ import (
 const (
 	paramCacheDir         = "cache_dir"
 	paramTmpDir           = "temp_dir"
+	paramLogLevel         = "log_level"
 	paramMountType        = "mount_type"
 	paramBackendType      = "remoteType"
 	paramBackendTypeKey   = "type"
@@ -153,6 +155,12 @@ func setRcloneConfigFlags(ctx context.Context, ci *fs.ConfigInfo, params map[str
 			return status.Errorf(codes.Internal, "failed to set temp directory: %v", err)
 		}
 		klog.V(4).Infof("Set rclone temp directory to: %s", tempDir)
+	}
+
+	// Set log level if provided
+	if logLevel, ok := params[paramLogLevel]; ok {
+		log.Handler.SetLevel(fs.LogLevelToSlog(fs.LogLevelDebug))
+		klog.V(4).Infof("Set rclone log level to: %s", logLevel)
 	}
 
 	// Get Rclone config
