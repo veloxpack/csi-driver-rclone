@@ -59,7 +59,7 @@ sed -i "s|image: .*|image: ${REGISTRY}/csi-rclone:${IMAGE_VERSION}|g" deploy/csi
 #### 2. Deploy the Driver
 
 ```bash
-kubectl apply -k deploy/
+kubectl apply -k deploy/overlays/default
 ```
 
 ### Method 2: Using Kustomize with Custom Image
@@ -317,7 +317,7 @@ make container
 
 ```bash
 # Deploy updated driver
-kubectl apply -k deploy/
+kubectl apply -k deploy/overlays/default
 
 # Check logs
 kubectl logs -l app=csi-rclone-controller -f

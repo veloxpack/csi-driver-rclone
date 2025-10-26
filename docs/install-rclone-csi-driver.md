@@ -16,7 +16,7 @@ This document explains how to install the Rclone CSI driver on a Kubernetes clus
 
 #### 1. Deploy the CSI Driver
 ```bash
-kubectl apply -k deploy/
+kubectl apply -k deploy/overlays/default
 ```
 
 This will install:
