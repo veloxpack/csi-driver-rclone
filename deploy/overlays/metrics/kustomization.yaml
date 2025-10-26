@@ -13,3 +13,10 @@ patches:
     target:
       kind: DaemonSet
       name: csi-rclone-node
+configMapGenerator:
+  - name: csi-rclone-dashboard
+    files:
+      - grafana-dashboard.json
+    options:
+      labels:
+        grafana_dashboard: "1"

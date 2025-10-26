@@ -96,7 +96,7 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 # Default credentials: admin / prom-operator
 ```
 
-### Import Production Dashboard
+### Grafana Dashboard
 
 This repository includes a production-grade Grafana dashboard (`grafana-dashboard.json`) designed specifically for the CSI Rclone driver.
 
@@ -107,17 +107,34 @@ This repository includes a production-grade Grafana dashboard (`grafana-dashboar
 - **Mount Health Details**: Detailed mount information with health timeline
 - **System Resources**: CPU, memory, and goroutine monitoring
 
-**Import the Dashboard:**
+**Automatic Dashboard Deployment:**
 
-Method 1 - Via UI:
+The Grafana dashboard is **automatically deployed as a ConfigMap** when you apply the metrics overlay using kustomize:
+
+```bash
+kubectl apply -k deploy/overlays/metrics
+```
+
+The `kustomization.yaml` includes a `configMapGenerator` that creates the `csi-rclone-dashboard` ConfigMap with the `grafana_dashboard: "1"` label, which allows the Grafana sidecar to automatically discover and load the dashboard.
+
+**Manual Import Methods (Optional):**
+
+If you prefer to import the dashboard manually instead of using the kustomization ConfigMap:
+
+<details>
+<summary>Method 1 - Via Grafana UI</summary>
+
 1. Open Grafana (http://localhost:3000)
 2. Navigate to **Dashboards** → **Import**
 3. Click **Upload JSON file**
 4. Select `deploy/overlays/metrics/grafana-dashboard.json`
 5. Select your Prometheus datasource
 6. Click **Import**
+</details>
 
-Method 2 - Via ConfigMap (GitOps):
+<details>
+<summary>Method 2 - Via ConfigMap (Manual)</summary>
+
 ```bash
 kubectl create configmap csi-rclone-dashboard \
   --from-file=grafana-dashboard.json=deploy/overlays/metrics/grafana-dashboard.json \
@@ -129,8 +146,11 @@ kubectl label configmap csi-rclone-dashboard \
   grafana_dashboard=1 \
   -n monitoring
 ```
+</details>
 
-Method 3 - Direct API:
+<details>
+<summary>Method 3 - Direct API</summary>
+
 ```bash
 # Get Grafana admin password
 kubectl get secret -n monitoring kube-prometheus-stack-grafana \
@@ -142,6 +162,7 @@ curl -X POST http://localhost:3000/api/dashboards/db \
   -u admin:PASSWORD \
   -d @deploy/overlays/metrics/grafana-dashboard.json
 ```
+</details>
 
 **Dashboard Template Variables:**
 - `datasource`: Prometheus datasource (auto-populated)
