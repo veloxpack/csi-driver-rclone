@@ -1,0 +1,52 @@
+# CUSTOMIZABLE METRICS PATCH TEMPLATE
+# Copy this component directory and modify these values to suit your needs.
+#
+# NOTE: This patch completely replaces the args array, so you must include
+# the base args (nodeid, endpoint) along with your metrics args.
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: csi-rclone-node
+  namespace: system
+spec:
+  selector:
+    matchLabels:
+      app: csi-rclone-node
+  template:
+    spec:
+      containers:
+        - name: rclone
+          # Complete args array (replaces base args)
+          args:
+            # Base required args
+            - "-v=5"
+            - "--nodeid=$(NODE_ID)"
+            - "--endpoint=$(CSI_ENDPOINT)"
+
+            # Metrics configuration
+            # Change the port if 5572 conflicts with other services
+            - "--metrics-addr=:5572"
+
+            # Metrics endpoint path
+            # Change if you want metrics at a different path
+            - "--metrics-path=/metrics"
+
+            # HTTP read timeout for metrics server
+            # Increase if you have slow clients
+            - "--metrics-server-read-timeout=10s"
+
+            # HTTP write timeout for metrics server
+            # Increase for large metric responses
+            - "--metrics-server-write-timeout=10s"
+
+            # HTTP idle timeout for metrics server
+            # Adjust based on your scrape interval
+            - "--metrics-server-idle-timeout=60s"
+
+          # Port configuration
+          # Must match --metrics-addr port above
+          ports:
+            - name: metrics
+              containerPort: 5572
+              protocol: TCP

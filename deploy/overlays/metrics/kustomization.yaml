@@ -1,22 +1,19 @@
-# Adds namespace to all resources.
-namespace: veloxpack
+# Basic metrics setup: Only enables metrics on the DaemonSet (no Service, ServiceMonitor, or Dashboard)
+# This is the minimal overlay. For more complete setups, see:
+# - metrics-service/       : Adds Service to expose metrics
+# - metrics-prometheus/    : Adds Service + ServiceMonitor for Prometheus Operator
+# - metrics-dashboard/     : Adds only Grafana Dashboard ConfigMap
+# - metrics-full/          : Complete setup (Service + ServiceMonitor + Dashboard)
+#
+# To customize metrics configuration:
+# 1. Copy deploy/components/metrics-custom/ to your own directory
+# 2. Modify the metrics-patch.yaml file
+# 3. Reference your custom component instead of metrics-basic
 
-# Optional: uncomment if you want prefixing
-# namePrefix: veloxpack-
+namespace: veloxpack
 
 resources:
   - ../../base
-  - ./csi-rclone-node-metrics-service.yaml
-  - ./csi-rclone-node-servicemonitor.yaml
-patches:
-  - path: csi-rclone-node-patch.yaml
-    target:
-      kind: DaemonSet
-      name: csi-rclone-node
-configMapGenerator:
-  - name: csi-rclone-dashboard
-    files:
-      - grafana-dashboard.json
-    options:
-      labels:
-        grafana_dashboard: "1"
+
+components:
+  - ../../components/metrics-basic

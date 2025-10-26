@@ -1,47 +1,65 @@
 # Metrics Overlay
 
-This overlay enables Prometheus metrics collection for the CSI Rclone driver.
+This overlay enables basic Prometheus metrics collection for the CSI Rclone driver.
 
 ## What This Overlay Adds
 
 - **Metrics endpoint** on the CSI node DaemonSet (port 5572)
-- **Service** to expose metrics (`csi-rclone-node-metrics`)
-- **ServiceMonitor** for Prometheus Operator to auto-discover and scrape metrics
+
+**Note:** This is the minimal metrics overlay. For additional components like Service, ServiceMonitor, or Grafana Dashboard, see the [overlays README](../README.md) for other overlay options.
 
 ## Prerequisites
 
-This overlay requires the Prometheus Operator to be installed in your cluster, which provides the `ServiceMonitor` CRD.
+### For Full Monitoring Setup (Recommended)
 
-### Install kube-prometheus-stack
+For complete monitoring with automatic scraping and dashboards, use the `metrics-full` overlay which requires:
 
-Using Helm:
+- **Prometheus Operator** (kube-prometheus-stack)
+- **Grafana** with sidecar enabled
+
+Install using Helm:
 ```bash
 # Add Prometheus community Helm repository
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
-# Install the kube-prometheus-stack (which includes ServiceMonitor CRDs)
+# Install the kube-prometheus-stack
 helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   --create-namespace
 ```
 
 This installs:
-- Prometheus Operator
-- Prometheus server
+- Prometheus Operator + Prometheus server
 - Alertmanager
-- Grafana
+- Grafana with sidecar
 - Various exporters and dashboards
+
+### For Manual/Custom Scraping
+
+The basic `metrics` overlay only exposes the metrics endpoint and doesn't require any prerequisites. You can scrape it manually or configure your own metrics collection.
 
 ## Deploy CSI Driver with Metrics
 
+### Option 1: Basic Metrics Only
 ```bash
-# Deploy using kustomize
+# Deploy using kustomize (metrics endpoint only)
 kubectl apply -k deploy/overlays/metrics
 
 # Or using skaffold for development
 skaffold dev -p metrics
 ```
+
+### Option 2: Complete Monitoring Stack (Recommended)
+```bash
+# Deploy with Service, ServiceMonitor, and Grafana Dashboard
+kubectl apply -k deploy/overlays/metrics-full
+
+# Or using skaffold for development
+skaffold dev -p metrics-full
+```
+
+See the [overlays README](../README.md) for all available deployment options.
 
 ## Verify Metrics Collection
 
@@ -109,13 +127,17 @@ This repository includes a production-grade Grafana dashboard (`grafana-dashboar
 
 **Automatic Dashboard Deployment:**
 
-The Grafana dashboard is **automatically deployed as a ConfigMap** when you apply the metrics overlay using kustomize:
+The Grafana dashboard is **automatically deployed as a ConfigMap** when you use the `metrics-full` or `metrics-dashboard` overlays:
 
 ```bash
-kubectl apply -k deploy/overlays/metrics
+# Full monitoring stack (includes dashboard)
+kubectl apply -k deploy/overlays/metrics-full
+
+# Or dashboard only
+kubectl apply -k deploy/overlays/metrics-dashboard
 ```
 
-The `kustomization.yaml` includes a `configMapGenerator` that creates the `csi-rclone-dashboard` ConfigMap with the `grafana_dashboard: "1"` label, which allows the Grafana sidecar to automatically discover and load the dashboard.
+The dashboard ConfigMap is created with the `grafana_dashboard: "1"` label, which allows the Grafana sidecar to automatically discover and load the dashboard.
 
 **Finding the Dashboard:**
 
@@ -241,21 +263,21 @@ All metrics include standard Kubernetes labels:
 
 ## Configuration
 
-Metrics are configured via environment variables in the DaemonSet:
+Metrics are configured via command-line arguments in the DaemonSet. The default configuration (from `deploy/components/metrics-basic`) is:
 
 ```yaml
-env:
-  - name: METRICS_ADDR
-    value: ":5572"
-  - name: METRICS_PATH
-    value: "/metrics"
-  - name: METRICS_READ_TIMEOUT
-    value: "10s"
-  - name: METRICS_WRITE_TIMEOUT
-    value: "10s"
-  - name: METRICS_IDLE_TIMEOUT
-    value: "60s"
+args:
+  - "-v=5"
+  - "--nodeid=$(NODE_ID)"
+  - "--endpoint=$(CSI_ENDPOINT)"
+  - "--metrics-addr=:5572"
+  - "--metrics-path=/metrics"
+  - "--metrics-server-read-timeout=10s"
+  - "--metrics-server-write-timeout=10s"
+  - "--metrics-server-idle-timeout=60s"
 ```
+
+To customize these values, copy `deploy/components/metrics-custom` and modify the arguments. See the [components README](../../components/README.md) for detailed customization instructions.
 
 ## Troubleshooting
 
@@ -285,5 +307,8 @@ curl http://localhost:5572/metrics
 ### No Metrics Data in Prometheus
 
 1. Verify the CSI driver is performing operations (mount/unmount volumes)
-2. Check scrape interval in ServiceMonitor (default: 30s)
-3. Check Prometheus logs: `kubectl logs -n monitoring -l app.kubernetes.io/name=prometheus`
+2. Check scrape interval in ServiceMonitor (configurable, see ServiceMonitor resource)
+3. Wait for the next scrape cycle (metrics update based on scrape interval)
+4. Check Prometheus logs: `kubectl logs -n monitoring -l app.kubernetes.io/name=prometheus`
+
+**Recommended scrape interval:** 15 seconds for production data transfer workloads (balances visibility with resource usage)

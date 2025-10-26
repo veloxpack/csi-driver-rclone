@@ -13,5 +13,5 @@ spec:
       app: csi-rclone-node
   endpoints:
     - port: metrics
-      interval: 5s
+      interval: 15s
       scrapeTimeout: 10s

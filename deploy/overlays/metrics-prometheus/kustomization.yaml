@@ -1,0 +1,11 @@
+# Metrics with Service and ServiceMonitor (for Prometheus Operator)
+# Requires: Prometheus Operator installed
+namespace: veloxpack
+
+resources:
+  - ../../base
+
+components:
+  - ../../components/metrics-basic
+  - ../../components/metrics-service
+  - ../../components/metrics-servicemonitor

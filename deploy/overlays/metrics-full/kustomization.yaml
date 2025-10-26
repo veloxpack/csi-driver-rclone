@@ -1,0 +1,14 @@
+# Full metrics setup: Service + ServiceMonitor + Grafana Dashboard
+# Requires: Prometheus Operator installed with Grafana sidecar
+# Note: Dashboard ConfigMap is created in veloxpack namespace but Grafana sidecar
+#       watches ALL namespaces by default, so it will be discovered automatically
+namespace: veloxpack
+
+resources:
+  - ../../base
+
+components:
+  - ../../components/metrics-basic
+  - ../../components/metrics-service
+  - ../../components/metrics-servicemonitor
+  - ../../components/metrics-dashboard

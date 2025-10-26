@@ -6,7 +6,7 @@ kind: PersistentVolume
 metadata:
   annotations:
     pv.kubernetes.io/provisioned-by: rclone.csi.veloxpack.io
-  name: pv-rclone-example
+  name: pv-rclone-example-2
   namespace: default
 spec:
   capacity:
@@ -41,7 +41,7 @@ spec:
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: pvc-rclone-example
+  name: pvc-rclone-example-2
   namespace: default
 spec:
   accessModes:
@@ -49,14 +49,14 @@ spec:
   resources:
     requests:
       storage: 10Gi
-  volumeName: pv-rclone-example
+  volumeName: pv-rclone-example-2
   storageClassName: ""  # Empty string means no dynamic provisioning
 ---
 # Example application pod using the rclone volume
 apiVersion: v1
 kind: Pod
 metadata:
-  name: rclone-test-app
+  name: rclone-test-app-2
   namespace: default
 spec:
   containers:
@@ -75,7 +75,7 @@ spec:
   volumes:
   - name: rclone-storage
     persistentVolumeClaim:
-      claimName: pvc-rclone-example
+      claimName: pvc-rclone-example-2
 
 # kubectl apply -f rclone-pv-inline.yaml
 # kubectl exec -it rclone-test-app -- sh -c 'echo "Hello from rclone!" > /data/test.txt'

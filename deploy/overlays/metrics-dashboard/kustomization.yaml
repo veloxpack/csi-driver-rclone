@@ -1,0 +1,9 @@
+# Grafana Dashboard only
+# Note: This only creates the dashboard ConfigMap. You still need to enable metrics
+# in your CSI driver deployment for the dashboard to show data.
+# The ConfigMap is created in veloxpack namespace but Grafana sidecar watches
+# ALL namespaces by default, so it will be discovered automatically.
+namespace: veloxpack
+
+components:
+  - ../../components/metrics-dashboard
