@@ -6,7 +6,7 @@ metadata:
   name: {{ include "rclone.fullname" . }}-node-metrics
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "rclone.labels" . | nindent 4 }}
+    {{- include "rclone.commonLabels" . | nindent 4 }}
     app.kubernetes.io/component: node-metrics
   {{- with .Values.node.metrics.service.annotations }}
   annotations:

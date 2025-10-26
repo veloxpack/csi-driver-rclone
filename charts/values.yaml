@@ -1,3 +1,8 @@
+# Override the chart name
+nameOverride: ""
+# Override the full release name
+fullnameOverride: ""
+
 customLabels: {}
 image:
     baseRepo: docker.io
@@ -139,7 +144,7 @@ node:
     # ServiceMonitor configuration (requires Prometheus Operator)
     serviceMonitor:
       enabled: false
-      interval: 30s
+      interval: 5s
       scrapeTimeout: 10s
       scheme: http
 
@@ -171,6 +176,17 @@ node:
         # - sourceLabels: [__name__]
         #   regex: 'go_.*|csi_.*|process_.*'
         #   action: keep
+
+    # Grafana Dashboard configuration
+    dashboard:
+      enabled: false
+      # Namespace where Grafana is installed (dashboard ConfigMap will be created here)
+      namespace: monitoring
+      # Labels for Grafana sidecar to discover the dashboard
+      labels:
+        grafana_dashboard: "1"
+      # Additional annotations for the ConfigMap
+      annotations: {}
 
   # Additional command-line arguments.
   # Example: helm template ./charts --set node.extraArgs.metrics-addr=":5572"
