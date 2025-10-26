@@ -56,11 +56,6 @@ func main() {
 	if metricsOpts.MetricsAddr != "" {
 		ctx := context.Background()
 
-		// Initialize CSI collector with node ID
-		if err := rclone.InitMetricsCollector(ctx, *nodeID, *driverName, *endpoint); err != nil {
-			klog.Fatalf("Failed to initialize CSI collector: %v", err)
-		}
-
 		// Start metrics server
 		metricsSrv, err := metricsserver.Start(metricsOpts)
 		if err != nil {
