@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rclone/rclone/fs/accounting"
@@ -68,6 +69,15 @@ type csiRcloneCollector struct {
 	vfsUploadsQueued       *prometheus.Desc
 	vfsDiskCacheOutOfSpace *prometheus.Desc
 	mountHealthy           *prometheus.Desc
+	// Remote statistics metrics
+	remoteTransferSpeed        *prometheus.Desc
+	remoteTransferEta          *prometheus.Desc
+	remoteChecksTotal          *prometheus.Desc
+	remoteDeletesTotal         *prometheus.Desc
+	remoteServerSideCopies     *prometheus.Desc
+	remoteServerSideMoves      *prometheus.Desc
+	remoteTransferring         *prometheus.Desc
+	remoteChecking             *prometheus.Desc
 }
 
 // newMetricsCollector creates and returns a new CSI metrics collector instance.
@@ -144,8 +154,57 @@ func newMetricsCollector(ctx context.Context, nodeID, driverName, endpoint strin
 		),
 		mountHealthy: prometheus.NewDesc(
 			namespace+"mount_healthy",
-			"Mount health status (1=healthy, 0=unhealthy)",
-			[]string{"volume_id", "pod_id", "target_path", "remote_name"},
+			"Mount health status with mount details (1=healthy, 0=unhealthy)",
+			[]string{"volume_id", "pod_id", "target_path", "remote_name", "mount_type", "device_name", "volume_name", "read_only", "mount_duration_seconds"},
+			nil,
+		),
+		// Remote statistics metrics
+		remoteTransferSpeed: prometheus.NewDesc(
+			namespace+"remote_transfer_speed_bytes_per_second",
+			"Current transfer speed in bytes per second",
+			nil,
+			nil,
+		),
+		remoteTransferEta: prometheus.NewDesc(
+			namespace+"remote_transfer_eta_seconds",
+			"Estimated time to completion in seconds",
+			nil,
+			nil,
+		),
+		remoteChecksTotal: prometheus.NewDesc(
+			namespace+"remote_checks_total",
+			"Total number of file checks completed",
+			nil,
+			nil,
+		),
+		remoteDeletesTotal: prometheus.NewDesc(
+			namespace+"remote_deletes_total",
+			"Total number of files deleted",
+			nil,
+			nil,
+		),
+		remoteServerSideCopies: prometheus.NewDesc(
+			namespace+"remote_server_side_copies_total",
+			"Total number of server-side copies",
+			nil,
+			nil,
+		),
+		remoteServerSideMoves: prometheus.NewDesc(
+			namespace+"remote_server_side_moves_total",
+			"Total number of server-side moves",
+			nil,
+			nil,
+		),
+		remoteTransferring: prometheus.NewDesc(
+			namespace+"remote_transferring_files",
+			"Number of files currently being transferred",
+			nil,
+			nil,
+		),
+		remoteChecking: prometheus.NewDesc(
+			namespace+"remote_checking_files",
+			"Number of files currently being checked",
+			nil,
 			nil,
 		),
 	}
@@ -195,6 +254,14 @@ func (c *csiRcloneCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.vfsUploadsQueued
 	ch <- c.vfsDiskCacheOutOfSpace
 	ch <- c.mountHealthy
+	ch <- c.remoteTransferSpeed
+	ch <- c.remoteTransferEta
+	ch <- c.remoteChecksTotal
+	ch <- c.remoteDeletesTotal
+	ch <- c.remoteServerSideCopies
+	ch <- c.remoteServerSideMoves
+	ch <- c.remoteTransferring
+	ch <- c.remoteChecking
 }
 
 // Collect implements prometheus.Collector.
@@ -360,7 +427,7 @@ func (c *csiRcloneCollector) Collect(ch chan<- prometheus.Metric) {
 			)
 		}
 
-		// Collect mount health status
+		// Collect mount health status with mount details
 		for targetPath, mc := range c.nodeServer.mountContext {
 			if mc == nil || mc.mountPoint == nil {
 				continue
@@ -368,6 +435,11 @@ func (c *csiRcloneCollector) Collect(ch chan<- prometheus.Metric) {
 
 			volumeID := extractVolumeID(targetPath)
 			podID := extractPodID(targetPath)
+			mountType := extractMountType(mc)
+			deviceName := getDeviceName(mc)
+			volumeName := getVolumeName(mc)
+			readOnly := isReadOnly(mc)
+			mountDuration := getMountDuration(mc)
 
 			healthValue := float64(0)
 			if c.nodeServer.isMountHealthy(targetPath) {
@@ -382,6 +454,88 @@ func (c *csiRcloneCollector) Collect(ch chan<- prometheus.Metric) {
 				podID,
 				targetPath,
 				mc.remoteName,
+				mountType,
+				deviceName,
+				volumeName,
+				readOnly,
+				mountDuration,
+			)
+		}
+	}
+
+	// Collect remote statistics from global accounting
+	globalStats := accounting.GlobalStats()
+	remoteStats, err := globalStats.RemoteStats(false)
+	if err == nil {
+		// Transfer speed
+		if speed, ok := remoteStats["speed"].(float64); ok {
+			ch <- prometheus.MustNewConstMetric(
+				c.remoteTransferSpeed,
+				prometheus.GaugeValue,
+				speed,
+			)
+		}
+
+		// ETA
+		if eta := remoteStats["eta"]; eta != nil {
+			if etaSeconds, ok := eta.(float64); ok {
+				ch <- prometheus.MustNewConstMetric(
+					c.remoteTransferEta,
+					prometheus.GaugeValue,
+					etaSeconds,
+				)
+			}
+		}
+
+		// Total checks
+		if checks, ok := remoteStats["checks"].(int64); ok {
+			ch <- prometheus.MustNewConstMetric(
+				c.remoteChecksTotal,
+				prometheus.CounterValue,
+				float64(checks),
+			)
+		}
+
+		// Total deletes
+		if deletes, ok := remoteStats["deletes"].(int64); ok {
+			ch <- prometheus.MustNewConstMetric(
+				c.remoteDeletesTotal,
+				prometheus.CounterValue,
+				float64(deletes),
+			)
+		}
+
+		// Server-side operations
+		if serverSideCopies, ok := remoteStats["serverSideCopies"].(int64); ok {
+			ch <- prometheus.MustNewConstMetric(
+				c.remoteServerSideCopies,
+				prometheus.CounterValue,
+				float64(serverSideCopies),
+			)
+		}
+
+		if serverSideMoves, ok := remoteStats["serverSideMoves"].(int64); ok {
+			ch <- prometheus.MustNewConstMetric(
+				c.remoteServerSideMoves,
+				prometheus.CounterValue,
+				float64(serverSideMoves),
+			)
+		}
+
+		// Active operations
+		if transferring, ok := remoteStats["transferring"].([]rc.Params); ok {
+			ch <- prometheus.MustNewConstMetric(
+				c.remoteTransferring,
+				prometheus.GaugeValue,
+				float64(len(transferring)),
+			)
+		}
+
+		if checking, ok := remoteStats["checking"].([]string); ok {
+			ch <- prometheus.MustNewConstMetric(
+				c.remoteChecking,
+				prometheus.GaugeValue,
+				float64(len(checking)),
 			)
 		}
 	}
@@ -413,4 +567,59 @@ func extractPodID(targetPath string) string {
 		}
 	}
 	return "unknown"
+}
+
+// Helper function to extract mount type from mount function
+func extractMountType(mc *mountContext) string {
+	if mc == nil || mc.mountPoint == nil {
+		return "unknown"
+	}
+	// Determine mount type based on mount function or other identifiers
+	// This may require additional context from mountlib
+	return "mount" // default
+}
+
+// Helper function to get mount duration in seconds
+func getMountDuration(mc *mountContext) string {
+	if mc == nil || mc.mountPoint == nil {
+		return "0"
+	}
+	duration := time.Since(mc.mountPoint.MountedOn).Seconds()
+	return fmt.Sprintf("%.0f", duration)
+}
+
+// Helper function to get device name
+func getDeviceName(mc *mountContext) string {
+	if mc == nil || mc.mountPoint == nil {
+		return "unknown"
+	}
+	deviceName := mc.mountPoint.MountOpt.DeviceName
+	if deviceName == "" {
+		return "unknown"
+	}
+	return deviceName
+}
+
+// Helper function to get volume name
+func getVolumeName(mc *mountContext) string {
+	if mc == nil || mc.mountPoint == nil {
+		return "unknown"
+	}
+	volumeName := mc.mountPoint.MountOpt.VolumeName
+	if volumeName == "" {
+		return "unknown"
+	}
+	return volumeName
+}
+
+// Helper function to determine read-only status
+func isReadOnly(mc *mountContext) string {
+	if mc == nil || mc.mountPoint == nil {
+		return "false"
+	}
+	// Check VFS options for read-only mode
+	if mc.mountPoint.VFSOpt.ReadOnly {
+		return "true"
+	}
+	return "false"
 }
