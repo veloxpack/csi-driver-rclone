@@ -144,7 +144,7 @@ node:
     # ServiceMonitor configuration (requires Prometheus Operator)
     serviceMonitor:
       enabled: false
-      interval: 5s
+      interval: 15s
       scrapeTimeout: 10s
       scheme: http
 

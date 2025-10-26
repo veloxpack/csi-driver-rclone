@@ -1,7 +1,7 @@
 
 <h1 align="center">
   <a href="https://www.veloxpack.io/docs/csi-driver-rclone">
-    <img src=".github/banner.png" alt="Rclone UI" width="100%">
+    <img src=".github/banner.png" alt="Rclone CSI Driver for Kubernetes" width="100%">
   </a>
   <br>
   <a href="https://www.veloxpack.io/docs/csi-driver-rclone">
@@ -11,6 +11,8 @@
 
 ![build status](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/test.yaml/badge.svg)
 [![Trivy vulnerability scanner](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/trivy.yaml/badge.svg?branch=main)](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/trivy.yaml)
+
+**Quick Links:** [Installation](#install-driver-on-a-kubernetes-cluster) | [Development](#development) | [Examples](#examples) | [Features](#features) | [Documentation](./docs/)
 
 ### Overview
 
@@ -24,7 +26,9 @@ This is a repository for [Rclone](https://rclone.org/) [CSI](https://kubernetes-
 
 ### Install driver on a Kubernetes cluster
 
-#### Option 1: Install via Helm (Recommended)
+> **💡 For Development:** Use [Skaffold](#development) for the fastest development workflow with automatic rebuilds and live reload.
+
+#### Option 1: Install via Helm (Recommended for Production)
 
 Install directly from the OCI registry:
 
@@ -75,8 +79,98 @@ Please refer to [`rclone.csi.veloxpack.io` driver parameters](./docs/driver-para
 ### Troubleshooting
  - [CSI driver troubleshooting guide](./docs/csi-debug.md)
 
-## Kubernetes Development
-Please refer to [development guide](./docs/csi-dev.md)
+## Development
+
+### Quick Start with Skaffold (Recommended)
+
+[Skaffold](https://skaffold.dev/) provides the fastest development workflow with automatic rebuilds and deployments.
+
+**Install Skaffold:**
+```bash
+# macOS
+brew install skaffold
+
+# Linux
+curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
+sudo install skaffold /usr/local/bin/
+
+# Windows
+choco install skaffold
+```
+
+**Start developing:**
+```bash
+# Basic development (no metrics)
+skaffold dev
+
+# Full monitoring stack (Prometheus + Grafana)
+skaffold dev -p metrics-full
+```
+
+Skaffold will:
+- ✅ Build the Docker image on code changes
+- ✅ Deploy to your local cluster (minikube/kind/k3s)
+- ✅ Stream logs from all components
+- ✅ Auto-reload on file changes
+- ✅ Setup port-forwarding for metrics and dashboards
+
+### Available Skaffold Profiles
+
+| Profile | Description | Port Forwards | Use Case |
+|---------|-------------|---------------|----------|
+| `default` | Basic CSI driver | None | Development without metrics |
+| `metrics` | Metrics endpoint only | None | Testing metrics collection |
+| `metrics-service` | Metrics + Service | :5572 | Service-based scraping |
+| `metrics-prometheus` | Full Prometheus integration | :5572, :9090 | Prometheus development |
+| `metrics-dashboard` | Grafana dashboard only | :3000 | Dashboard testing |
+| `metrics-full` | Complete monitoring | :5572, :9090, :3000 | Full stack development |
+
+**Examples:**
+```bash
+# Development with full monitoring (recommended)
+skaffold dev -p metrics-full
+# Access: http://localhost:5572/metrics (metrics)
+#         http://localhost:9090 (Prometheus)
+#         http://localhost:3000 (Grafana - admin/prom-operator)
+
+# Just metrics endpoint
+skaffold dev -p metrics
+
+# Prometheus integration only
+skaffold dev -p metrics-prometheus
+```
+
+### Metrics Dashboard
+
+The driver includes a comprehensive Grafana dashboard for monitoring and observability:
+
+<p align="center">
+  <img src=".github/metrics-dashboard.png" alt="Rclone CSI Driver Metrics Dashboard" width="100%">
+</p>
+
+**Dashboard Features:**
+- **Overview & Rclone Statistics**: Real-time health, uptime, file operations summary
+- **Transfer Performance**: Data transfer rates, cumulative transfers, operation timelines
+- **VFS Cache Performance**: File handles, disk cache usage, metadata cache, upload queues
+- **Mount Health & Details**: Detailed mount information with health status
+- **System Resources**: CPU, memory, and Go runtime metrics
+
+Access the dashboard at `http://localhost:3000` when using Skaffold profiles with monitoring enabled.
+
+### Prerequisites for Metrics Profiles
+
+For `metrics-prometheus` and `metrics-full` profiles, install Prometheus Operator:
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+  --namespace monitoring --create-namespace
+```
+
+### Alternative: Manual Development
+
+For detailed manual setup and testing procedures, see the [development guide](./docs/csi-dev.md).
 
 ## Features
 
@@ -366,7 +460,16 @@ docker build --build-arg RCLONE_BACKEND_MODE=minimal -t csi-rclone:minimal .
 
 Choose the build that fits your needs - full support for maximum compatibility or minimal for production efficiency.
 
-## Development
+## Development Workflow
+
+### Recommended: Skaffold Development
+
+For the best development experience with live reload and integrated debugging, see the [Development section](#development) above.
+
+```bash
+# Start developing with hot reload
+skaffold dev -p metrics-full
+```
 
 ### Running Linter
 ```bash
@@ -378,8 +481,12 @@ Choose the build that fits your needs - full support for maximum compatibility o
 go test ./pkg/rclone/...
 ```
 
-### Local Development
+### Local Binary Development
+For testing the driver binary directly without Kubernetes:
 ```bash
+# Build the binary
+make build
+
 # Run driver locally
 ./bin/rcloneplugin --endpoint unix:///tmp/csi.sock --nodeid CSINode -v=5
 ```
