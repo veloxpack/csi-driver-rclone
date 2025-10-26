@@ -27,7 +27,6 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/rclone/rclone/cmd/mountlib"
 	"github.com/rclone/rclone/fs"
-	"github.com/rclone/rclone/fs/accounting"
 	"github.com/rclone/rclone/fs/config"
 	"github.com/rclone/rclone/fs/config/configmap"
 	"github.com/rclone/rclone/fs/config/configstruct"
@@ -412,7 +411,7 @@ func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targ
 
 	// TODO: REVISIT - Per-mount accounting.Start(ctx) - Is this needed or is global accounting sufficient?
 	// Start accounting (bandwidth limiting, stats, TPS limiting)
-	accounting.Start(ctx)
+	// accounting.Start(ctx)
 
 	// Extract volume mount options
 	volumeMountOpts, err := extractVolumeMountOptions(mountOptions)
