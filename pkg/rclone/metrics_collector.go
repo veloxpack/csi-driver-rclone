@@ -67,6 +67,7 @@ type csiRcloneCollector struct {
 	vfsUploadsInProgress   *prometheus.Desc
 	vfsUploadsQueued       *prometheus.Desc
 	vfsDiskCacheOutOfSpace *prometheus.Desc
+	mountHealthy           *prometheus.Desc
 }
 
 // newMetricsCollector creates and returns a new CSI metrics collector instance.
@@ -141,6 +142,12 @@ func newMetricsCollector(ctx context.Context, nodeID, driverName, endpoint strin
 			[]string{"volume_id", "remote_name"},
 			nil,
 		),
+		mountHealthy: prometheus.NewDesc(
+			namespace+"mount_healthy",
+			"Mount health status (1=healthy, 0=unhealthy)",
+			[]string{"volume_id", "pod_id", "target_path", "remote_name"},
+			nil,
+		),
 	}
 }
 
@@ -187,6 +194,7 @@ func (c *csiRcloneCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.vfsUploadsInProgress
 	ch <- c.vfsUploadsQueued
 	ch <- c.vfsDiskCacheOutOfSpace
+	ch <- c.mountHealthy
 }
 
 // Collect implements prometheus.Collector.
@@ -351,6 +359,31 @@ func (c *csiRcloneCollector) Collect(ch chan<- prometheus.Metric) {
 				vs.remoteName,
 			)
 		}
+
+		// Collect mount health status
+		for targetPath, mc := range c.nodeServer.mountContext {
+			if mc == nil || mc.mountPoint == nil {
+				continue
+			}
+
+			volumeID := extractVolumeID(targetPath)
+			podID := extractPodID(targetPath)
+
+			healthValue := float64(0)
+			if c.nodeServer.isMountHealthy(targetPath) {
+				healthValue = 1
+			}
+
+			ch <- prometheus.MustNewConstMetric(
+				c.mountHealthy,
+				prometheus.GaugeValue,
+				healthValue,
+				volumeID,
+				podID,
+				targetPath,
+				mc.remoteName,
+			)
+		}
 	}
 }
 
@@ -366,6 +399,18 @@ func extractVolumeID(targetPath string) string {
 	// Fallback: use last component
 	if len(parts) > 0 {
 		return parts[len(parts)-1]
+	}
+	return "unknown"
+}
+
+// Helper function to extract pod ID from target path
+func extractPodID(targetPath string) string {
+	// Target path format: /var/lib/kubelet/pods/{pod-uid}/volumes/kubernetes.io~csi/{volumeID}/mount
+	parts := strings.Split(targetPath, "/")
+	for i, part := range parts {
+		if part == "pods" && i+1 < len(parts) {
+			return parts[i+1]
+		}
 	}
 	return "unknown"
 }

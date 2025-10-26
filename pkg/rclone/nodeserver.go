@@ -895,6 +895,23 @@ func (ns *NodeServer) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpubl
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
+func (ns *NodeServer) isMountHealthy(targetPath string) bool {
+	// Check if mount point is accessible
+	if _, err := os.ReadDir(targetPath); err != nil {
+		return false
+	}
+
+	// Check VFS stats for errors
+	if mc := ns.getMountContext(targetPath); mc != nil {
+		stats := mc.mountPoint.VFS.Stats()
+		if errors, ok := stats["errors"]; ok && errors.(int) > 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
 // NodeStageVolume is not implemented (rclone doesn't require staging)
 //
 //nolint:lll
