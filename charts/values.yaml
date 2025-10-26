@@ -124,10 +124,56 @@ node:
     path: "/metrics"  # Maps to --metrics-path
     readTimeout: "10s"  # Maps to --metrics-server-read-timeout
     writeTimeout: "10s"  # Maps to --metrics-server-write-timeout
-    idleTimeout: "60s"  # Maps to --metrics-serve-idle-timeout
+    idleTimeout: "60s"  # Maps to --metrics-server-idle-timeout
+
+    # Service configuration
+    service:
+      enabled: false
+      type: ClusterIP
+      headless: true  # Use headless service for DaemonSet (clusterIP: None)
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5572"
+        prometheus.io/path: "/metrics"
+
+    # ServiceMonitor configuration (requires Prometheus Operator)
+    serviceMonitor:
+      enabled: false
+      interval: 30s
+      scrapeTimeout: 10s
+      scheme: http
+
+      # Additional labels for ServiceMonitor (used by Prometheus selector)
+      labels:
+        release: kube-prometheus-stack
+        # prometheus: kube-prometheus
+        # release: prometheus
+
+      # Namespace selector (if Prometheus is in different namespace)
+      namespaceSelector: {}
+        # matchNames:
+        #   - system
+
+      # Relabeling configs
+      relabelings: []
+        # - sourceLabels: [__meta_kubernetes_pod_node_name]
+        #   targetLabel: node
+        #   action: replace
+        # - sourceLabels: [__meta_kubernetes_namespace]
+        #   targetLabel: namespace
+        #   action: replace
+        # - sourceLabels: [__meta_kubernetes_pod_name]
+        #   targetLabel: pod
+        #   action: replace
+
+      # Metric relabeling configs
+      metricRelabelings: []
+        # - sourceLabels: [__name__]
+        #   regex: 'go_.*|csi_.*|process_.*'
+        #   action: keep
 
   # Additional command-line arguments.
-  # Example: helm template ./charts --set node.extraArgs.metrics-addr=":29654"
+  # Example: helm template ./charts --set node.extraArgs.metrics-addr=":5572"
   extraArgs: {}
 
 ## Reference to one or more secrets to be used when pulling images

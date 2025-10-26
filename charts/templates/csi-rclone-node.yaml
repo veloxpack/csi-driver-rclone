@@ -106,7 +106,7 @@ spec:
             - "--metrics-path={{ .Values.node.metrics.path }}"
             - "--metrics-server-read-timeout={{ .Values.node.metrics.readTimeout }}"
             - "--metrics-server-write-timeout={{ .Values.node.metrics.writeTimeout }}"
-            - "--metrics-serve-idle-timeout={{ .Values.node.metrics.idleTimeout }}"
+            - "--metrics-server-idle-timeout={{ .Values.node.metrics.idleTimeout }}"
             {{- end }}
             {{- range $key, $value := .Values.node.extraArgs }}
             - "--{{ $key }}={{ $value }}"
