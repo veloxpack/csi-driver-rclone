@@ -33,26 +33,29 @@ var (
 // csiRcloneCollector implements the Prometheus Collector interface
 // for CSI-specific metrics.
 type csiRcloneCollector struct {
-	ctx        context.Context
-	nodeID     string
-	driverName string
-	endpoint   string
-	nodeInfo   *prometheus.Desc
+	ctx         context.Context
+	nodeID      string
+	driverName  string
+	endpoint    string
+	versionInfo VersionInfo
+	nodeInfo    *prometheus.Desc
 }
 
 // newMetricsCollector creates and returns a new CSI metrics collector instance.
 func newMetricsCollector(ctx context.Context, nodeID, driverName, endpoint string) *csiRcloneCollector {
 	namespace := "csi_driver_"
+	versionInfo := GetVersion(driverName)
 
 	return &csiRcloneCollector{
-		ctx:        ctx,
-		nodeID:     nodeID,
-		driverName: driverName,
-		endpoint:   endpoint,
+		ctx:         ctx,
+		nodeID:      nodeID,
+		driverName:  driverName,
+		endpoint:    endpoint,
+		versionInfo: versionInfo,
 		nodeInfo: prometheus.NewDesc(
 			namespace+"info",
 			"Information about the CSI driver",
-			[]string{"node_id", "driver_name", "endpoint"},
+			[]string{"node_id", "driver_name", "endpoint", "rclone_version", "driver_version"},
 			nil,
 		),
 	}
@@ -86,7 +89,6 @@ func InitMetricsCollector(ctx context.Context, nodeID, driverName, endpoint stri
 		}
 	}
 
-	klog.Infof("CSI Prometheus collector initialized for node: %s", nodeID)
 	return nil
 }
 
@@ -110,6 +112,8 @@ func (c *csiRcloneCollector) Collect(ch chan<- prometheus.Metric) {
 		c.nodeID,
 		c.driverName,
 		c.endpoint,
+		c.versionInfo.RcloneVersion,
+		c.versionInfo.DriverVersion,
 	)
 
 	klog.V(5).Infof("Collected CSI metrics for node: %s", c.nodeID)
