@@ -90,6 +90,11 @@ spec:
             - "-v=5"
             - "--nodeid=$(NODE_ID)"
             - "--endpoint=$(CSI_ENDPOINT)"
+            - "--metrics-addr=$(METRICS_ADDR)"
+            - "--metrics-path=$(METRICS_PATH)"
+            - "--metrics-server-read-timeout=$(METRICS_READ_TIMEOUT)"
+            - "--metrics-server-write-timeout=$(METRICS_WRITE_TIMEOUT)"
+            - "--metrics-server-idle-timeout=$(METRICS_IDLE_TIMEOUT)"
           env:
             - name: NODE_ID
               valueFrom:

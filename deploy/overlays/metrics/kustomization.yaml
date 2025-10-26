@@ -1,0 +1,15 @@
+# Adds namespace to all resources.
+namespace: veloxpack
+
+# Optional: uncomment if you want prefixing
+# namePrefix: veloxpack-
+
+resources:
+  - ../../base
+  - ./csi-rclone-node-metrics-service.yaml
+  - ./csi-rclone-node-servicemonitor.yaml
+patches:
+  - path: csi-rclone-node-patch.yaml
+    target:
+      kind: DaemonSet
+      name: csi-rclone-node

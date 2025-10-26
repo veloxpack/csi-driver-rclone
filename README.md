@@ -103,7 +103,7 @@ Please refer to [development guide](./docs/csi-dev.md)
 ### 1. Deploy the CSI Driver
 
 ```bash
-kubectl apply -k deploy/
+kubectl apply -k deploy/overlays/default
 ```
 
 This will install:

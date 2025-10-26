@@ -2,6 +2,7 @@ apiVersion: skaffold/v4beta13
 kind: Config
 metadata:
   name: veloxpack
+
 build:
   tagPolicy:
     customTemplate:
@@ -10,7 +11,36 @@ build:
     - image: veloxpack/rcloneplugin
       docker:
         dockerfile: Dockerfile
+
 manifests:
   kustomize:
     paths:
-      - deploy/
+      - deploy/overlays/default
+
+profiles:
+  # Default profile — no metrics
+  - name: default
+    manifests:
+      kustomize:
+        paths:
+          - deploy/overlays/default
+
+  # Metrics profile — includes metrics service + ServiceMonitor
+  # Install Prometheus Operator before runnin this profile:
+  # Using Helm:
+    # helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    # helm repo update
+
+    # Install the kube-prometheus-stack (which includes ServiceMonitor CRDs)
+    # helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace
+  - name: metrics
+    manifests:
+      kustomize:
+        paths:
+          - deploy/overlays/metrics
+    portForward:
+      - resourceType: service
+        resourceName: csi-rclone-node-metrics
+        namespace: veloxpack
+        port: 5572
+        localPort: 5572

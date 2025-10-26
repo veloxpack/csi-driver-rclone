@@ -1,0 +1,17 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: csi-rclone-node-metrics
+  namespace: system
+  labels:
+    app: csi-rclone-node
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: csi-rclone-node
+  endpoints:
+    - port: metrics
+      interval: 30s
+      scrapeTimeout: 10s

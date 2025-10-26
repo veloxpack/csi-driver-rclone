@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: csi-rclone-node
+  namespace: system
+spec:
+  selector:
+    matchLabels:
+      app: csi-rclone-node
+  template:
+    spec:
+      containers:
+        - name: rclone
+          env:
+            - name: METRICS_ADDR
+              value: ":5572"
+            - name: METRICS_PATH
+              value: "/metrics"
+            - name: METRICS_READ_TIMEOUT
+              value: "10s"
+            - name: METRICS_WRITE_TIMEOUT
+              value: "10s"
+            - name: METRICS_IDLE_TIMEOUT
+              value: "60s"
+          ports:
+            - name: metrics
+              containerPort: 5572
+              protocol: TCP
