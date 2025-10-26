@@ -13,6 +13,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Example usage:
+#   ./install-driver.sh main
+#   ./install-driver.sh main metrics
+#   ./install-driver.sh main local
+#   ./install-driver.sh main local-metrics
 
 set -euo pipefail
 
@@ -21,22 +27,28 @@ if [[ "$#" -gt 0 ]]; then
   ver="$1"
 fi
 
-repo="https://raw.githubusercontent.com/veloxpack/csi-driver-rclone/$ver/deploy"
-if [[ "$#" -gt 1 ]]; then
-  if [[ "$2" == *"local"* ]]; then
-    echo "use local deploy"
-    repo="./deploy"
-  fi
-fi
-
-if [ $ver != "main" ]; then
-  repo="$repo/$ver"
+repo="https://github.com/veloxpack/csi-driver-rclone//deploy"
+if [[ "$#" -gt 1 && "$2" == *"local"* ]]; then
+  echo "Using local deploy manifests..."
+  repo="./deploy"
 fi
 
 echo "Installing RCLONE CSI driver, version: $ver ..."
-kubectl apply -f $repo/rbac-csi-rclone.yaml
-kubectl apply -f $repo/csi-rclone-driverinfo.yaml
-kubectl apply -f $repo/csi-rclone-controller.yaml
-kubectl apply -f $repo/csi-rclone-node.yaml
 
-echo 'RCLONE CSI driver installed successfully.'
+# Determine which overlay to use
+if [[ "$#" -gt 1 && "$2" == *"metrics"* ]]; then
+  overlay="overlays/metrics"
+  echo "Installing with metrics overlay..."
+else
+  overlay="overlays/default"
+  echo "Installing without metrics..."
+fi
+
+# Apply using Kustomize
+if [[ "$repo" == "./deploy"* ]]; then
+  kubectl apply -k "$repo/$overlay"
+else
+  kubectl apply -k "$repo/$overlay?ref=$ver"
+fi
+
+echo "RCLONE CSI driver installed successfully."
