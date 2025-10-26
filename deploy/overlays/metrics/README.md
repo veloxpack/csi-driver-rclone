@@ -117,6 +117,21 @@ kubectl apply -k deploy/overlays/metrics
 
 The `kustomization.yaml` includes a `configMapGenerator` that creates the `csi-rclone-dashboard` ConfigMap with the `grafana_dashboard: "1"` label, which allows the Grafana sidecar to automatically discover and load the dashboard.
 
+**Finding the Dashboard:**
+
+After deploying with the metrics overlay, the dashboard will be automatically available in Grafana:
+
+1. Port-forward to Grafana:
+   ```bash
+   kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+   ```
+
+2. Open the dashboard directly:
+   - **Direct link:** http://localhost:3000/dashboards?query=CSI%20Driver%20Rclone%20-%20Production%20Metrics
+   - Or navigate to **Dashboards** → Search for "CSI Driver Rclone"
+
+The dashboard should appear automatically if the Grafana sidecar is configured to watch for ConfigMaps with the `grafana_dashboard: "1"` label.
+
 **Manual Import Methods (Optional):**
 
 If you prefer to import the dashboard manually instead of using the kustomization ConfigMap:

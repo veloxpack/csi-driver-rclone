@@ -75,7 +75,13 @@
    {{- if .Values.node.metrics.dashboard.enabled }}
 
    Grafana dashboard ConfigMap created in '{{ .Values.node.metrics.dashboard.namespace }}' namespace!
-   The dashboard will be automatically discovered by Grafana sidecar if you have the label selector configured.
+   The dashboard will be automatically discovered by Grafana sidecar.
+
+   Access the dashboard:
+   ```bash
+   kubectl port-forward -n {{ .Values.node.metrics.dashboard.namespace }} svc/kube-prometheus-stack-grafana 3000:80
+   # Open: http://localhost:3000/dashboards?query=CSI%20Driver%20Rclone%20-%20Production%20Metrics
+   ```
    {{- end }}
 {{- end }}
 
