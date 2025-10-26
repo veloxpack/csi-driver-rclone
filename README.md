@@ -36,13 +36,15 @@ helm install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-c
 helm install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
   --namespace veloxpack --create-namespace
 
-# You can customize rclone command-line flags using the `extraArgs` map in your Helm values or via `--set` overrides
+# Enable rclone Prometheus-compatible metrics server for monitoring and observability
 helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
   --namespace veloxpack --create-namespace \
-  --set node.extraArgs.allow-other=true \
-  --set node.extraArgs.vfs-cache-mode=writes \
-  --set node.extraArgs.metrics-enabled=true \
-  --set node.extraArgs.metrics-port=9090
+  --set node.metrics.enabled=true \
+  --set node.metrics.addr=:5572 \
+  --set node.metrics.path=/metrics \
+  --set node.metrics.readTimeout=10s \
+  --set node.metrics.writeTimeout=10s \
+  --set node.metrics.idleTimeout=60s
 ```
 
 Verify the installation:

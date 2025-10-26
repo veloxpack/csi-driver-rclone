@@ -22,7 +22,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/veloxpack/csi-driver-rclone/internal/metrics"
+	metricsserver "github.com/veloxpack/csi-driver-rclone/internal/metrics"
 	"github.com/veloxpack/csi-driver-rclone/pkg/rclone"
 	"k8s.io/klog/v2"
 )
@@ -37,17 +37,14 @@ func main() {
 	klog.InitFlags(nil)
 	_ = flag.Set("logtostderr", "true")
 
-	flag.Parse()
-
-	metricsOpts := metrics.NewOptions()
+	metricsOpts := metricsserver.NewOptions()
 
 	// Metrics Options
-	flag.BoolVar(&metricsOpts.Enabled, "metrics-enabled", metricsOpts.Enabled, "Enable metrics server")
-	flag.IntVar(&metricsOpts.MetricsPort, "metrics-port", metricsOpts.MetricsPort, "Metrics server port")
+	flag.StringVar(&metricsOpts.MetricsAddr, "metrics-addr", metricsOpts.MetricsAddr, "Metrics server listening address")
 	flag.StringVar(&metricsOpts.MetricsPath, "metrics-path", metricsOpts.MetricsPath, "HTTP path where metrics are exposed")
-	flag.DurationVar(&metricsOpts.ReadTimeout, "metrics-read-timeout", metricsOpts.ReadTimeout, "Metrics server read timeout")
-	flag.DurationVar(&metricsOpts.WriteTimeout, "metrics-write-timeout", metricsOpts.WriteTimeout, "Metrics server write timeout")
-	flag.DurationVar(&metricsOpts.IdleTimeout, "metrics-idle-timeout", metricsOpts.IdleTimeout, "Metrics server idle timeout")
+	flag.DurationVar(&metricsOpts.ReadTimeout, "metrics-server-read-timeout", metricsOpts.ReadTimeout, "Metrics server read timeout")
+	flag.DurationVar(&metricsOpts.WriteTimeout, "metrics-server-write-timeout", metricsOpts.WriteTimeout, "Metrics server write timeout")
+	flag.DurationVar(&metricsOpts.IdleTimeout, "metrics-serve-idle-timeout", metricsOpts.IdleTimeout, "Metrics server idle timeout")
 
 	flag.Parse()
 
@@ -56,16 +53,16 @@ func main() {
 	}
 
 	// Start metrics server if enabled
-	if metricsOpts.Enabled {
+	if metricsOpts.MetricsAddr != "" {
 		ctx := context.Background()
 
 		// Initialize CSI collector with node ID
-		if err := metrics.InitCollector(ctx, *nodeID, *driverName, *endpoint); err != nil {
+		if err := rclone.InitMetricsCollector(ctx, *nodeID, *driverName, *endpoint); err != nil {
 			klog.Fatalf("Failed to initialize CSI collector: %v", err)
 		}
 
 		// Start metrics server
-		metricsSrv, err := metrics.Start(metricsOpts)
+		metricsSrv, err := metricsserver.Start(metricsOpts)
 		if err != nil {
 			klog.Fatalf("Failed to start metrics server: %v", err)
 		}

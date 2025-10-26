@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package metrics
+package rclone
 
 import (
 	"context"
@@ -40,9 +40,9 @@ type csiRcloneCollector struct {
 	nodeInfo   *prometheus.Desc
 }
 
-// NewCollector creates and returns a new CSI metrics collector instance.
-func NewCollector(ctx context.Context, nodeID, driverName, endpoint string) *csiRcloneCollector {
-	namespace := "csi_driver_rclone_"
+// newMetricsCollector creates and returns a new CSI metrics collector instance.
+func newMetricsCollector(ctx context.Context, nodeID, driverName, endpoint string) *csiRcloneCollector {
+	namespace := "csi_driver_"
 
 	return &csiRcloneCollector{
 		ctx:        ctx,
@@ -50,7 +50,7 @@ func NewCollector(ctx context.Context, nodeID, driverName, endpoint string) *csi
 		driverName: driverName,
 		endpoint:   endpoint,
 		nodeInfo: prometheus.NewDesc(
-			namespace+"driver_info",
+			namespace+"info",
 			"Information about the CSI driver",
 			[]string{"node_id", "driver_name", "endpoint"},
 			nil,
@@ -58,9 +58,9 @@ func NewCollector(ctx context.Context, nodeID, driverName, endpoint string) *csi
 	}
 }
 
-// InitCollector initializes and registers both the rclone and CSI Prometheus collectors.
+// InitMetricsCollector initializes and registers both the rclone and CSI Prometheus collectors.
 // It ensures that collectors are only initialized once.
-func InitCollector(ctx context.Context, nodeID, driverName, endpoint string) error {
+func InitMetricsCollector(ctx context.Context, nodeID, driverName, endpoint string) error {
 	if csiCollector != nil {
 		klog.V(4).Info("CSI collector already initialized; skipping re-initialization")
 		return nil
@@ -77,7 +77,7 @@ func InitCollector(ctx context.Context, nodeID, driverName, endpoint string) err
 	}
 
 	// Create and register CSI collector
-	csiCollector = NewCollector(ctx, nodeID, driverName, endpoint)
+	csiCollector = newMetricsCollector(ctx, nodeID, driverName, endpoint)
 	if err := prometheus.Register(csiCollector); err != nil {
 		if _, ok := err.(prometheus.AlreadyRegisteredError); ok {
 			klog.V(4).Info("CSI Prometheus collector already registered")
@@ -88,11 +88,6 @@ func InitCollector(ctx context.Context, nodeID, driverName, endpoint string) err
 
 	klog.Infof("CSI Prometheus collector initialized for node: %s", nodeID)
 	return nil
-}
-
-// Collector returns the global CSI collector instance, or nil if not initialized.
-func Collector() *csiRcloneCollector {
-	return csiCollector
 }
 
 // Describe implements prometheus.Collector.

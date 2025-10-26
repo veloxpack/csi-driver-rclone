@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package metrics implements the HTTP endpoint to serve Prometheus metrics
-package metrics
+package metricsserver
 
 import (
 	"context"
@@ -30,19 +30,23 @@ import (
 
 // Options contains configuration for the metrics server
 type Options struct {
-	Enabled      bool
 	MetricsPath  string
-	MetricsPort  int
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
+	MetricsAddr  string
 }
 
 // Validate checks if the options are valid
 func (o *Options) Validate() error {
-	if o.MetricsPort < 1 || o.MetricsPort > 65535 {
-		return fmt.Errorf("metrics port must be between 1 and 65535, got %d", o.MetricsPort)
+	if o == nil {
+		return fmt.Errorf("options cannot be nil")
 	}
+
+	if o.MetricsAddr == "" {
+		return fmt.Errorf("metrics address cannot be empty")
+	}
+
 	if !strings.HasPrefix(o.MetricsPath, "/") {
 		return fmt.Errorf("metrics path must start with '/', got %q", o.MetricsPath)
 	}
@@ -62,7 +66,6 @@ func (o *Options) Validate() error {
 // NewOptions returns sensible defaults
 func NewOptions() *Options {
 	return &Options{
-		MetricsPort:  9090,
 		MetricsPath:  "/metrics",
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -88,11 +91,9 @@ func Start(opt *Options) (*metricsServer, error) {
 		return nil, err
 	}
 
-	listenAddr := fmt.Sprintf(":%d", opt.MetricsPort)
-
-	listener, err := net.Listen("tcp", listenAddr)
+	listener, err := net.Listen("tcp", opt.MetricsAddr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to listen on %s: %w", listenAddr, err)
+		return nil, fmt.Errorf("failed to listen on %s: %w", opt.MetricsAddr, err)
 	}
 
 	mux := http.NewServeMux()
