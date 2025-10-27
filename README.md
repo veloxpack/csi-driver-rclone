@@ -49,6 +49,36 @@ helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-drive
   --set node.metrics.readTimeout=10s \
   --set node.metrics.writeTimeout=10s \
   --set node.metrics.idleTimeout=60s
+
+# Enable metrics with Kubernetes Service (for Prometheus scraping)
+helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
+  --namespace veloxpack --create-namespace \
+  --set node.metrics.enabled=true \
+  --set node.metrics.service.enabled=true
+
+# Enable metrics with ServiceMonitor (requires Prometheus Operator)
+helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
+  --namespace veloxpack --create-namespace \
+  --set node.metrics.enabled=true \
+  --set node.metrics.service.enabled=true \
+  --set node.metrics.serviceMonitor.enabled=true
+
+# Enable metrics with Grafana dashboard
+helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
+  --namespace veloxpack --create-namespace \
+  --set node.metrics.enabled=true \
+  --set node.metrics.service.enabled=true \
+  --set node.metrics.dashboard.enabled=true \
+  --set node.metrics.dashboard.namespace=monitoring
+
+# Full monitoring stack (metrics + Prometheus + Grafana)
+helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
+  --namespace veloxpack --create-namespace \
+  --set node.metrics.enabled=true \
+  --set node.metrics.service.enabled=true \
+  --set node.metrics.serviceMonitor.enabled=true \
+  --set node.metrics.dashboard.enabled=true \
+  --set node.metrics.dashboard.namespace=monitoring
 ```
 
 Verify the installation:
@@ -108,11 +138,11 @@ skaffold dev -p metrics-full
 ```
 
 Skaffold will:
-- ✅ Build the Docker image on code changes
-- ✅ Deploy to your local cluster (minikube/kind/k3s)
-- ✅ Stream logs from all components
-- ✅ Auto-reload on file changes
-- ✅ Setup port-forwarding for metrics and dashboards
+- Build the Docker image on code changes
+- Deploy to your local cluster (minikube/kind/k3s)
+- Stream logs from all components
+- Auto-reload on file changes
+- Setup port-forwarding for metrics and dashboards
 
 ### Available Skaffold Profiles
 
@@ -195,6 +225,8 @@ For detailed manual setup and testing procedures, see the [development guide](./
 ## Quick Start
 
 ### 1. Deploy the CSI Driver
+
+> **Note:** If you've already installed the driver using Helm (see [Install via Helm](#option-1-install-via-helm-recommended-for-production) above), you can skip this step.
 
 ```bash
 kubectl apply -k deploy/overlays/default
@@ -522,19 +554,6 @@ args:
   - "--v=5"  # Verbose logging
   - "--logtostderr=true"
 ```
-
-## Community, discussion, contribution, and support
-
-Learn how to engage with the Kubernetes community on the [community page](http://kubernetes.io/community/).
-
-You can reach the maintainers of this project at:
-
-- [Slack channel](https://kubernetes.slack.com/messages/sig-storage)
-- [Mailing list](https://groups.google.com/forum/#!forum/kubernetes-sig-storage)
-
-### Code of conduct
-
-Participation in the Kubernetes community is governed by the [Kubernetes Code of Conduct](code-of-conduct.md).
 
 ## License
 
