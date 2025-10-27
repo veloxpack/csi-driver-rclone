@@ -75,7 +75,7 @@ func NewDriver(options *DriverOptions) *Driver {
 
 	d.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-		csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
+		// csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
 	})
 
 	d.AddNodeServiceCapabilities([]csi.NodeServiceCapability_RPC_Type{

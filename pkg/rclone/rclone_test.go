@@ -106,11 +106,11 @@ func TestNewDriver(t *testing.T) {
 			assert.NotNil(t, driver.nscap)
 
 			// Verify controller capabilities
-			assert.Equal(t, 2, len(driver.cscap))
+			assert.Equal(t, 1, len(driver.cscap))
 			assert.Equal(t, csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 				driver.cscap[0].GetRpc().Type)
-			assert.Equal(t, csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
-				driver.cscap[1].GetRpc().Type)
+			// assert.Equal(t, csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
+			// 	driver.cscap[1].GetRpc().Type)
 
 			// Verify node capabilities
 			assert.Equal(t, 1, len(driver.nscap))
