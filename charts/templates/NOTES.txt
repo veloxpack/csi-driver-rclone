@@ -80,7 +80,7 @@
    Access the dashboard:
    ```bash
    kubectl port-forward -n {{ .Values.node.metrics.dashboard.namespace }} svc/kube-prometheus-stack-grafana 3000:80
-   # Open: http://localhost:3000/dashboards?query=CSI%20Driver%20Rclone%20-%20Production%20Metrics
+   # Open: http://localhost:3000/dashboards?query=CSI%20Driver%20Rclone
    ```
    {{- end }}
 {{- end }}

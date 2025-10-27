@@ -8,6 +8,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.26.0
 	github.com/onsi/gomega v1.38.2
 	github.com/pborman/uuid v1.2.1
+	github.com/prometheus/client_golang v1.23.0
 	github.com/stretchr/testify v1.11.1
 	github.com/unknwon/goconfig v1.0.0
 	golang.org/x/net v0.46.0
@@ -194,7 +195,6 @@ require (
 	github.com/pkg/xattr v0.4.12 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/prometheus/client_golang v1.23.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect

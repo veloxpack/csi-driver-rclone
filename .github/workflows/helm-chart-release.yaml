@@ -153,11 +153,36 @@ jobs:
           PACKAGE="${{ steps.chart.outputs.name }}-${{ steps.chart.outputs.version }}.tgz"
           echo "file=${PACKAGE}" >> "${GITHUB_OUTPUT}"
 
-      - name: Push chart
+      - name: Push chart with version
         run: |
           set -euo pipefail
           helm push "${{ steps.package.outputs.file }}" \
             "oci://${REGISTRY}/${{ github.repository_owner }}"
+
+      - name: Package and push chart as latest
+        run: |
+          set -euo pipefail
+
+          # Create temporary directory for extraction
+          TEMP_DIR=$(mktemp -d)
+
+          # Extract the packaged chart
+          tar -xzf "${{ steps.package.outputs.file }}" -C "${TEMP_DIR}"
+
+          # Update version to 'latest' in the extracted chart
+          CHART_DIR="${TEMP_DIR}/${{ steps.chart.outputs.name }}"
+          yq eval '.version = "latest"' -i "${CHART_DIR}/Chart.yaml"
+
+          # Package with 'latest' version
+          helm package "${CHART_DIR}" --version latest --destination .
+
+          # Push the latest version
+          LATEST_PACKAGE="${{ steps.chart.outputs.name }}-latest.tgz"
+          helm push "${LATEST_PACKAGE}" \
+            "oci://${REGISTRY}/${{ github.repository_owner }}"
+
+          # Cleanup
+          rm -rf "${TEMP_DIR}" "${LATEST_PACKAGE}"
 
       - name: Logout from registry
         if: always()
@@ -172,10 +197,17 @@ jobs:
           **Version:** ${{ steps.chart.outputs.version }}
           **Registry:** ${REGISTRY}/${{ github.repository_owner }}
 
-          ### Install
+          ### Install with specific version
           \`\`\`bash
           helm install my-release \\
             oci://${REGISTRY}/${{ github.repository_owner }}/${{ steps.chart.outputs.name }} \\
             --version ${{ steps.chart.outputs.version }}
+          \`\`\`
+
+          ### Install latest version
+          \`\`\`bash
+          helm install my-release \\
+            oci://${REGISTRY}/${{ github.repository_owner }}/${{ steps.chart.outputs.name }} \\
+            --version latest
           \`\`\`
           EOF

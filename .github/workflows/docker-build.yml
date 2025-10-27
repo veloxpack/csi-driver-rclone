@@ -50,6 +50,7 @@ jobs:
             type=semver,pattern={{major}}
             type=ref,event=pr
             type=sha
+            type=raw,value=latest,enable=${{ github.event_name != 'pull_request' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -62,3 +63,4 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
