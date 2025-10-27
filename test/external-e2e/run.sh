@@ -46,8 +46,8 @@ setup_e2e_binaries() {
 
 print_logs() {
     echo "print out driver logs ..."
-    kubectl logs -l app=csi-rclone-controller -n kube-system --tail=100 || true
-    kubectl logs -l app=csi-rclone-node -n kube-system --tail=100 || true
+    kubectl logs -l app=csi-rclone-controller -n veloxpack --tail=100 || true
+    kubectl logs -l app=csi-rclone-node -n veloxpack --tail=100 || true
 }
 
 install_ginkgo

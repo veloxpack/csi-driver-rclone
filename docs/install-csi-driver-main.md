@@ -122,7 +122,7 @@ node:
 #### 2. Install with Helm
 
 ```bash
-helm install csi-rclone ./charts/csi-driver-rclone -f values.yaml -n kube-system
+helm install csi-rclone ./charts/csi-driver-rclone -f values.yaml -n veloxpack
 ```
 
 ## Development Setup

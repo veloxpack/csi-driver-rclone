@@ -216,7 +216,7 @@ kubectl exec -it <node-pod> -- ls /var/run/secrets/kubernetes.io/serviceaccount/
 #### Check RBAC Permissions
 ```console
 # Check service account
-kubectl get serviceaccount csi-rclone-controller -n kube-system
+kubectl get serviceaccount csi-rclone-controller -n veloxpack
 
 # Check cluster role
 kubectl get clusterrole csi-rclone-controller
@@ -324,8 +324,8 @@ kubectl delete pvc <pvc-name>
 kubectl delete pv <pv-name>
 
 # Restart driver pods
-kubectl rollout restart daemonset/csi-rclone-node -n kube-system
-kubectl rollout restart deployment/csi-rclone-controller -n kube-system
+kubectl rollout restart daemonset/csi-rclone-node -n veloxpack
+kubectl rollout restart deployment/csi-rclone-controller -n veloxpack
 ```
 
 ### Getting Additional Help

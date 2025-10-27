@@ -267,14 +267,14 @@ The tests use:
 go test -v -ginkgo.v
 
 # Show detailed pod logs for controller
-kubectl logs -n kube-system -l app=csi-rclone-controller --all-containers=true
+kubectl logs -n veloxpack -l app=csi-rclone-controller --all-containers=true
 
 # Show detailed pod logs for node daemonset
-kubectl logs -n kube-system -l app=csi-rclone-node --all-containers=true
+kubectl logs -n veloxpack -l app=csi-rclone-node --all-containers=true
 
 # Check CSI driver status
 kubectl get csidrivers
-kubectl get pods -n kube-system | grep rclone
+kubectl get pods -n veloxpack | grep rclone
 
 # Describe CSI driver
 kubectl describe csidriver rclone.csi.veloxpack.io

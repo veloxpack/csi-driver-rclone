@@ -24,7 +24,6 @@ This will install:
 - CSI Node Driver (DaemonSet)
 - RBAC permissions
 - CSIDriver CRD
-- Example StorageClass
 
 #### 2. Verify Installation
 ```bash
@@ -48,12 +47,12 @@ helm repo update
 
 #### 2. Install the Driver
 ```bash
-helm install csi-rclone csi-rclone/csi-driver-rclone --namespace kube-system
+helm install csi-rclone csi-rclone/csi-driver-rclone --namespace veloxpack
 ```
 
 #### 3. Verify Installation
 ```bash
-helm list -n kube-system
+helm list -n veloxpack
 kubectl get pods -l app=csi-rclone-controller
 ```
 
@@ -223,7 +222,7 @@ kubectl delete -f deploy/namespace-csi-rclone.yaml
 ### Method 2: Using Helm
 
 ```bash
-helm uninstall csi-rclone -n kube-system
+helm uninstall csi-rclone -n veloxpack
 ```
 
 ## Troubleshooting

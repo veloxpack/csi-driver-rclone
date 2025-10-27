@@ -12,7 +12,7 @@
 ![build status](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/test.yaml/badge.svg)
 [![Trivy vulnerability scanner](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/trivy.yaml/badge.svg?branch=main)](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/trivy.yaml)
 
-**Quick Links:** [Installation](#install-driver-on-a-kubernetes-cluster) | [Development](#development) | [Examples](#examples) | [Features](#features) | [Documentation](./docs/)
+**Quick Links:** [Features](#features) | [Requirements](#requirements) | [Installation](#install-driver-on-a-kubernetes-cluster) | [Quick Start](#quick-start-guide) | [Examples](#examples) | [Development](#development) | [Documentation](./docs/)
 
 ### Overview
 
@@ -24,13 +24,47 @@ This is a repository for [Rclone](https://rclone.org/) [CSI](https://kubernetes-
 |main branch     | 1.20+                 | GA     |
 |v0.1.0          | 1.20+                 | GA     |
 
-### Install driver on a Kubernetes cluster
+## Features
+
+- **50+ Storage Providers**: Supports Amazon S3, Google Cloud Storage, Azure Blob, Dropbox, SFTP, and [many more](./deploy/example/README.md)
+- **No External Dependencies**: Uses rclone as a Go library directly - no rclone binary installation required
+- **No Process Overhead**: Direct library integration means no subprocess spawning or external process management
+- **Dynamic Volume Provisioning**: Create persistent volumes via StorageClass
+- **Secret-based Configuration**: Secure credential management using Kubernetes secrets
+- **Inline Configuration**: Direct configuration in StorageClass parameters
+- **Template Variable Support**: Dynamic path substitution using PVC/PV metadata
+- **VFS Caching**: High-performance caching with configurable options
+- **No Staging Required**: Direct mount without volume staging
+- **Flexible Backend Support**: Choose between minimal or full backend support for smaller images
+
+## Requirements
+
+### Production
+- Kubernetes 1.20 or later
+- CSI node driver registrar
+- FUSE support on nodes (for mounting)
+- **No rclone installation required** - the driver uses rclone as a Go library directly
+
+### Development/Testing
+For local development and testing, we recommend using one of these lightweight Kubernetes distributions:
+- **[minikube](https://minikube.sigs.k8s.io/)** - Easy local Kubernetes cluster with good driver support
+- **[kind](https://kind.sigs.k8s.io/)** (Kubernetes in Docker) - Lightweight and fast for CI/CD
+- **[k3s](https://k3s.io/)** - Minimal Kubernetes distribution, great for edge and IoT
+
+See the [Development](#development) section for using Skaffold with these tools for the fastest development workflow.
+
+## Install driver on a Kubernetes cluster
 
 > **💡 For Development:** Use [Skaffold](#development) for the fastest development workflow with automatic rebuilds and live reload.
 
 #### Option 1: Install via Helm (Recommended for Production)
 
-Install directly from the OCI registry:
+**Which installation method should I use?**
+- **Production deployment?** → Use Helm (this section)
+- **Development with live reload?** → Use [Skaffold](#development) (see Development section)
+- **Manual control needed?** → Use [kubectl](#option-2-install-via-kubectl-manual)
+
+**Basic Installation:**
 
 ```bash
 # Install with default configuration
@@ -39,39 +73,29 @@ helm install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-c
 # Install in a specific namespace
 helm install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
   --namespace veloxpack --create-namespace
+```
 
-# Enable rclone Prometheus-compatible metrics server for monitoring and observability
+**With Monitoring & Observability:**
+
+Choose the monitoring level that fits your needs:
+
+```bash
+# Option A: Basic metrics endpoint
+# Use this for custom Prometheus configurations or basic monitoring
 helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
   --namespace veloxpack --create-namespace \
-  --set node.metrics.enabled=true \
-  --set node.metrics.addr=:5572 \
-  --set node.metrics.path=/metrics \
-  --set node.metrics.readTimeout=10s \
-  --set node.metrics.writeTimeout=10s \
-  --set node.metrics.idleTimeout=60s
+  --set node.metrics.enabled=true
 
-# Enable metrics with Kubernetes Service (for Prometheus scraping)
+# Option B: Metrics + Kubernetes Service
+# Use this if you have Prometheus configured to discover services
 helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
   --namespace veloxpack --create-namespace \
   --set node.metrics.enabled=true \
   --set node.metrics.service.enabled=true
 
-# Enable metrics with ServiceMonitor (requires Prometheus Operator)
-helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
-  --namespace veloxpack --create-namespace \
-  --set node.metrics.enabled=true \
-  --set node.metrics.service.enabled=true \
-  --set node.metrics.serviceMonitor.enabled=true
-
-# Enable metrics with Grafana dashboard
-helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
-  --namespace veloxpack --create-namespace \
-  --set node.metrics.enabled=true \
-  --set node.metrics.service.enabled=true \
-  --set node.metrics.dashboard.enabled=true \
-  --set node.metrics.dashboard.namespace=monitoring
-
-# Full monitoring stack (metrics + Prometheus + Grafana)
+# Option C: Full monitoring stack (Recommended for production monitoring)
+# Includes: metrics + ServiceMonitor (Prometheus Operator) + Grafana Dashboard
+# Requires: Prometheus Operator installed (kube-prometheus-stack)
 helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
   --namespace veloxpack --create-namespace \
   --set node.metrics.enabled=true \
@@ -80,6 +104,25 @@ helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-drive
   --set node.metrics.dashboard.enabled=true \
   --set node.metrics.dashboard.namespace=monitoring
 ```
+
+<details>
+<summary>Advanced metrics configuration options</summary>
+
+Customize metrics server settings:
+
+```bash
+helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
+  --namespace veloxpack --create-namespace \
+  --set node.metrics.enabled=true \
+  --set node.metrics.addr=:5572 \
+  --set node.metrics.path=/metrics \
+  --set node.metrics.readTimeout=10s \
+  --set node.metrics.writeTimeout=10s \
+  --set node.metrics.idleTimeout=60s
+```
+
+</details>
+
 
 Verify the installation:
 
@@ -91,8 +134,22 @@ helm list -n veloxpack
 kubectl get pods -n veloxpack -l app.kubernetes.io/name=csi-driver-rclone
 ```
 
-#### Option 2: Install via kubectl
-Follow the [manual installation guide](./docs/install-rclone-csi-driver.md)
+#### Option 2: Install via kubectl (Manual)
+
+For manual installation using kubectl and kustomize:
+
+```bash
+# Deploy the driver
+kubectl apply -k deploy/overlays/default
+```
+
+This will install:
+- CSI Controller (StatefulSet)
+- CSI Node Driver (DaemonSet)
+- RBAC permissions
+- CSIDriver CRD
+
+For detailed manual installation options and overlays, see the [manual installation guide](./docs/install-rclone-csi-driver.md).
 
 ### Driver parameters
 Please refer to [`rclone.csi.veloxpack.io` driver parameters](./docs/driver-parameters.md)
@@ -198,48 +255,37 @@ helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring --create-namespace
 ```
 
+### Testing & Code Quality
+
+```bash
+# Run tests
+go test ./pkg/rclone/...
+
+# Run linter
+./bin/golangci-lint run --config .golangci.yml ./...
+```
+
+### Local Binary Development
+
+For testing the driver binary directly without Kubernetes:
+
+```bash
+# Build the binary
+make build
+
+# Run driver locally
+./bin/rcloneplugin --endpoint unix:///tmp/csi.sock --nodeid CSINode -v=5
+```
+
 ### Alternative: Manual Development
 
 For detailed manual setup and testing procedures, see the [development guide](./docs/csi-dev.md).
 
-## Features
+## Quick Start Guide
 
-- **50+ Storage Providers**: Supports Amazon S3, Google Cloud Storage, Azure Blob, Dropbox, SFTP, and many more
-- **No External Dependencies**: Uses rclone as a Go library directly - no rclone binary installation required
-- **No Process Overhead**: Direct library integration means no subprocess spawning or external process management
-- **Dynamic Volume Provisioning**: Create persistent volumes via StorageClass
-- **Secret-based Configuration**: Secure credential management using Kubernetes secrets
-- **Inline Configuration**: Direct configuration in StorageClass parameters
-- **Template Variable Support**: Dynamic path substitution using PVC/PV metadata
-- **VFS Caching**: High-performance caching with configurable options
-- **No Staging Required**: Direct mount without volume staging
-- **Flexible Backend Support**: Choose between minimal or full backend support for smaller images
+Once you've [installed the driver](#install-driver-on-a-kubernetes-cluster), follow these steps to start using cloud storage in your pods:
 
-## Requirements
-
-- Kubernetes 1.20 or later
-- CSI node driver registrar
-- FUSE support on nodes (for mounting)
-- **No rclone installation required** - the driver uses rclone as a Go library directly
-
-## Quick Start
-
-### 1. Deploy the CSI Driver
-
-> **Note:** If you've already installed the driver using Helm (see [Install via Helm](#option-1-install-via-helm-recommended-for-production) above), you can skip this step.
-
-```bash
-kubectl apply -k deploy/overlays/default
-```
-
-This will install:
-- CSI Controller (StatefulSet)
-- CSI Node Driver (DaemonSet)
-- RBAC permissions
-- CSIDriver CRD
-- Example StorageClass
-
-### 2. Configure Storage Backend
+### 1. Configure Storage Backend
 
 Create a secret with your storage backend configuration:
 
@@ -262,7 +308,7 @@ stringData:
     region = us-east-1
 ```
 
-### 3. Create StorageClass
+### 2. Create StorageClass
 
 ```yaml
 apiVersion: storage.k8s.io/v1
@@ -280,7 +326,7 @@ volumeBindingMode: Immediate
 allowVolumeExpansion: true
 ```
 
-### 4. Create PVC and Pod
+### 3. Create PVC and Pod
 
 ```yaml
 apiVersion: v1
@@ -325,25 +371,6 @@ Configure directly in PersistentVolume volumeAttributes.
 
 **Priority**: volumeAttributes > StorageClass parameters > Secrets
 
-## Supported Storage Backends
-
-The driver supports all rclone backends, including:
-
-- **Amazon S3** and S3-compatible storage (MinIO, DigitalOcean Spaces, etc.)
-- **Google Cloud Storage**
-- **Azure Blob Storage**
-- **Dropbox**
-- **SFTP/SSH**
-- **Google Drive**
-- **OneDrive**
-- **Box**
-- **Backblaze B2**
-- **WebDAV**
-- **FTP**
-- **And 50+ more backends**
-
-See [examples](./deploy/example/README.md) for configuration examples.
-
 ## Dynamic Path Substitution
 
 The driver supports template variables in the `remotePath` parameter:
@@ -386,39 +413,28 @@ spec:
         secret_access_key = YOUR_SECRET_ACCESS_KEY
 ```
 
-### Resource Limits
-```yaml
-resources:
-  requests:
-    memory: "256Mi"
-    cpu: "100m"
-  limits:
-    memory: "512Mi"
-    cpu: "500m"
-```
-
 ## Troubleshooting
 
 ### Check Driver Status
 ```bash
 # Check controller pods
-kubectl get pods -n kube-system -l app=csi-rclone-controller
+kubectl get pods -n veloxpack -l app=csi-rclone-controller
 
 # Check node pods
-kubectl get pods -n kube-system -l app=csi-rclone-node
+kubectl get pods -n veloxpack -l app=csi-rclone-node
 
 # Check logs
-kubectl logs -n kube-system -l app=csi-rclone-controller
-kubectl logs -n kube-system -l app=csi-rclone-node
+kubectl logs -n veloxpack -l app=csi-rclone-controller
+kubectl logs -n veloxpack -l app=csi-rclone-node
 ```
 
 ### Verify Driver Functionality
 ```bash
 # Check if the driver is working correctly
-kubectl exec -n kube-system -l app=csi-rclone-node -- /rcloneplugin --help
+kubectl exec -n veloxpack -l app=csi-rclone-node -- /rcloneplugin --help
 
 # Check driver version information (shows when driver starts)
-kubectl logs -n kube-system -l app=csi-rclone-node --tail=10 | grep "DRIVER INFORMATION" -A 10
+kubectl logs -n veloxpack -l app=csi-rclone-node --tail=10 | grep "DRIVER INFORMATION" -A 10
 ```
 
 ### Common Issues
@@ -491,37 +507,6 @@ docker build --build-arg RCLONE_BACKEND_MODE=minimal -t csi-rclone:minimal .
 - Lower memory footprint
 
 Choose the build that fits your needs - full support for maximum compatibility or minimal for production efficiency.
-
-## Development Workflow
-
-### Recommended: Skaffold Development
-
-For the best development experience with live reload and integrated debugging, see the [Development section](#development) above.
-
-```bash
-# Start developing with hot reload
-skaffold dev -p metrics-full
-```
-
-### Running Linter
-```bash
-./bin/golangci-lint run --config .golangci.yml ./...
-```
-
-### Testing
-```bash
-go test ./pkg/rclone/...
-```
-
-### Local Binary Development
-For testing the driver binary directly without Kubernetes:
-```bash
-# Build the binary
-make build
-
-# Run driver locally
-./bin/rcloneplugin --endpoint unix:///tmp/csi.sock --nodeid CSINode -v=5
-```
 
 ## Architecture
 
