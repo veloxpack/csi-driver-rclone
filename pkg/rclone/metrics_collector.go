@@ -70,14 +70,14 @@ type csiRcloneCollector struct {
 	vfsDiskCacheOutOfSpace *prometheus.Desc
 	mountHealthy           *prometheus.Desc
 	// Remote statistics metrics
-	remoteTransferSpeed        *prometheus.Desc
-	remoteTransferEta          *prometheus.Desc
-	remoteChecksTotal          *prometheus.Desc
-	remoteDeletesTotal         *prometheus.Desc
-	remoteServerSideCopies     *prometheus.Desc
-	remoteServerSideMoves      *prometheus.Desc
-	remoteTransferring         *prometheus.Desc
-	remoteChecking             *prometheus.Desc
+	remoteTransferSpeed    *prometheus.Desc
+	remoteTransferEta      *prometheus.Desc
+	remoteChecksTotal      *prometheus.Desc
+	remoteDeletesTotal     *prometheus.Desc
+	remoteServerSideCopies *prometheus.Desc
+	remoteServerSideMoves  *prometheus.Desc
+	remoteTransferring     *prometheus.Desc
+	remoteChecking         *prometheus.Desc
 }
 
 // newMetricsCollector creates and returns a new CSI metrics collector instance.
@@ -539,6 +539,8 @@ func (c *csiRcloneCollector) Collect(ch chan<- prometheus.Metric) {
 			)
 		}
 	}
+
+	klog.V(2).Infof("CSI metrics collection completed node_id=%s", c.nodeID)
 }
 
 // Helper function to extract volume ID from target path
