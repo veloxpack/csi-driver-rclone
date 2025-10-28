@@ -69,6 +69,21 @@ local-build-push: rclone
 	docker build -t $(LOCAL_USER)/rcloneplugin:latest .
 	docker push $(LOCAL_USER)/rcloneplugin
 
+.PHONY: apply-patches
+apply-patches:
+	@echo "Applying vendor patches..."
+	@bash scripts/apply-vendor-patches.sh
+
+.PHONY: vendor-sync
+vendor-sync:
+	@echo "Syncing vendor directory..."
+	go mod vendor
+	@$(MAKE) apply-patches
+
+.PHONY: rclone
+rclone: apply-patches
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -a -ldflags "${LDFLAGS} ${EXT_LDFLAGS}" -mod vendor -o bin/${ARCH}/rcloneplugin ./cmd/rcloneplugin
+
 .PHONY: container-build
 container-build:
 	docker buildx build --pull --load \
