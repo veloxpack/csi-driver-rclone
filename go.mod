@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/container-storage-interface/spec v1.12.0
-	github.com/kubernetes-csi/csi-lib-utils v0.21.0
+	github.com/kubernetes-csi/csi-lib-utils v0.22.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rclone/rclone v1.71.2
 	github.com/stretchr/testify v1.11.1
