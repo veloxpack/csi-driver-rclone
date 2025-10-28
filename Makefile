@@ -78,7 +78,7 @@ rclone:
 .PHONY: container-build
 container-build:
 	docker buildx build --pull --load \
-		--platform linux/arm64 \
+		--platform linux/$(ARCH) \
 		--provenance=false --sbom=false \
 		-t $(IMAGE_TAG) \
 		--build-arg GIT_COMMIT=$(GIT_COMMIT) --build-arg BUILD_DATE=$(BUILD_DATE) \
