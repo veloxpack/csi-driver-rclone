@@ -1,0 +1,37 @@
+{{- if and .Values.node.metrics.enabled .Values.node.metrics.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "rclone.fullname" . }}-node-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "rclone.commonLabels" . | nindent 4 }}
+    app.kubernetes.io/component: node-metrics
+    {{- with .Values.node.metrics.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "rclone.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: node-metrics
+  endpoints:
+    - port: metrics
+      path: {{ .Values.node.metrics.path }}
+      interval: {{ .Values.node.metrics.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.node.metrics.serviceMonitor.scrapeTimeout }}
+      scheme: {{ .Values.node.metrics.serviceMonitor.scheme }}
+      {{- with .Values.node.metrics.serviceMonitor.relabelings }}
+      relabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.node.metrics.serviceMonitor.metricRelabelings }}
+      metricRelabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if .Values.node.metrics.serviceMonitor.namespaceSelector }}
+  namespaceSelector:
+    {{- toYaml .Values.node.metrics.serviceMonitor.namespaceSelector | nindent 4 }}
+  {{- end }}
+{{- end }}

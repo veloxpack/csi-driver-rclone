@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# This is a TEMPLATE for custom metrics configuration.
+# Copy this component directory and modify metrics-patch.yaml to suit your needs.
+
+patches:
+  - path: metrics-patch.yaml
+    target:
+      kind: DaemonSet
+      name: csi-rclone-node

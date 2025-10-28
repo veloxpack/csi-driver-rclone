@@ -1,0 +1,237 @@
+---
+# Rclone CSI Driver - PersistentVolume Example
+# This example demonstrates how to create a PersistentVolume with inline rclone configuration
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  annotations:
+    pv.kubernetes.io/provisioned-by: rclone.csi.veloxpack.io
+  name: pv-rclone-example
+  namespace: default
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany  # Rclone supports ReadWriteMany for cloud storage
+  persistentVolumeReclaimPolicy: Delete
+  mountOptions:
+    - debug-fuse
+    - vfs-cache-mode=full
+  csi:
+    driver: rclone.csi.veloxpack.io
+    volumeHandle: rclone-pv-example-volume
+    volumeAttributes:
+      remote: "minio-sample"
+      remotePath: "mybucket"
+      # Inline rclone configuration for MinIO S3-compatible storage
+      remoteType: "s3"
+      s3-provider: Minio
+      s3-endpoint: http://minio.default.svc.cluster.local:9000
+      s3-access-key-id: admin
+      s3-secret-access-key: "password"
+      s3-region: us-east-1
+      s3-acl: private
+
+---
+# PersistentVolumeClaim that references the above PV
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pvc-rclone-example
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  volumeName: pv-rclone-example
+  storageClassName: ""  # Empty string means no dynamic provisioning
+
+---
+# First application pod - Writer
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rclone-writer-pod
+  namespace: default
+  labels:
+    app: rclone-test
+    role: writer
+spec:
+  containers:
+  - name: writer
+    image: busybox
+    command:
+    - sh
+    - -c
+    - |
+      echo "Writer pod started at $(date)" > /data/writer-info.txt
+      while true; do
+        echo "$(date): Message from writer" >> /data/shared-log.txt
+        sleep 10
+      done
+    volumeMounts:
+    - name: rclone-storage
+      mountPath: /data
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+  volumes:
+  - name: rclone-storage
+    persistentVolumeClaim:
+      claimName: pvc-rclone-example
+
+# ---
+# # Second application pod - Reader
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   name: rclone-reader-pod
+#   namespace: default
+#   labels:
+#     app: rclone-test
+#     role: reader
+# spec:
+#   containers:
+#   - name: reader
+#     image: busybox
+#     command:
+#     - sh
+#     - -c
+#     - |
+#       echo "Reader pod started at $(date)" > /data/reader-info.txt
+#       while true; do
+#         if [ -f /data/shared-log.txt ]; then
+#           echo "=== Latest entries from shared log ==="
+#           tail -5 /data/shared-log.txt
+#         fi
+#         sleep 15
+#       done
+#     volumeMounts:
+#     - name: rclone-storage
+#       mountPath: /data
+#     resources:
+#       requests:
+#         memory: "64Mi"
+#         cpu: "100m"
+#       limits:
+#         memory: "128Mi"
+#         cpu: "200m"
+#   volumes:
+#   - name: rclone-storage
+#     persistentVolumeClaim:
+#       claimName: pvc-rclone-example
+
+# ---
+# # Third application pod - Interactive shell
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   name: rclone-shell-pod
+#   namespace: default
+#   labels:
+#     app: rclone-test
+#     role: interactive
+# spec:
+#   containers:
+#   - name: shell
+#     image: busybox
+#     command:
+#     - sleep
+#     - "3600"
+#     volumeMounts:
+#     - name: rclone-storage
+#       mountPath: /data
+#     resources:
+#       requests:
+#         memory: "64Mi"
+#         cpu: "100m"
+#       limits:
+#         memory: "128Mi"
+#         cpu: "200m"
+#   volumes:
+#   - name: rclone-storage
+#     persistentVolumeClaim:
+#       claimName: pvc-rclone-example
+
+# ---
+# # Optional: Deployment with multiple replicas accessing the same volume
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name:  rclone-multi-replica
+#   namespace: default
+# spec:
+#   replicas: 3
+#   selector:
+#     matchLabels:
+#       app: rclone-deployment
+#   template:
+#     metadata:
+#       labels:
+#         app: rclone-deployment
+#     spec:
+#       containers:
+#       - name: app
+#         image: busybox
+#         command:
+#         - sh
+#         - -c
+#         - |
+#           HOSTNAME=$(hostname)
+#           echo "$HOSTNAME started at $(date)" > /data/$HOSTNAME.txt
+#           while true; do
+#             echo "$(date) - $HOSTNAME: Health check" >> /data/deployment-log.txt
+#             ls -lh /data/ || true
+#             sleep 20
+#           done
+#         volumeMounts:
+#         - name: rclone-storage
+#           mountPath: /data
+#         resources:
+#           requests:
+#             memory: "64Mi"
+#             cpu: "100m"
+#           limits:
+#             memory: "128Mi"
+#             cpu: "200m"
+#       volumes:
+#       - name: rclone-storage
+#         persistentVolumeClaim:
+#           claimName: pvc-rclone-example
+
+# Please run minio first!
+# kubectl apply -f minio-deploy.yaml
+
+# Usage commands:
+# kubectl apply -f rclone-multi-pods.yaml
+#
+# Test writer pod:
+# kubectl logs rclone-writer-pod
+#
+# Test reader pod:
+# kubectl logs rclone-reader-pod
+#
+# Interactive shell:
+# kubectl exec -it rclone-shell-pod -- sh
+# ls -lh /data/
+# cat /data/shared-log.txt
+# echo "Manual test" > /data/manual-test.txt
+#
+# Check deployment pods:
+# kubectl get pods -l app=rclone-deployment
+# kubectl exec -it <deployment-pod-name> -- cat /data/deployment-log.txt
+#
+# Verify all pods see the same data:
+# kubectl exec rclone-writer-pod -- ls -lh /data/
+# kubectl exec rclone-reader-pod -- ls -lh /data/
+# kubectl exec rclone-shell-pod -- ls -lh /data/
+#
+# Cleanup:
+# kubectl delete -f rclone-multi-pods.yaml
+# kubectl delete -f minio-deploy.yaml

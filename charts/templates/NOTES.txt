@@ -57,5 +57,32 @@
    kubectl logs -n {{ .Release.Namespace }} -l app=csi-rclone-controller
    kubectl logs -n {{ .Release.Namespace }} -l app=csi-rclone-node
    ```
+{{- if .Values.node.metrics.enabled }}
 
-Happy cloud storage mounting! 🚀
+8. Metrics are enabled!
+   {{- if .Values.node.metrics.service.enabled }}
+   Metrics service: {{ include "rclone.fullname" . }}-node-metrics
+   {{- end }}
+   {{- if .Values.node.metrics.serviceMonitor.enabled }}
+   ServiceMonitor: {{ include "rclone.fullname" . }}-node-metrics
+
+   Access Prometheus metrics:
+   ```bash
+   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "rclone.fullname" . }}-node-metrics 5572:5572
+   curl http://localhost:5572/metrics
+   ```
+   {{- end }}
+   {{- if .Values.node.metrics.dashboard.enabled }}
+
+   Grafana dashboard ConfigMap created in '{{ .Values.node.metrics.dashboard.namespace }}' namespace!
+   The dashboard will be automatically discovered by Grafana sidecar.
+
+   Access the dashboard:
+   ```bash
+   kubectl port-forward -n {{ .Values.node.metrics.dashboard.namespace }} svc/kube-prometheus-stack-grafana 3000:80
+   # Open: http://localhost:3000/dashboards?query=CSI%20Driver%20Rclone
+   ```
+   {{- end }}
+{{- end }}
+
+Happy cloud storage mounting!

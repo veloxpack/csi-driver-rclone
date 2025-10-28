@@ -75,6 +75,7 @@ func NewDriver(options *DriverOptions) *Driver {
 
 	d.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+		// csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
 	})
 
 	d.AddNodeServiceCapabilities([]csi.NodeServiceCapability_RPC_Type{
@@ -117,6 +118,12 @@ func (d *Driver) Run(testMode bool) {
 
 	mounter := mount.New("")
 	d.ns = NewNodeServer(d, mounter)
+
+	// Initialize metrics collector with NodeServer reference
+	if err := initMetricsCollector(ctx, d.nodeID, d.name, d.endpoint, d.ns); err != nil {
+		klog.Fatalf("Failed to initialize CSI metrics collector: %v", err)
+	}
+
 	s := NewNonBlockingGRPCServer()
 	s.Start(d.endpoint,
 		NewDefaultIdentityServer(d),

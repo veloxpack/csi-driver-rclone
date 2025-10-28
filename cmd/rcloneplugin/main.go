@@ -17,9 +17,12 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
+	"time"
 
+	metricsserver "github.com/veloxpack/csi-driver-rclone/internal/metrics"
 	"github.com/veloxpack/csi-driver-rclone/pkg/rclone"
 	"k8s.io/klog/v2"
 )
@@ -34,7 +37,46 @@ func main() {
 	klog.InitFlags(nil)
 	_ = flag.Set("logtostderr", "true")
 
+	metricsOpts := metricsserver.NewOptions()
+
+	// Metrics Options
+	flag.StringVar(&metricsOpts.MetricsAddr, "metrics-addr",
+		metricsOpts.MetricsAddr, "Metrics server listening address")
+	flag.StringVar(&metricsOpts.MetricsPath, "metrics-path",
+		metricsOpts.MetricsPath, "HTTP path where metrics are exposed")
+	flag.DurationVar(&metricsOpts.ReadTimeout, "metrics-server-read-timeout",
+		metricsOpts.ReadTimeout, "Metrics server read timeout")
+	flag.DurationVar(&metricsOpts.WriteTimeout, "metrics-server-write-timeout",
+		metricsOpts.WriteTimeout, "Metrics server write timeout")
+	flag.DurationVar(&metricsOpts.IdleTimeout, "metrics-server-idle-timeout",
+		metricsOpts.IdleTimeout, "Metrics server idle timeout")
+
 	flag.Parse()
+
+	if *nodeID == "" {
+		klog.Warning("nodeid is empty")
+	}
+
+	// Start metrics server if enabled
+	if metricsOpts.MetricsAddr != "" {
+		ctx := context.Background()
+
+		// Start metrics server
+		metricsSrv, err := metricsserver.Start(metricsOpts)
+		if err != nil {
+			klog.Fatalf("Failed to start metrics server: %v", err)
+		}
+		if metricsSrv != nil {
+			klog.Infof("Metrics server listening on http://%s%s", metricsSrv.Addr(), metricsOpts.MetricsPath)
+			defer func() {
+				shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+				if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+					klog.Errorf("Error shutting down metrics server: %v", err)
+				}
+			}()
+		}
+	}
 
 	driverOptions := rclone.DriverOptions{
 		NodeID:     *nodeID,

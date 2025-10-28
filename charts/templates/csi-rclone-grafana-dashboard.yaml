@@ -1,0 +1,20 @@
+{{- if and .Values.node.metrics.enabled .Values.node.metrics.dashboard.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rclone.fullname" . }}-grafana-dashboard
+  namespace: {{ .Values.node.metrics.dashboard.namespace }}
+  labels:
+    {{- include "rclone.commonLabels" . | nindent 4 }}
+    {{- with .Values.node.metrics.dashboard.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.node.metrics.dashboard.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  grafana-dashboard.json: |
+    {{ .Files.Get "dashboards/grafana-dashboard.json" | nindent 4 }}
+{{- end }}

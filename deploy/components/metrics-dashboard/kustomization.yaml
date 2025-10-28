@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Note: The namespace will be inherited from the parent kustomization
+# To deploy this ConfigMap to the monitoring namespace, the parent
+# kustomization must either not set a namespace or use a patch to change it
+
+configMapGenerator:
+  - name: csi-rclone-dashboard
+    files:
+      - grafana-dashboard.json
+    options:
+      labels:
+        grafana_dashboard: "1"

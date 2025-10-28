@@ -1,0 +1,19 @@
+# Basic metrics setup: Only enables metrics on the DaemonSet (no Service, ServiceMonitor, or Dashboard)
+# This is the minimal overlay. For more complete setups, see:
+# - metrics-service/       : Adds Service to expose metrics
+# - metrics-prometheus/    : Adds Service + ServiceMonitor for Prometheus Operator
+# - metrics-dashboard/     : Adds only Grafana Dashboard ConfigMap
+# - metrics-full/          : Complete setup (Service + ServiceMonitor + Dashboard)
+#
+# To customize metrics configuration:
+# 1. Copy deploy/components/metrics-custom/ to your own directory
+# 2. Modify the metrics-patch.yaml file
+# 3. Reference your custom component instead of metrics-basic
+
+namespace: veloxpack
+
+resources:
+  - ../../base
+
+components:
+  - ../../components/metrics-basic

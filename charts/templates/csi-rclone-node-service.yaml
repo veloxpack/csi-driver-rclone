@@ -1,0 +1,29 @@
+{{- if and .Values.node.metrics.enabled .Values.node.metrics.service.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rclone.fullname" . }}-node-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "rclone.commonLabels" . | nindent 4 }}
+    app.kubernetes.io/component: node-metrics
+  {{- with .Values.node.metrics.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.node.metrics.service.type }}
+  {{- if eq .Values.node.metrics.service.type "ClusterIP" }}
+  {{- if .Values.node.metrics.service.headless }}
+  clusterIP: None
+  {{- end }}
+  {{- end }}
+  ports:
+    - name: metrics
+      port: {{ regexFind "[0-9]+$" .Values.node.metrics.addr | int }}
+      targetPort: metrics
+      protocol: TCP
+  selector:
+    app: {{ .Values.node.name }}
+{{- end }}

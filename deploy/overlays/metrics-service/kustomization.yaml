@@ -1,0 +1,9 @@
+# Metrics with Service (without ServiceMonitor or Dashboard)
+namespace: veloxpack
+
+resources:
+  - ../../base
+
+components:
+  - ../../components/metrics-basic
+  - ../../components/metrics-service

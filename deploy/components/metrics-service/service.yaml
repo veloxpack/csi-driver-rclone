@@ -1,0 +1,23 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: csi-rclone-node-metrics
+  namespace: system
+  labels:
+    app: csi-rclone-node
+    app.kubernetes.io/name: csi-rclone
+    app.kubernetes.io/component: node-metrics
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "5572"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 5572
+      targetPort: metrics
+      protocol: TCP
+  selector:
+    app: csi-rclone-node

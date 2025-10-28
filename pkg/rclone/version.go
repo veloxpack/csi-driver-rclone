@@ -27,6 +27,7 @@ import (
 // These are set during build time via -ldflags
 var (
 	driverVersion = "N/A"
+	rcloneVersion = "N/A"
 	gitCommit     = "N/A"
 	buildDate     = "N/A"
 )
@@ -35,6 +36,7 @@ var (
 type VersionInfo struct {
 	DriverName    string `json:"Driver Name"`
 	DriverVersion string `json:"Driver Version"`
+	RcloneVersion string `json:"Rclone Version"`
 	GitCommit     string `json:"Git Commit"`
 	BuildDate     string `json:"Build Date"`
 	GoVersion     string `json:"Go Version"`
@@ -47,6 +49,7 @@ func GetVersion(driverName string) VersionInfo {
 	return VersionInfo{
 		DriverName:    driverName,
 		DriverVersion: driverVersion,
+		RcloneVersion: rcloneVersion,
 		GitCommit:     gitCommit,
 		BuildDate:     buildDate,
 		GoVersion:     runtime.Version(),
@@ -68,6 +71,6 @@ func GetVersionYAML(driverName string) (string, error) {
 
 // GetVersionString returns a formatted version string
 func GetVersionString(driverName string) string {
-	return fmt.Sprintf("%s version %s (commit: %s, built: %s)",
-		driverName, driverVersion, gitCommit, buildDate)
+	return fmt.Sprintf("%s version %s (rclone: %s, commit: %s, built: %s)",
+		driverName, driverVersion, rcloneVersion, gitCommit, buildDate)
 }

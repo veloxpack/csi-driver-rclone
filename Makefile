@@ -34,8 +34,9 @@ export GOPATH GOBIN GO111MODULE DOCKER_CLI_EXPERIMENTAL
 
 GIT_COMMIT = $(shell git rev-parse HEAD)
 BUILD_DATE = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-IMAGE_VERSION ?= v4.13.0
-LDFLAGS = -X ${PKG}/pkg/rclone.driverVersion=${IMAGE_VERSION} -X ${PKG}/pkg/rclone.gitCommit=${GIT_COMMIT} -X ${PKG}/pkg/rclone.buildDate=${BUILD_DATE}
+IMAGE_VERSION ?= latest
+RCLONE_VERSION = $(shell grep "github.com/rclone/rclone" go.mod | awk '{print $$2}' | sed 's/v//')
+LDFLAGS = -X ${PKG}/pkg/rclone.driverVersion=${IMAGE_VERSION} -X ${PKG}/pkg/rclone.gitCommit=${GIT_COMMIT} -X ${PKG}/pkg/rclone.buildDate=${BUILD_DATE} -X ${PKG}/pkg/rclone.rcloneVersion=${RCLONE_VERSION}
 EXT_LDFLAGS = -s -w -extldflags "-static"
 # Use a custom version for E2E tests if we are testing in CI
 ifdef CI
@@ -44,19 +45,17 @@ override IMAGE_VERSION := e2e-$(GIT_COMMIT)
 endif
 endif
 IMAGENAME ?= rcloneplugin
-REGISTRY ?= andyzhangx
-REGISTRY_NAME ?= $(shell echo $(REGISTRY) | sed "s/.azurecr.io//g")
+REGISTRY ?= veloxpack
 IMAGE_TAG = $(REGISTRY)/$(IMAGENAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST = $(REGISTRY)/$(IMAGENAME):latest
 
 E2E_HELM_OPTIONS ?= --set image.rclone.repository=$(REGISTRY)/$(IMAGENAME) --set image.rclone.tag=$(IMAGE_VERSION) --set image.rclone.pullPolicy=Always --set feature.enableInlineVolume=true --set externalSnapshotter.enabled=true --set controller.runOnControlPlane=true
 E2E_HELM_OPTIONS += ${EXTRA_HELM_OPTIONS}
+HELM_CHARTS_PATH = charts
 
 # Output type of docker buildx build
 OUTPUT_TYPE ?= docker
 
-ALL_ARCH.linux = arm64 amd64 ppc64le
-ALL_OS_ARCH = linux-arm64 linux-arm-v7 linux-amd64 linux-ppc64le
 GOLANGCI_LINT_VERSION ?=  v2.5.0
 
 .EXPORT_ALL_VARIABLES:
@@ -76,57 +75,51 @@ local-build-push: rclone
 rclone:
 	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -a -ldflags "${LDFLAGS} ${EXT_LDFLAGS}" -o bin/${ARCH}/rcloneplugin ./cmd/rcloneplugin
 
-.PHONY: rclone-armv7
-rclone-armv7:
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -a -ldflags "${LDFLAGS} ${EXT_LDFLAGS}" -o bin/arm/v7/rcloneplugin ./cmd/rcloneplugin
-
 .PHONY: container-build
 container-build:
-	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="linux/$(ARCH)" \
+	docker buildx build --pull --load \
+		--platform linux/$(ARCH) \
 		--provenance=false --sbom=false \
-		-t $(IMAGE_TAG)-linux-$(ARCH) --build-arg ARCH=$(ARCH) .
+		-t $(IMAGE_TAG) \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) --build-arg BUILD_DATE=$(BUILD_DATE) \
+		--build-arg DRIVER_VERSION=$(IMAGE_VERSION) .
 
-.PHONY: container-linux-armv7
-container-linux-armv7:
-	docker buildx build --pull --output=type=$(OUTPUT_TYPE) --platform="linux/arm/v7" \
+.PHONY: container-build-multiarch
+container-build-multiarch:
+	docker buildx build --pull --output=type=image \
+		--platform linux/amd64,linux/arm64 \
 		--provenance=false --sbom=false \
-		-t $(IMAGE_TAG)-linux-arm-v7 --build-arg ARCH=arm/v7 .
+		-t $(IMAGE_TAG) \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) --build-arg BUILD_DATE=$(BUILD_DATE) \
+		--build-arg DRIVER_VERSION=$(IMAGE_VERSION) .
 
 .PHONY: container
 container:
-	docker buildx rm container-builder || true
-	docker buildx create --use --name=container-builder
+	@MULTIARCH_VALUE=$${MULTIARCH:-true}; \
+	if [ "$$MULTIARCH_VALUE" = "true" ]; then \
+		echo "🏗️ Building multi-architecture image (default)..."; \
+	else \
+		echo "🏗️ Building single-architecture image..."; \
+	fi; \
+	docker buildx rm container-builder || true; \
+	docker buildx create --use --name=container-builder; \
 	# enable qemu for arm64 build
-	# https://github.com/docker/buildx/issues/464#issuecomment-741507760
-	docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64
-	docker run --rm --privileged tonistiigi/binfmt --install all
-	for arch in $(ALL_ARCH.linux); do \
-		ARCH=$${arch} $(MAKE) rclone; \
-		ARCH=$${arch} $(MAKE) container-build; \
-	done
-	$(MAKE) rclone-armv7
-	$(MAKE) container-linux-armv7
+	docker run --privileged --rm tonistiigi/binfmt --uninstall qemu-aarch64; \
+	docker run --rm --privileged tonistiigi/binfmt --install all; \
+	if [ "$$MULTIARCH_VALUE" = "true" ]; then \
+		$(MAKE) container-build-multiarch; \
+	else \
+		$(MAKE) container-build; \
+	fi
 
 .PHONY: push
 push:
-ifdef CI
-	docker manifest create --amend $(IMAGE_TAG) $(foreach osarch, $(ALL_OS_ARCH), $(IMAGE_TAG)-${osarch})
-	docker manifest push --purge $(IMAGE_TAG)
-	docker manifest inspect $(IMAGE_TAG)
-else
 	docker push $(IMAGE_TAG)
-endif
 
 .PHONY: push-latest
 push-latest:
-ifdef CI
-	docker manifest create --amend $(IMAGE_TAG_LATEST) $(foreach osarch, $(ALL_OS_ARCH), $(IMAGE_TAG)-${osarch})
-	docker manifest push --purge $(IMAGE_TAG_LATEST)
-	docker manifest inspect $(IMAGE_TAG_LATEST)
-else
 	docker tag $(IMAGE_TAG) $(IMAGE_TAG_LATEST)
 	docker push $(IMAGE_TAG_LATEST)
-endif
 
 .PHONY: install-helm
 install-helm:
@@ -154,11 +147,11 @@ e2e-test:
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
-	$(GOLANGCI_LINT) run --no-config ./cmd/... ./pkg/...
+	$(GOLANGCI_LINT) run
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	$(GOLANGCI_LINT) run --no-config --fix ./cmd/... ./pkg/...
+	$(GOLANGCI_LINT) run --fix
 
 .PHONY: lint-config
 lint-config: golangci-lint ## Verify golangci-lint linter configuration
@@ -170,3 +163,27 @@ golangci-lint: $(LOCALBIN) ## Download golangci-lint locally if necessary
 		echo "Downloading golangci-lint $(GOLANGCI_LINT_VERSION)"; \
 		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION); \
 	fi
+
+.PHONY: helm-lint
+helm-lint:
+	helm lint ${HELM_CHARTS_PATH} --strict
+
+.PHONY: helm-validate
+helm-validate:
+	helm template test ${HELM_CHARTS_PATH}
+
+.PHONY: minikube-start
+minikube-start:
+	minikube start \
+		--memory=4096 \
+		--cpus=2 \
+		--disk-size=20g \
+		--kubernetes-version=1.34.0
+
+.PHONY: minikube-stop
+minikube-stop:
+	minikube stop
+
+.PHONY: minikube-delete
+minikube-delete:
+	minikube delete

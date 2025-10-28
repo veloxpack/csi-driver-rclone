@@ -187,29 +187,29 @@ resources:
 ### Check Driver Status
 ```bash
 # Check controller pods
-kubectl get pods -n kube-system -l app=csi-rclone-controller
+kubectl get pods -n veloxpack -l app=csi-rclone-controller
 
 # Check node pods
-kubectl get pods -n kube-system -l app=csi-rclone-node
+kubectl get pods -n veloxpack -l app=csi-rclone-node
 
 # Check logs
-kubectl logs -n kube-system -l app=csi-rclone-controller
-kubectl logs -n kube-system -l app=csi-rclone-node
+kubectl logs -n veloxpack -l app=csi-rclone-controller
+kubectl logs -n veloxpack -l app=csi-rclone-node
 ```
 
 ### Verify Driver Functionality
 ```bash
 # Check if the driver is working correctly
-kubectl exec -n kube-system -l app=csi-rclone-node -- /rcloneplugin --help
+kubectl exec -n veloxpack -l app=csi-rclone-node -- /rcloneplugin --help
 
 # Check driver version information (shows when driver starts)
-kubectl logs -n kube-system -l app=csi-rclone-node --tail=10 | grep "DRIVER INFORMATION" -A 10
+kubectl logs -n veloxpack -l app=csi-rclone-node --tail=10 | grep "DRIVER INFORMATION" -A 10
 ```
 
 ### Test Configuration
 ```bash
 # Check driver logs for configuration parsing
-kubectl logs -n kube-system -l app=csi-rclone-node --tail=50 | grep -i config
+kubectl logs -n veloxpack -l app=csi-rclone-node --tail=50 | grep -i config
 ```
 
 ## Security Best Practices

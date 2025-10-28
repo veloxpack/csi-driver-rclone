@@ -1,0 +1,12 @@
+# Adds namespace to all resources.
+namespace: veloxpack
+
+# Optional: uncomment if you want prefixing
+# namePrefix: veloxpack-
+
+resources:
+  - namespace-csi-rclone.yaml
+  - rbac-csi-rclone.yaml
+  - csi-rclone-driverinfo.yaml
+  - csi-rclone-controller.yaml
+  - csi-rclone-node.yaml

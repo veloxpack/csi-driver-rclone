@@ -32,7 +32,7 @@ jobs:
         env:
           TRIVY_DB_REPOSITORY: "public.ecr.aws/aquasecurity/trivy-db:2"
         with:
-          image-ref: 'test/rcloneplugin:latest-linux-amd64'
+          image-ref: 'test/rcloneplugin:latest'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true

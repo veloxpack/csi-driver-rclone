@@ -32,6 +32,7 @@ func TestGetVersion(t *testing.T) {
 	expected := VersionInfo{
 		DriverName:    DefaultDriverName,
 		DriverVersion: "N/A",
+		RcloneVersion: "N/A",
 		GitCommit:     "N/A",
 		BuildDate:     "N/A",
 		GoVersion:     runtime.Version(),

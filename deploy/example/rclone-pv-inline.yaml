@@ -20,6 +20,7 @@ spec:
     - buffer-size=60Mi
     - cache-dir=/tmp/rclone-cache
     - temp-dir=/tmp/rclone-tmp
+    - vfs-cache-mode=full
   csi:
     driver: rclone.csi.veloxpack.io
     volumeHandle: rclone-pv-example-volume

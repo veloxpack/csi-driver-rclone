@@ -1,7 +1,30 @@
+# Skaffold configuration for CSI Driver Rclone
+#
+# Quick Start:
+#   skaffold dev                    # Default profile (no metrics)
+#   skaffold dev -p metrics-full    # Full monitoring stack
+#
+# Available Profiles:
+#   default            - Basic CSI driver (no metrics)
+#   metrics            - Metrics endpoint only
+#   metrics-service    - Metrics + Service
+#   metrics-prometheus - Metrics + Service + ServiceMonitor (requires Prometheus Operator)
+#   metrics-dashboard  - Grafana Dashboard only
+#   metrics-full       - Complete setup (Service + ServiceMonitor + Dashboard)
+#
+# Port Forwards:
+#   metrics-service, metrics-prometheus, metrics-full:
+#     - localhost:5572  → Metrics endpoint
+#   metrics-prometheus, metrics-full:
+#     - localhost:9090  → Prometheus UI
+#   metrics-dashboard, metrics-full:
+#     - localhost:3000  → Grafana UI (credentials: admin/prom-operator)
+
 apiVersion: skaffold/v4beta13
 kind: Config
 metadata:
   name: veloxpack
+
 build:
   tagPolicy:
     customTemplate:
@@ -13,4 +36,91 @@ build:
 manifests:
   kustomize:
     paths:
-      - deploy/
+      - deploy/overlays/default
+
+profiles:
+  # Default profile — no metrics
+  - name: default
+    manifests:
+      kustomize:
+        paths:
+          - deploy/overlays/default
+
+  # Basic metrics profile — enables metrics endpoint only (no Service, ServiceMonitor, or Dashboard)
+  # Useful for manual scraping or custom metrics collection
+  - name: metrics
+    manifests:
+      kustomize:
+        paths:
+          - deploy/overlays/metrics
+
+  # Metrics with Service — adds Kubernetes Service for metrics endpoint
+  # Useful for annotation-based Prometheus scraping or service discovery
+  - name: metrics-service
+    manifests:
+      kustomize:
+        paths:
+          - deploy/overlays/metrics-service
+    portForward:
+      - resourceType: service
+        resourceName: csi-rclone-node-metrics
+        namespace: veloxpack
+        port: 5572
+        localPort: 5572
+
+  # Metrics with Prometheus Operator — full Prometheus integration
+  - name: metrics-prometheus
+    manifests:
+      kustomize:
+        paths:
+          - deploy/overlays/metrics-prometheus
+    portForward:
+      - resourceType: service
+        resourceName: csi-rclone-node-metrics
+        namespace: veloxpack
+        port: 5572
+        localPort: 5572
+      - resourceType: service
+        resourceName: kube-prometheus-stack-prometheus
+        namespace: monitoring
+        port: 9090
+        localPort: 9090
+
+  # Grafana Dashboard only — deploys only the dashboard ConfigMap
+  # Note: Metrics must be enabled separately (use another profile or Helm)
+  # Prerequisites: Grafana with sidecar watching for grafana_dashboard: "1" label
+  - name: metrics-dashboard
+    manifests:
+      kustomize:
+        paths:
+          - deploy/overlays/metrics-dashboard
+    portForward:
+      - resourceType: service
+        resourceName: kube-prometheus-stack-grafana
+        namespace: monitoring
+        port: 80
+        localPort: 3000
+
+  # Full monitoring stack — everything enabled
+  # Prerequisites: kube-prometheus-stack installed with Grafana sidecar
+  - name: metrics-full
+    manifests:
+      kustomize:
+        paths:
+          - deploy/overlays/metrics-full
+    portForward:
+      - resourceType: service
+        resourceName: csi-rclone-node-metrics
+        namespace: veloxpack
+        port: 5572
+        localPort: 5572
+      - resourceType: service
+        resourceName: kube-prometheus-stack-prometheus
+        namespace: monitoring
+        port: 9090
+        localPort: 9090
+      - resourceType: service
+        resourceName: kube-prometheus-stack-grafana
+        namespace: monitoring
+        port: 80
+        localPort: 3000
