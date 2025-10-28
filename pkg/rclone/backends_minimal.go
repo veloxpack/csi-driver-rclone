@@ -32,5 +32,6 @@ import (
 	_ "github.com/rclone/rclone/backend/sftp"
 	_ "github.com/rclone/rclone/backend/swift"
 	_ "github.com/rclone/rclone/backend/webdav"
+	_ "github.com/rclone/rclone/cmd/mount"
 	_ "github.com/rclone/rclone/cmd/mount2"
 )
