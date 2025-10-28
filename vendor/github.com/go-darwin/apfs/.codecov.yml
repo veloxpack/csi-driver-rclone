@@ -1,0 +1,21 @@
+coverage:
+  precision: 1
+  round: down
+  range: "70...100"
+
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 10%
+    patch:
+      default:
+        only_pulls: true
+        target: 50%
+        threshold: 10%
+  ignore:
+    - "vendor"
+
+comment:
+  behavior: default
+  require_changes: true

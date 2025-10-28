@@ -86,124 +86,124 @@ spec:
     persistentVolumeClaim:
       claimName: pvc-rclone-example
 
-# ---
-# # Second application pod - Reader
-# apiVersion: v1
-# kind: Pod
-# metadata:
-#   name: rclone-reader-pod
-#   namespace: default
-#   labels:
-#     app: rclone-test
-#     role: reader
-# spec:
-#   containers:
-#   - name: reader
-#     image: busybox
-#     command:
-#     - sh
-#     - -c
-#     - |
-#       echo "Reader pod started at $(date)" > /data/reader-info.txt
-#       while true; do
-#         if [ -f /data/shared-log.txt ]; then
-#           echo "=== Latest entries from shared log ==="
-#           tail -5 /data/shared-log.txt
-#         fi
-#         sleep 15
-#       done
-#     volumeMounts:
-#     - name: rclone-storage
-#       mountPath: /data
-#     resources:
-#       requests:
-#         memory: "64Mi"
-#         cpu: "100m"
-#       limits:
-#         memory: "128Mi"
-#         cpu: "200m"
-#   volumes:
-#   - name: rclone-storage
-#     persistentVolumeClaim:
-#       claimName: pvc-rclone-example
+---
+# Second application pod - Reader
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rclone-reader-pod
+  namespace: default
+  labels:
+    app: rclone-test
+    role: reader
+spec:
+  containers:
+  - name: reader
+    image: busybox
+    command:
+    - sh
+    - -c
+    - |
+      echo "Reader pod started at $(date)" > /data/reader-info.txt
+      while true; do
+        if [ -f /data/shared-log.txt ]; then
+          echo "=== Latest entries from shared log ==="
+          tail -5 /data/shared-log.txt
+        fi
+        sleep 15
+      done
+    volumeMounts:
+    - name: rclone-storage
+      mountPath: /data
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+  volumes:
+  - name: rclone-storage
+    persistentVolumeClaim:
+      claimName: pvc-rclone-example
 
-# ---
-# # Third application pod - Interactive shell
-# apiVersion: v1
-# kind: Pod
-# metadata:
-#   name: rclone-shell-pod
-#   namespace: default
-#   labels:
-#     app: rclone-test
-#     role: interactive
-# spec:
-#   containers:
-#   - name: shell
-#     image: busybox
-#     command:
-#     - sleep
-#     - "3600"
-#     volumeMounts:
-#     - name: rclone-storage
-#       mountPath: /data
-#     resources:
-#       requests:
-#         memory: "64Mi"
-#         cpu: "100m"
-#       limits:
-#         memory: "128Mi"
-#         cpu: "200m"
-#   volumes:
-#   - name: rclone-storage
-#     persistentVolumeClaim:
-#       claimName: pvc-rclone-example
+---
+# Third application pod - Interactive shell
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rclone-shell-pod
+  namespace: default
+  labels:
+    app: rclone-test
+    role: interactive
+spec:
+  containers:
+  - name: shell
+    image: busybox
+    command:
+    - sleep
+    - "3600"
+    volumeMounts:
+    - name: rclone-storage
+      mountPath: /data
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+  volumes:
+  - name: rclone-storage
+    persistentVolumeClaim:
+      claimName: pvc-rclone-example
 
-# ---
-# # Optional: Deployment with multiple replicas accessing the same volume
-# apiVersion: apps/v1
-# kind: Deployment
-# metadata:
-#   name:  rclone-multi-replica
-#   namespace: default
-# spec:
-#   replicas: 3
-#   selector:
-#     matchLabels:
-#       app: rclone-deployment
-#   template:
-#     metadata:
-#       labels:
-#         app: rclone-deployment
-#     spec:
-#       containers:
-#       - name: app
-#         image: busybox
-#         command:
-#         - sh
-#         - -c
-#         - |
-#           HOSTNAME=$(hostname)
-#           echo "$HOSTNAME started at $(date)" > /data/$HOSTNAME.txt
-#           while true; do
-#             echo "$(date) - $HOSTNAME: Health check" >> /data/deployment-log.txt
-#             ls -lh /data/ || true
-#             sleep 20
-#           done
-#         volumeMounts:
-#         - name: rclone-storage
-#           mountPath: /data
-#         resources:
-#           requests:
-#             memory: "64Mi"
-#             cpu: "100m"
-#           limits:
-#             memory: "128Mi"
-#             cpu: "200m"
-#       volumes:
-#       - name: rclone-storage
-#         persistentVolumeClaim:
-#           claimName: pvc-rclone-example
+---
+# Optional: Deployment with multiple replicas accessing the same volume
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  rclone-multi-replica
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: rclone-deployment
+  template:
+    metadata:
+      labels:
+        app: rclone-deployment
+    spec:
+      containers:
+      - name: app
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          HOSTNAME=$(hostname)
+          echo "$HOSTNAME started at $(date)" > /data/$HOSTNAME.txt
+          while true; do
+            echo "$(date) - $HOSTNAME: Health check" >> /data/deployment-log.txt
+            ls -lh /data/ || true
+            sleep 20
+          done
+        volumeMounts:
+        - name: rclone-storage
+          mountPath: /data
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+      volumes:
+      - name: rclone-storage
+        persistentVolumeClaim:
+          claimName: pvc-rclone-example
 
 # Please run minio first!
 # kubectl apply -f minio-deploy.yaml

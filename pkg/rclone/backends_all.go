@@ -20,5 +20,6 @@ package rclone
 
 import (
 	_ "github.com/rclone/rclone/backend/all"
+	_ "github.com/rclone/rclone/cmd/mount"
 	_ "github.com/rclone/rclone/cmd/mount2"
 )
