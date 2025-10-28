@@ -33,7 +33,6 @@ build:
     - image: veloxpack/rcloneplugin
       docker:
         dockerfile: Dockerfile
-
 manifests:
   kustomize:
     paths:

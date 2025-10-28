@@ -40,11 +40,16 @@ func main() {
 	metricsOpts := metricsserver.NewOptions()
 
 	// Metrics Options
-	flag.StringVar(&metricsOpts.MetricsAddr, "metrics-addr", metricsOpts.MetricsAddr, "Metrics server listening address")
-	flag.StringVar(&metricsOpts.MetricsPath, "metrics-path", metricsOpts.MetricsPath, "HTTP path where metrics are exposed")
-	flag.DurationVar(&metricsOpts.ReadTimeout, "metrics-server-read-timeout", metricsOpts.ReadTimeout, "Metrics server read timeout")
-	flag.DurationVar(&metricsOpts.WriteTimeout, "metrics-server-write-timeout", metricsOpts.WriteTimeout, "Metrics server write timeout")
-	flag.DurationVar(&metricsOpts.IdleTimeout, "metrics-server-idle-timeout", metricsOpts.IdleTimeout, "Metrics server idle timeout")
+	flag.StringVar(&metricsOpts.MetricsAddr, "metrics-addr",
+		metricsOpts.MetricsAddr, "Metrics server listening address")
+	flag.StringVar(&metricsOpts.MetricsPath, "metrics-path",
+		metricsOpts.MetricsPath, "HTTP path where metrics are exposed")
+	flag.DurationVar(&metricsOpts.ReadTimeout, "metrics-server-read-timeout",
+		metricsOpts.ReadTimeout, "Metrics server read timeout")
+	flag.DurationVar(&metricsOpts.WriteTimeout, "metrics-server-write-timeout",
+		metricsOpts.WriteTimeout, "Metrics server write timeout")
+	flag.DurationVar(&metricsOpts.IdleTimeout, "metrics-server-idle-timeout",
+		metricsOpts.IdleTimeout, "Metrics server idle timeout")
 
 	flag.Parse()
 

@@ -24,8 +24,11 @@ import (
 	mount "k8s.io/mount-utils"
 )
 
+const (
+	targetTest = "./target_test"
+)
+
 func TestMount(t *testing.T) {
-	targetTest := "./target_test"
 	sourceTest := "./source_test"
 
 	tests := []struct {

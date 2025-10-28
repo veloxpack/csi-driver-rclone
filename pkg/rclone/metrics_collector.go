@@ -28,6 +28,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	unknownValue = "unknown"
+)
+
 var (
 	// csiCollector is the global CSI metrics collector instance.
 	csiCollector *csiRcloneCollector
@@ -155,7 +159,10 @@ func newMetricsCollector(ctx context.Context, nodeID, driverName, endpoint strin
 		mountHealthy: prometheus.NewDesc(
 			namespace+"mount_healthy",
 			"Mount health status with mount details (1=healthy, 0=unhealthy)",
-			[]string{"volume_id", "pod_id", "target_path", "remote_name", "mount_type", "device_name", "volume_name", "read_only", "mount_duration_seconds"},
+			[]string{
+				"volume_id", "pod_id", "target_path", "remote_name", "mount_type",
+				"device_name", "volume_name", "read_only", "mount_duration_seconds",
+			},
 			nil,
 		),
 		// Remote statistics metrics
@@ -271,7 +278,15 @@ func (c *csiRcloneCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	// Collect node info metric
+	c.collectNodeInfo(ch)
+	c.collectVFSMetrics(ch)
+	c.collectRemoteStats(ch)
+
+	klog.V(2).Infof("CSI metrics collection completed node_id=%s", c.nodeID)
+}
+
+// collectNodeInfo emits the node info metric
+func (c *csiRcloneCollector) collectNodeInfo(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(
 		c.nodeInfo,
 		prometheus.GaugeValue,
@@ -282,265 +297,223 @@ func (c *csiRcloneCollector) Collect(ch chan<- prometheus.Metric) {
 		c.versionInfo.RcloneVersion,
 		c.versionInfo.DriverVersion,
 	)
+}
 
-	// Collect VFS metrics for each mount point
-	if c.nodeServer != nil {
-		c.nodeServer.mu.RLock()
-		defer c.nodeServer.mu.RUnlock()
+// collectVFSMetrics aggregates and emits VFS metrics for all mounted volumes
+func (c *csiRcloneCollector) collectVFSMetrics(ch chan<- prometheus.Metric) {
+	if c.nodeServer == nil {
+		return
+	}
 
-		// Aggregate metrics by volume_id
-		volumeStats := make(map[string]*volumeMetrics)
+	c.nodeServer.mu.RLock()
+	defer c.nodeServer.mu.RUnlock()
 
-		for targetPath, mc := range c.nodeServer.mountContext {
-			if mc == nil || mc.mountPoint == nil || mc.mountPoint.VFS == nil {
-				continue
-			}
+	// Aggregate metrics by volume_id
+	volumeStats := c.aggregateVolumeStats()
 
-			// Extract volume ID from target path
-			volumeID := extractVolumeID(targetPath)
+	// Emit aggregated VFS metrics
+	c.emitVolumeMetrics(ch, volumeStats)
 
-			// Initialize volume stats if not exists
-			if volumeStats[volumeID] == nil {
-				volumeStats[volumeID] = &volumeMetrics{
-					volumeID:   volumeID,
-					remoteName: mc.remoteName,
-				}
-			}
+	// Emit mount health metrics
+	c.collectMountHealthMetrics(ch)
+}
 
-			// Get VFS stats
-			stats := mc.mountPoint.VFS.Stats()
+// aggregateVolumeStats aggregates VFS statistics across all mount points by volume ID
+func (c *csiRcloneCollector) aggregateVolumeStats() map[string]*volumeMetrics {
+	volumeStats := make(map[string]*volumeMetrics)
 
-			// Aggregate inUse metric
-			if inUse, ok := stats["inUse"].(int32); ok {
-				volumeStats[volumeID].inUse += int(inUse)
-			}
+	for targetPath, mc := range c.nodeServer.mountContext {
+		if mc == nil || mc.mountPoint == nil || mc.mountPoint.VFS == nil {
+			continue
+		}
 
-			// Aggregate metadata cache metrics
-			if metadataCache, ok := stats["metadataCache"].(rc.Params); ok {
-				if dirs, ok := metadataCache["dirs"].(int); ok {
-					volumeStats[volumeID].metadataCacheDirs += dirs
-				}
-				if files, ok := metadataCache["files"].(int); ok {
-					volumeStats[volumeID].metadataCacheFiles += files
-				}
-			}
+		volumeID := extractVolumeID(targetPath)
 
-			// Aggregate disk cache metrics (only if cache mode > off)
-			if diskCache, ok := stats["diskCache"].(rc.Params); ok {
-				if bytesUsed, ok := diskCache["bytesUsed"].(int64); ok {
-					volumeStats[volumeID].diskCacheBytesUsed += bytesUsed
-				}
-				if files, ok := diskCache["files"].(int); ok {
-					volumeStats[volumeID].diskCacheFiles += files
-				}
-				if erroredFiles, ok := diskCache["erroredFiles"].(int); ok {
-					volumeStats[volumeID].diskCacheErrors += erroredFiles
-				}
-				if uploadsInProgress, ok := diskCache["uploadsInProgress"].(int); ok {
-					volumeStats[volumeID].uploadsInProgress += uploadsInProgress
-				}
-				if uploadsQueued, ok := diskCache["uploadsQueued"].(int); ok {
-					volumeStats[volumeID].uploadsQueued += uploadsQueued
-				}
-				if outOfSpace, ok := diskCache["outOfSpace"].(bool); ok && outOfSpace {
-					volumeStats[volumeID].diskCacheOutOfSpace = true
-				}
+		// Initialize volume stats if not exists
+		if volumeStats[volumeID] == nil {
+			volumeStats[volumeID] = &volumeMetrics{
+				volumeID:   volumeID,
+				remoteName: mc.remoteName,
 			}
 		}
 
-		// Emit aggregated metrics
-		for _, vs := range volumeStats {
-			ch <- prometheus.MustNewConstMetric(
-				c.vfsInUse,
-				prometheus.GaugeValue,
-				float64(vs.inUse),
-				vs.volumeID,
-				vs.remoteName,
-			)
+		// Aggregate VFS statistics
+		c.aggregateVFSStats(mc.mountPoint.VFS.Stats(), volumeStats[volumeID])
+	}
 
-			ch <- prometheus.MustNewConstMetric(
-				c.vfsMetadataCacheDirs,
-				prometheus.GaugeValue,
-				float64(vs.metadataCacheDirs),
-				vs.volumeID,
-				vs.remoteName,
-			)
+	return volumeStats
+}
 
-			ch <- prometheus.MustNewConstMetric(
-				c.vfsMetadataCacheFiles,
-				prometheus.GaugeValue,
-				float64(vs.metadataCacheFiles),
-				vs.volumeID,
-				vs.remoteName,
-			)
+// aggregateVFSStats aggregates individual VFS stats into volume metrics
+func (c *csiRcloneCollector) aggregateVFSStats(stats map[string]interface{}, vm *volumeMetrics) {
+	// Aggregate inUse metric
+	if inUse, ok := stats["inUse"].(int32); ok {
+		vm.inUse += int(inUse)
+	}
 
-			ch <- prometheus.MustNewConstMetric(
-				c.vfsDiskCacheBytesUsed,
-				prometheus.GaugeValue,
-				float64(vs.diskCacheBytesUsed),
-				vs.volumeID,
-				vs.remoteName,
-			)
-
-			ch <- prometheus.MustNewConstMetric(
-				c.vfsDiskCacheFiles,
-				prometheus.GaugeValue,
-				float64(vs.diskCacheFiles),
-				vs.volumeID,
-				vs.remoteName,
-			)
-
-			ch <- prometheus.MustNewConstMetric(
-				c.vfsDiskCacheErrors,
-				prometheus.CounterValue,
-				float64(vs.diskCacheErrors),
-				vs.volumeID,
-				vs.remoteName,
-			)
-
-			ch <- prometheus.MustNewConstMetric(
-				c.vfsUploadsInProgress,
-				prometheus.GaugeValue,
-				float64(vs.uploadsInProgress),
-				vs.volumeID,
-				vs.remoteName,
-			)
-
-			ch <- prometheus.MustNewConstMetric(
-				c.vfsUploadsQueued,
-				prometheus.GaugeValue,
-				float64(vs.uploadsQueued),
-				vs.volumeID,
-				vs.remoteName,
-			)
-
-			var outOfSpaceValue float64
-			if vs.diskCacheOutOfSpace {
-				outOfSpaceValue = 1
-			}
-			ch <- prometheus.MustNewConstMetric(
-				c.vfsDiskCacheOutOfSpace,
-				prometheus.GaugeValue,
-				outOfSpaceValue,
-				vs.volumeID,
-				vs.remoteName,
-			)
+	// Aggregate metadata cache metrics
+	if metadataCache, ok := stats["metadataCache"].(rc.Params); ok {
+		if dirs, ok := metadataCache["dirs"].(int); ok {
+			vm.metadataCacheDirs += dirs
 		}
-
-		// Collect mount health status with mount details
-		for targetPath, mc := range c.nodeServer.mountContext {
-			if mc == nil || mc.mountPoint == nil {
-				continue
-			}
-
-			volumeID := extractVolumeID(targetPath)
-			podID := extractPodID(targetPath)
-			mountType := extractMountType(mc)
-			deviceName := getDeviceName(mc)
-			volumeName := getVolumeName(mc)
-			readOnly := isReadOnly(mc)
-			mountDuration := getMountDuration(mc)
-
-			healthValue := float64(0)
-			if c.nodeServer.isMountHealthy(targetPath) {
-				healthValue = 1
-			}
-
-			ch <- prometheus.MustNewConstMetric(
-				c.mountHealthy,
-				prometheus.GaugeValue,
-				healthValue,
-				volumeID,
-				podID,
-				targetPath,
-				mc.remoteName,
-				mountType,
-				deviceName,
-				volumeName,
-				readOnly,
-				mountDuration,
-			)
+		if files, ok := metadataCache["files"].(int); ok {
+			vm.metadataCacheFiles += files
 		}
 	}
 
-	// Collect remote statistics from global accounting
+	// Aggregate disk cache metrics
+	c.aggregateDiskCacheStats(stats, vm)
+}
+
+// aggregateDiskCacheStats aggregates disk cache statistics into volume metrics
+func (c *csiRcloneCollector) aggregateDiskCacheStats(stats map[string]interface{}, vm *volumeMetrics) {
+	diskCache, ok := stats["diskCache"].(rc.Params)
+	if !ok {
+		return
+	}
+
+	if bytesUsed, ok := diskCache["bytesUsed"].(int64); ok {
+		vm.diskCacheBytesUsed += bytesUsed
+	}
+	if files, ok := diskCache["files"].(int); ok {
+		vm.diskCacheFiles += files
+	}
+	if erroredFiles, ok := diskCache["erroredFiles"].(int); ok {
+		vm.diskCacheErrors += erroredFiles
+	}
+	if uploadsInProgress, ok := diskCache["uploadsInProgress"].(int); ok {
+		vm.uploadsInProgress += uploadsInProgress
+	}
+	if uploadsQueued, ok := diskCache["uploadsQueued"].(int); ok {
+		vm.uploadsQueued += uploadsQueued
+	}
+	if outOfSpace, ok := diskCache["outOfSpace"].(bool); ok && outOfSpace {
+		vm.diskCacheOutOfSpace = true
+	}
+}
+
+// emitVolumeMetrics emits all aggregated volume metrics
+func (c *csiRcloneCollector) emitVolumeMetrics(ch chan<- prometheus.Metric, volumeStats map[string]*volumeMetrics) {
+	for _, vs := range volumeStats {
+		c.emitSingleVolumeMetrics(ch, vs)
+	}
+}
+
+// emitSingleVolumeMetrics emits metrics for a single volume
+func (c *csiRcloneCollector) emitSingleVolumeMetrics(ch chan<- prometheus.Metric, vs *volumeMetrics) {
+	ch <- prometheus.MustNewConstMetric(
+		c.vfsInUse, prometheus.GaugeValue, float64(vs.inUse), vs.volumeID, vs.remoteName,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		c.vfsMetadataCacheDirs, prometheus.GaugeValue, float64(vs.metadataCacheDirs), vs.volumeID, vs.remoteName,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		c.vfsMetadataCacheFiles, prometheus.GaugeValue, float64(vs.metadataCacheFiles), vs.volumeID, vs.remoteName,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		c.vfsDiskCacheBytesUsed, prometheus.GaugeValue, float64(vs.diskCacheBytesUsed), vs.volumeID, vs.remoteName,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		c.vfsDiskCacheFiles, prometheus.GaugeValue, float64(vs.diskCacheFiles), vs.volumeID, vs.remoteName,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		c.vfsDiskCacheErrors, prometheus.CounterValue, float64(vs.diskCacheErrors), vs.volumeID, vs.remoteName,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		c.vfsUploadsInProgress, prometheus.GaugeValue, float64(vs.uploadsInProgress), vs.volumeID, vs.remoteName,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		c.vfsUploadsQueued, prometheus.GaugeValue, float64(vs.uploadsQueued), vs.volumeID, vs.remoteName,
+	)
+
+	outOfSpaceValue := float64(0)
+	if vs.diskCacheOutOfSpace {
+		outOfSpaceValue = 1
+	}
+	ch <- prometheus.MustNewConstMetric(
+		c.vfsDiskCacheOutOfSpace, prometheus.GaugeValue, outOfSpaceValue, vs.volumeID, vs.remoteName,
+	)
+}
+
+// collectMountHealthMetrics emits mount health status for each mount point
+func (c *csiRcloneCollector) collectMountHealthMetrics(ch chan<- prometheus.Metric) {
+	for targetPath, mc := range c.nodeServer.mountContext {
+		if mc == nil || mc.mountPoint == nil {
+			continue
+		}
+
+		healthValue := float64(0)
+		if c.nodeServer.isMountHealthy(targetPath) {
+			healthValue = 1
+		}
+
+		ch <- prometheus.MustNewConstMetric(
+			c.mountHealthy,
+			prometheus.GaugeValue,
+			healthValue,
+			extractVolumeID(targetPath),
+			extractPodID(targetPath),
+			targetPath,
+			mc.remoteName,
+			extractMountType(mc),
+			getDeviceName(mc),
+			getVolumeName(mc),
+			isReadOnly(mc),
+			getMountDuration(mc),
+		)
+	}
+}
+
+// collectRemoteStats collects remote transfer statistics from rclone's global accounting
+func (c *csiRcloneCollector) collectRemoteStats(ch chan<- prometheus.Metric) {
 	globalStats := accounting.GlobalStats()
 	remoteStats, err := globalStats.RemoteStats(false)
-	if err == nil {
-		// Transfer speed
-		if speed, ok := remoteStats["speed"].(float64); ok {
-			ch <- prometheus.MustNewConstMetric(
-				c.remoteTransferSpeed,
-				prometheus.GaugeValue,
-				speed,
-			)
-		}
-
-		// ETA
-		if eta := remoteStats["eta"]; eta != nil {
-			if etaSeconds, ok := eta.(float64); ok {
-				ch <- prometheus.MustNewConstMetric(
-					c.remoteTransferEta,
-					prometheus.GaugeValue,
-					etaSeconds,
-				)
-			}
-		}
-
-		// Total checks
-		if checks, ok := remoteStats["checks"].(int64); ok {
-			ch <- prometheus.MustNewConstMetric(
-				c.remoteChecksTotal,
-				prometheus.CounterValue,
-				float64(checks),
-			)
-		}
-
-		// Total deletes
-		if deletes, ok := remoteStats["deletes"].(int64); ok {
-			ch <- prometheus.MustNewConstMetric(
-				c.remoteDeletesTotal,
-				prometheus.CounterValue,
-				float64(deletes),
-			)
-		}
-
-		// Server-side operations
-		if serverSideCopies, ok := remoteStats["serverSideCopies"].(int64); ok {
-			ch <- prometheus.MustNewConstMetric(
-				c.remoteServerSideCopies,
-				prometheus.CounterValue,
-				float64(serverSideCopies),
-			)
-		}
-
-		if serverSideMoves, ok := remoteStats["serverSideMoves"].(int64); ok {
-			ch <- prometheus.MustNewConstMetric(
-				c.remoteServerSideMoves,
-				prometheus.CounterValue,
-				float64(serverSideMoves),
-			)
-		}
-
-		// Active operations
-		if transferring, ok := remoteStats["transferring"].([]rc.Params); ok {
-			ch <- prometheus.MustNewConstMetric(
-				c.remoteTransferring,
-				prometheus.GaugeValue,
-				float64(len(transferring)),
-			)
-		}
-
-		if checking, ok := remoteStats["checking"].([]string); ok {
-			ch <- prometheus.MustNewConstMetric(
-				c.remoteChecking,
-				prometheus.GaugeValue,
-				float64(len(checking)),
-			)
-		}
+	if err != nil {
+		return
 	}
 
-	klog.V(2).Infof("CSI metrics collection completed node_id=%s", c.nodeID)
+	c.emitTransferMetrics(ch, remoteStats)
+	c.emitOperationMetrics(ch, remoteStats)
+}
+
+// emitTransferMetrics emits transfer-related metrics
+func (c *csiRcloneCollector) emitTransferMetrics(ch chan<- prometheus.Metric, remoteStats rc.Params) {
+	if speed, ok := remoteStats["speed"].(float64); ok {
+		ch <- prometheus.MustNewConstMetric(c.remoteTransferSpeed, prometheus.GaugeValue, speed)
+	}
+
+	if eta := remoteStats["eta"]; eta != nil {
+		if etaSeconds, ok := eta.(float64); ok {
+			ch <- prometheus.MustNewConstMetric(c.remoteTransferEta, prometheus.GaugeValue, etaSeconds)
+		}
+	}
+}
+
+// emitOperationMetrics emits operation-related metrics (checks, deletes, copies, moves, etc.)
+func (c *csiRcloneCollector) emitOperationMetrics(ch chan<- prometheus.Metric, remoteStats rc.Params) {
+	if checks, ok := remoteStats["checks"].(int64); ok {
+		ch <- prometheus.MustNewConstMetric(c.remoteChecksTotal, prometheus.CounterValue, float64(checks))
+	}
+
+	if deletes, ok := remoteStats["deletes"].(int64); ok {
+		ch <- prometheus.MustNewConstMetric(c.remoteDeletesTotal, prometheus.CounterValue, float64(deletes))
+	}
+
+	if serverSideCopies, ok := remoteStats["serverSideCopies"].(int64); ok {
+		ch <- prometheus.MustNewConstMetric(c.remoteServerSideCopies, prometheus.CounterValue, float64(serverSideCopies))
+	}
+
+	if serverSideMoves, ok := remoteStats["serverSideMoves"].(int64); ok {
+		ch <- prometheus.MustNewConstMetric(c.remoteServerSideMoves, prometheus.CounterValue, float64(serverSideMoves))
+	}
+
+	if transferring, ok := remoteStats["transferring"].([]rc.Params); ok {
+		ch <- prometheus.MustNewConstMetric(c.remoteTransferring, prometheus.GaugeValue, float64(len(transferring)))
+	}
+
+	if checking, ok := remoteStats["checking"].([]string); ok {
+		ch <- prometheus.MustNewConstMetric(c.remoteChecking, prometheus.GaugeValue, float64(len(checking)))
+	}
 }
 
 // Helper function to extract volume ID from target path
@@ -556,7 +529,7 @@ func extractVolumeID(targetPath string) string {
 	if len(parts) > 0 {
 		return parts[len(parts)-1]
 	}
-	return "unknown"
+	return unknownValue
 }
 
 // Helper function to extract pod ID from target path
@@ -568,13 +541,13 @@ func extractPodID(targetPath string) string {
 			return parts[i+1]
 		}
 	}
-	return "unknown"
+	return unknownValue
 }
 
 // Helper function to extract mount type from mount function
 func extractMountType(mc *mountContext) string {
 	if mc == nil || mc.mountPoint == nil {
-		return "unknown"
+		return unknownValue
 	}
 	// Determine mount type based on mount function or other identifiers
 	// This may require additional context from mountlib
@@ -593,11 +566,11 @@ func getMountDuration(mc *mountContext) string {
 // Helper function to get device name
 func getDeviceName(mc *mountContext) string {
 	if mc == nil || mc.mountPoint == nil {
-		return "unknown"
+		return unknownValue
 	}
 	deviceName := mc.mountPoint.MountOpt.DeviceName
 	if deviceName == "" {
-		return "unknown"
+		return unknownValue
 	}
 	return deviceName
 }
@@ -605,11 +578,11 @@ func getDeviceName(mc *mountContext) string {
 // Helper function to get volume name
 func getVolumeName(mc *mountContext) string {
 	if mc == nil || mc.mountPoint == nil {
-		return "unknown"
+		return unknownValue
 	}
 	volumeName := mc.mountPoint.MountOpt.VolumeName
 	if volumeName == "" {
-		return "unknown"
+		return unknownValue
 	}
 	return volumeName
 }

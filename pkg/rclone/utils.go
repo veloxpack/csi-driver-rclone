@@ -25,7 +25,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 	"github.com/rclone/rclone/fs/rc"
-	"github.com/unknwon/goconfig"
+	"github.com/unknwon/goconfig" //nolint:misspell // unknwon is the package author's GitHub username
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/util/sets"

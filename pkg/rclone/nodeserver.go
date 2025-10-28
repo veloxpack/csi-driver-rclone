@@ -192,7 +192,7 @@ func setRcloneConfigFlags(ctx context.Context, ci *fs.ConfigInfo, params map[str
 }
 
 // mergeVolumeParameters merges driver params, secrets, and volume context
-func (ns *NodeServer) mergeVolumeParameters(req *csi.NodePublishVolumeRequest) (map[string]string, error) {
+func (ns *NodeServer) mergeVolumeParameters(req *csi.NodePublishVolumeRequest) map[string]string {
 	params := make(map[string]string)
 
 	// TODO: Implement automatic cache directory generation for performance optimization
@@ -237,7 +237,7 @@ func (ns *NodeServer) mergeVolumeParameters(req *csi.NodePublishVolumeRequest) (
 		params[k] = v
 	}
 
-	return params, nil
+	return params
 }
 
 // extractPublishParams extracts and validates required parameters
@@ -342,10 +342,8 @@ func generateConfigData(pvp *publishVolumeParams) error {
 
 // loadRcloneConfig loads config into rclone's in-memory storage
 func (ns *NodeServer) loadRcloneConfig(ctx context.Context, pvp *publishVolumeParams) ([]string, error) {
-	var remotes []string
-
 	if pvp.configData == "" {
-		return remotes, nil
+		return nil, nil
 	}
 
 	// Parse ALL remotes from configData to support nested remotes
@@ -355,6 +353,9 @@ func (ns *NodeServer) loadRcloneConfig(ctx context.Context, pvp *publishVolumePa
 	}
 
 	klog.V(4).Infof("Parsed %d remotes from configData", len(allRemotes))
+
+	// Pre-allocate slice with known capacity
+	remotes := make([]string, 0, len(allRemotes))
 
 	updateRemoteOpts := config.UpdateRemoteOpt{
 		NonInteractive: true,
@@ -413,7 +414,12 @@ func (ns *NodeServer) cleanupConfigRemotes(remotes []string) {
 }
 
 // createAndMountFilesystem initializes and mounts the rclone filesystem
-func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targetPath string, mountOptions []string, params map[string]string) (*mountlib.MountPoint, context.Context, context.CancelFunc, error) {
+func (ns *NodeServer) createAndMountFilesystem(
+	ctx context.Context,
+	fsPath, targetPath string,
+	mountOptions []string,
+	params map[string]string,
+) (*mountlib.MountPoint, context.Context, context.CancelFunc, error) {
 	// Create per-mount context with isolated config
 	ctx, ci := fs.AddConfig(ctx)
 
@@ -490,7 +496,12 @@ func (ns *NodeServer) createAndMountFilesystem(ctx context.Context, fsPath, targ
 // handleRcloneDaemon manages rclone daemon lifecycle for mount operations.
 // It handles daemon process management, timeout waiting, and proper cleanup
 // when daemon mode is enabled in mount options.
-func handleRcloneDaemon(mountPoint *mountlib.MountPoint, mountDaemon *os.Process, mountOpts *mountlib.Options, cancel context.CancelFunc) error {
+func handleRcloneDaemon(
+	mountPoint *mountlib.MountPoint,
+	mountDaemon *os.Process,
+	mountOpts *mountlib.Options,
+	cancel context.CancelFunc,
+) error {
 	if mountOpts.Daemon {
 		config.PassConfigKeyForDaemonization = true
 	}
@@ -518,7 +529,9 @@ func handleRcloneDaemon(mountPoint *mountlib.MountPoint, mountDaemon *os.Process
 
 	defer atexit.Unregister(handle)
 
-	if err := mountlib.WaitMountReady(mountPoint.MountPoint, time.Duration(mountOpts.DaemonWait), mountDaemon); err != nil {
+	if err := mountlib.WaitMountReady(
+		mountPoint.MountPoint, time.Duration(mountOpts.DaemonWait), mountDaemon,
+	); err != nil {
 		killDaemon("Daemon timed out")
 		cancel()
 		return status.Errorf(codes.Internal, "failed to wait for mount: %v", err)
@@ -558,7 +571,10 @@ func waitForVFSCacheSync(mc *mountContext) {
 			uploadsQueued, _ := diskCache["uploadsQueued"].(int)
 
 			if uploadsInProgress > 0 || uploadsQueued > 0 {
-				klog.V(4).Infof("Waiting for VFS cache uploads (in progress: %d, queued: %d, retry: %d/%d)", uploadsInProgress, uploadsQueued, retryCount+1, maxRetries)
+				klog.V(4).Infof(
+					"Waiting for VFS cache uploads (in progress: %d, queued: %d, retry: %d/%d)",
+					uploadsInProgress, uploadsQueued, retryCount+1, maxRetries,
+				)
 				allClear = false
 			}
 		} else {
@@ -803,10 +819,8 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 
 	// Merge parameters from secrets and volume context
-	params, err := ns.mergeVolumeParameters(req)
-	if err != nil {
-		return nil, err
-	}
+	params := ns.mergeVolumeParameters(req)
+
 	// Extract and validate required parameters
 	pvp, err := extractPublishParams(params)
 	if err != nil {
