@@ -49,8 +49,6 @@ REGISTRY ?= veloxpack
 IMAGE_TAG = $(REGISTRY)/$(IMAGENAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST = $(REGISTRY)/$(IMAGENAME):latest
 
-E2E_HELM_OPTIONS ?= --set image.rclone.repository=$(REGISTRY)/$(IMAGENAME) --set image.rclone.tag=$(IMAGE_VERSION) --set image.rclone.pullPolicy=Always --set feature.enableInlineVolume=true --set externalSnapshotter.enabled=true --set controller.runOnControlPlane=true
-E2E_HELM_OPTIONS += ${EXTRA_HELM_OPTIONS}
 HELM_CHARTS_PATH = charts
 
 # Output type of docker buildx build
@@ -70,10 +68,6 @@ unit-test:
 local-build-push: rclone
 	docker build -t $(LOCAL_USER)/rcloneplugin:latest .
 	docker push $(LOCAL_USER)/rcloneplugin
-
-.PHONY: rclone
-rclone:
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -a -ldflags "${LDFLAGS} ${EXT_LDFLAGS}" -o bin/${ARCH}/rcloneplugin ./cmd/rcloneplugin
 
 .PHONY: container-build
 container-build:
@@ -120,30 +114,6 @@ push:
 push-latest:
 	docker tag $(IMAGE_TAG) $(IMAGE_TAG_LATEST)
 	docker push $(IMAGE_TAG_LATEST)
-
-.PHONY: install-helm
-install-helm:
-	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
-
-.PHONY: e2e-bootstrap
-e2e-bootstrap: install-helm
-	OUTPUT_TYPE=registry $(MAKE) container push
-	helm install csi-driver-rclone ./charts/latest/csi-driver-rclone --namespace default --wait --timeout=15m -v=5 --debug \
-		${E2E_HELM_OPTIONS} \
-		--set controller.logLevel=8 \
-		--set node.logLevel=8
-
-.PHONY: e2e-teardown
-e2e-teardown:
-	helm delete csi-driver-rclone --namespace default
-
-.PHONY: e2e-test
-e2e-test:
-	if [ ! -z "$(EXTERNAL_E2E_TEST)" ]; then \
-		bash ./test/external-e2e/run.sh;\
-	else \
-		go test -v -timeout=0 ./test/e2e ${GINKGO_FLAGS};\
-	fi
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter

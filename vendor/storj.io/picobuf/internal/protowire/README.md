@@ -1,0 +1,1 @@
+This package is a clone of `google.golang.org/protobuf/encoding/protowire` to remove dependency on `internal/detrand` package, which does unnecessary initialization and brings in significant dependencies.

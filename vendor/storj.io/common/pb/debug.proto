@@ -1,0 +1,20 @@
+// Copyright (C) 2024 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/common/pb";
+
+package debug;
+
+service Debug {
+    rpc CollectRuntimeTraces(CollectRuntimeTracesRequest) returns (stream CollectRuntimeTracesResponse);
+    rpc CollectRuntimeTraces2(stream CollectRuntimeTracesRequest) returns (stream CollectRuntimeTracesResponse);
+}
+
+message CollectRuntimeTracesRequest {
+    bool done = 1;
+}
+
+message CollectRuntimeTracesResponse {
+    bytes data = 1;
+}

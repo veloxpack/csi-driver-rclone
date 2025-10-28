@@ -25,12 +25,13 @@ COPY go.sum go.sum
 
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
-RUN go mod download
+# RUN go mod download
 
 # Copy the go source
 COPY cmd/rcloneplugin/ cmd/rcloneplugin
 COPY pkg/ pkg/
 COPY internal/ internal/
+COPY vendor/ vendor/
 
 # Extract version information for build flags
 ARG GIT_COMMIT
@@ -47,6 +48,7 @@ RUN RCLONE_VERSION=$(grep "github.com/rclone/rclone" go.mod | awk '{print $2}' |
     go build -a \
     -ldflags="-X github.com/veloxpack/csi-driver-rclone/pkg/rclone.driverVersion=${DRIVER_VERSION} -X github.com/veloxpack/csi-driver-rclone/pkg/rclone.gitCommit=${GIT_COMMIT} -X github.com/veloxpack/csi-driver-rclone/pkg/rclone.buildDate=${BUILD_DATE} -X github.com/veloxpack/csi-driver-rclone/pkg/rclone.rcloneVersion=${RCLONE_VERSION} -s -w -extldflags '-static'" \
     -trimpath \
+    -mod vendor \
     -tags "netgo ${RCLONE_BACKEND_MODE}" \
     -o rcloneplugin \
     cmd/rcloneplugin/main.go
