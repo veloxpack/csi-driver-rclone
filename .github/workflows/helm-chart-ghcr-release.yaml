@@ -23,16 +23,17 @@ env:
 jobs:
   lint-and-validate:
     runs-on: ubuntu-latest
+    container:
+      image: alpine/helm:3.19.0
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: v3.19.0
+      - name: Install dependencies
+        run: |
+          apk add --no-cache yq bash
 
       - name: Lint chart
         run: |
@@ -68,18 +69,19 @@ jobs:
 
   publish-ghcr:
     runs-on: ubuntu-latest
+    container:
+      image: alpine/helm:3.19.0
     needs: lint-and-validate
     if: github.event_name != 'pull_request'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: v3.19.0
+      - name: Install dependencies
+        run: |
+          apk add --no-cache yq bash
 
       - name: Determine version
         id: version
