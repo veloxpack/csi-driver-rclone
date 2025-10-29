@@ -30,7 +30,7 @@ build:
     customTemplate:
       template: "{{.IMAGE_NAME}}:latest"
   artifacts:
-    - image: veloxpack/rcloneplugin
+    - image: ghcr.io/veloxpack/csi-driver-rclone
       docker:
         dockerfile: Dockerfile
 manifests:
