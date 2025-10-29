@@ -85,7 +85,7 @@ spec:
               drop:
                 - ALL
             allowPrivilegeEscalation: true
-          image: veloxpack/rcloneplugin:latest
+          image: ghcr.io/veloxpack/csi-driver-rclone:latest
           args:
             - "-v=5"
             - "--nodeid=$(NODE_ID)"
