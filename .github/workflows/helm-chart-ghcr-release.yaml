@@ -1,0 +1,159 @@
+name: Publish Helm Chart to GHCR
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'charts/**'
+      - '.github/workflows/helm-chart-ghcr-release.yaml'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  CHART_PATH: charts
+
+jobs:
+  lint-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+
+      - name: Lint chart
+        run: |
+          set -euo pipefail
+          helm lint "${CHART_PATH}" --strict
+
+      - name: Validate chart templates
+        run: |
+          set -euo pipefail
+          helm template test "${CHART_PATH}" > /dev/null
+
+      - name: Extract chart metadata
+        id: chart
+        run: |
+          set -euo pipefail
+          CHART_NAME=$(yq eval '.name' "${CHART_PATH}/Chart.yaml")
+          CHART_VERSION=$(yq eval '.version' "${CHART_PATH}/Chart.yaml")
+          echo "name=${CHART_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "version=${CHART_VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Summary
+        if: always()
+        run: |
+          CHART_NAME=$(yq eval '.name' "${CHART_PATH}/Chart.yaml")
+          CHART_VERSION=$(yq eval '.version' "${CHART_PATH}/Chart.yaml")
+          cat >> "${GITHUB_STEP_SUMMARY}" <<EOF
+          ## Helm Chart Validation
+
+          **Chart:** ${CHART_NAME}
+          **Version:** ${CHART_VERSION}
+          **Status:** ✅ Linting and validation passed
+          EOF
+
+  publish-ghcr:
+    runs-on: ubuntu-latest
+    needs: lint-and-validate
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+
+      - name: Determine version
+        id: version
+        run: |
+          set -x  # Enable debug output
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            echo "📦 Using version from tag: ${VERSION}"
+            echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          else
+            VERSION=$(yq eval '.version' "${CHART_PATH}/Chart.yaml")
+            echo "📦 Using version from Chart.yaml: ${VERSION}"
+            echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          fi
+          echo "✅ Version set to: ${VERSION}"
+
+      - name: Push Helm chart to GHCR
+        id: push
+        uses: appany/helm-oci-chart-releaser@v0.5.0
+        with:
+          name: csi-driver-rclone
+          repository: ${{ github.repository_owner }}/charts
+          tag: ${{ steps.version.outputs.version }}
+          path: ${{ env.CHART_PATH }}
+          registry: ghcr.io
+          registry_username: ${{ github.actor }}
+          registry_password: ${{ secrets.GITHUB_TOKEN }}
+          update_dependencies: 'true'
+
+      - name: Summary
+        run: |
+          cat >> "${GITHUB_STEP_SUMMARY}" <<EOF
+          ## 🚀 Helm Chart Published to GHCR
+
+          **Image:** \`${{ steps.push.outputs.image }}\`
+          **Version:** \`${{ steps.version.outputs.version }}\`
+
+          ### Installation Instructions
+
+          **Install latest version:**
+          \`\`\`bash
+          helm install csi-rclone oci://ghcr.io/${{ github.repository_owner }}/charts/csi-driver-rclone \\
+            --namespace veloxpack --create-namespace
+          \`\`\`
+
+          **Install specific version:**
+          \`\`\`bash
+          helm install csi-rclone oci://ghcr.io/${{ github.repository_owner }}/charts/csi-driver-rclone \\
+            --version ${{ steps.version.outputs.version }} \\
+            --namespace veloxpack --create-namespace
+          \`\`\`
+
+          ### FluxCD HelmRepository
+
+          \`\`\`yaml
+          apiVersion: source.toolkit.fluxcd.io/v1
+          kind: HelmRepository
+          metadata:
+            name: csi-driver-rclone
+            namespace: flux-system
+          spec:
+            interval: 1h
+            type: oci
+            url: oci://ghcr.io/${{ github.repository_owner }}/charts
+          \`\`\`
+
+          ### Make Package Public
+
+          📝 **Important:** By default, packages are private. To make this chart publicly accessible:
+
+          1. Go to: https://github.com/${{ github.repository_owner }}/packages
+          2. Click on the \`charts/csi-driver-rclone\` package
+          3. Click "Package settings"
+          4. Scroll to "Danger Zone"
+          5. Click "Change visibility" → Select "Public"
+          EOF
+
