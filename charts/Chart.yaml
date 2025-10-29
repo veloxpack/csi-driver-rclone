@@ -1,6 +1,10 @@
 apiVersion: v2
 description: CSI Rclone Driver for Kubernetes - Mount cloud storage as persistent volumes
 name: csi-driver-rclone
+# Version Management:
+# - When pushing a Git tag (e.g., v0.2.0), the workflow uses that version (0.2.0)
+# - When building locally or from main branch, this version is used
+# - REMEMBER: Update this version in Chart.yaml before each release for consistency!
 version: 0.1.0
 appVersion: "1.0.0"
 keywords:
@@ -17,3 +21,7 @@ maintainers:
     email: support@veloxpack.io
 annotations:
   category: Storage
+  # OCI registry annotations for GitHub Container Registry
+  org.opencontainers.image.source: https://github.com/veloxpack/csi-driver-rclone
+  org.opencontainers.image.description: CSI Rclone Driver for Kubernetes - Mount cloud storage as persistent volumes
+  org.opencontainers.image.licenses: Apache-2.0
