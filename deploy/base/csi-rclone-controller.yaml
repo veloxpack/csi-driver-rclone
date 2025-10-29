@@ -89,7 +89,7 @@ spec:
               drop:
                 - ALL
         - name: rclone
-          image: veloxpack/rcloneplugin:latest
+          image: ghcr.io/veloxpack/csi-driver-rclone:latest
           securityContext:
             privileged: true
             capabilities:

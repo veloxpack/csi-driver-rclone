@@ -44,8 +44,8 @@ ifndef PUBLISH
 override IMAGE_VERSION := e2e-$(GIT_COMMIT)
 endif
 endif
-IMAGENAME ?= rcloneplugin
-REGISTRY ?= veloxpack
+IMAGENAME ?= csi-driver-rclone
+REGISTRY ?= ghcr.io/veloxpack
 IMAGE_TAG = $(REGISTRY)/$(IMAGENAME):$(IMAGE_VERSION)
 IMAGE_TAG_LATEST = $(REGISTRY)/$(IMAGENAME):latest
 

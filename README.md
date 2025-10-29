@@ -68,10 +68,10 @@ See the [Development](#development) section for using Skaffold with these tools 
 
 ```bash
 # Install with default configuration
-helm install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts
+helm install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone
 
 # Install in a specific namespace
-helm install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
+helm install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
   --namespace veloxpack --create-namespace
 ```
 
@@ -82,13 +82,13 @@ Choose the monitoring level that fits your needs:
 ```bash
 # Option A: Basic metrics endpoint
 # Use this for custom Prometheus configurations or basic monitoring
-helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
   --namespace veloxpack --create-namespace \
   --set node.metrics.enabled=true
 
 # Option B: Metrics + Kubernetes Service
 # Use this if you have Prometheus configured to discover services
-helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
   --namespace veloxpack --create-namespace \
   --set node.metrics.enabled=true \
   --set node.metrics.service.enabled=true
@@ -96,7 +96,7 @@ helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-drive
 # Option C: Full monitoring stack (Recommended for production monitoring)
 # Includes: metrics + ServiceMonitor (Prometheus Operator) + Grafana Dashboard
 # Requires: Prometheus Operator installed (kube-prometheus-stack)
-helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
   --namespace veloxpack --create-namespace \
   --set node.metrics.enabled=true \
   --set node.metrics.service.enabled=true \
@@ -111,7 +111,7 @@ helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-drive
 Customize metrics server settings:
 
 ```bash
-helm upgrade --install csi-rclone oci://registry-1.docker.io/veloxpack/csi-driver-rclone-charts \
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
   --namespace veloxpack --create-namespace \
   --set node.metrics.enabled=true \
   --set node.metrics.addr=:5572 \

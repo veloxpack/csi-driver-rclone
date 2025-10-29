@@ -5,9 +5,11 @@ fullnameOverride: ""
 
 customLabels: {}
 image:
-    baseRepo: docker.io
     rclone:
-        repository: veloxpack/rcloneplugin
+        repository: ghcr.io/veloxpack/csi-driver-rclone
+        # Default tag is 'latest' for convenience in development
+        # PRODUCTION: Override with a specific version tag for reproducible deployments
+        # Example: --set image.rclone.tag=v0.1.0
         tag: latest
         pullPolicy: IfNotPresent
     csiProvisioner:

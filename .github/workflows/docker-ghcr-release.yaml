@@ -1,0 +1,144 @@
+name: Build and push Docker image to GHCR
+
+# Trigger on tags and releases for production builds
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'Dockerfile'
+      - 'cmd/**'
+      - 'pkg/**'
+      - 'internal/**'
+      - '.github/workflows/docker-ghcr-release.yaml'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          labels: |
+            org.opencontainers.image.title=CSI Driver Rclone
+            org.opencontainers.image.description=CSI Rclone Driver for Kubernetes - Mount cloud storage as persistent volumes
+            org.opencontainers.image.vendor=VeloxPack
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+            DRIVER_VERSION=${{ github.ref_name }}
+
+      - name: Generate artifact attestation
+        if: github.event_name != 'pull_request' && github.actor != 'nektos/act'
+        continue-on-error: true
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Summary
+        if: github.event_name != 'pull_request'
+        run: |
+          cat >> "${GITHUB_STEP_SUMMARY}" <<EOF
+          ## 🐳 Docker Image Published to GHCR
+
+          **Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`
+          **Tags:**
+          \`\`\`
+          ${{ steps.meta.outputs.tags }}
+          \`\`\`
+          **Digest:** \`${{ steps.push.outputs.digest }}\`
+
+          ### Pull Image
+
+          \`\`\`bash
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          \`\`\`
+
+          ### Specific Version
+
+          \`\`\`bash
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          \`\`\`
+
+          ### Verify Attestation
+
+          \`\`\`bash
+          gh attestation verify \\
+            oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \\
+            --owner ${{ github.repository_owner }}
+          \`\`\`
+
+          ### Make Package Public
+
+          📝 **Important:** By default, packages are private. To make this image publicly accessible:
+
+          1. Go to: https://github.com/${{ github.repository_owner }}?tab=packages
+          2. Click on the \`csi-driver-rclone\` package
+          3. Click "Package settings"
+          4. Scroll to "Danger Zone"
+          5. Click "Change visibility" → Select "Public"
+
+          ### Kubernetes Deployment
+
+          Update your values.yaml:
+          \`\`\`yaml
+          image:
+            rclone:
+              repository: ghcr.io/${{ github.repository }}
+              tag: ${{ github.ref_name }}
+          \`\`\`
+          EOF
+

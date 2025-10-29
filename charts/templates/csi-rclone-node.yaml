@@ -111,6 +111,12 @@ spec:
             {{- range $key, $value := .Values.node.extraArgs }}
             - "--{{ $key }}={{ $value }}"
             {{- end }}
+          {{- if .Values.node.metrics.enabled }}
+          ports:
+            - name: metrics
+              containerPort: {{ regexFind "[0-9]+$" .Values.node.metrics.addr | int }}
+              protocol: TCP
+          {{- end }}
           env:
             - name: NODE_ID
               valueFrom:
