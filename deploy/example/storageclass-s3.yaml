@@ -8,8 +8,8 @@ provisioner: rclone.csi.veloxpack.io
 parameters:
   remote: "s3"
   remotePath: "my-s3-bucket"
-csi.storage.k8s.io/node-publish-secret-name: "rclone-s3-secret"
-csi.storage.k8s.io/node-publish-secret-namespace: "default"
+  csi.storage.k8s.io/node-publish-secret-name: "rclone-s3-secret"
+  csi.storage.k8s.io/node-publish-secret-namespace: "default"
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
 allowVolumeExpansion: true
