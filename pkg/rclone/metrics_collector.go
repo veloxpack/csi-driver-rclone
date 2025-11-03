@@ -443,7 +443,8 @@ func (c *csiRcloneCollector) collectMountHealthMetrics(ch chan<- prometheus.Metr
 		}
 
 		healthValue := float64(0)
-		if c.nodeServer.isMountHealthy(targetPath) {
+		healthy, _ := c.nodeServer.isMountHealthy(targetPath)
+		if healthy {
 			healthValue = 1
 		}
 
