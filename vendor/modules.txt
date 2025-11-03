@@ -700,8 +700,8 @@ github.com/koofr/go-koofrclient
 # github.com/kr/fs v0.1.0
 ## explicit
 github.com/kr/fs
-# github.com/kubernetes-csi/csi-lib-utils v0.22.0
-## explicit; go 1.24.0
+# github.com/kubernetes-csi/csi-lib-utils v0.23.0
+## explicit; go 1.24.6
 github.com/kubernetes-csi/csi-lib-utils/protosanitizer
 # github.com/kylelemons/godebug v1.1.0
 ## explicit; go 1.11
