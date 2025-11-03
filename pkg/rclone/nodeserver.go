@@ -1042,7 +1042,7 @@ func (ns *NodeServer) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVo
 		volumePath, totalBytes, availableBytes, usedBytes, healthy)
 
 	return &csi.NodeGetVolumeStatsResponse{
-		Usage:          usage,
+		Usage:           usage,
 		VolumeCondition: volumeCondition,
 	}, nil
 }
