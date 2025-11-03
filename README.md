@@ -22,7 +22,7 @@ This is a repository for [Rclone](https://rclone.org/) [CSI](https://kubernetes-
 |driver version  | supported k8s version | status |
 |----------------|-----------------------|--------|
 |main branch     | 1.20+                 | GA     |
-|v0.1.0          | 1.20+                 | GA     |
+|v0.2.0          | 1.20+                 | GA     |
 
 ## Features
 
