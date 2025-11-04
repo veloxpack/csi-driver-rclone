@@ -91,12 +91,21 @@ jobs:
             VERSION="${GITHUB_REF#refs/tags/v}"
             echo "📦 Using version from tag: ${VERSION}"
             echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+            # For tagged releases, appVersion should match the tag version
+            echo "app_version=${VERSION}" >> "${GITHUB_OUTPUT}"
+            echo "✅ Version set to: ${VERSION}"
+            echo "✅ AppVersion set to: ${VERSION}"
           else
             VERSION=$(yq eval '.version' "${CHART_PATH}/Chart.yaml")
             echo "📦 Using version from Chart.yaml: ${VERSION}"
             echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+            # Extract appVersion from Chart.yaml
+            APP_VERSION=$(yq eval '.appVersion' "${CHART_PATH}/Chart.yaml")
+            echo "📦 Using appVersion from Chart.yaml: ${APP_VERSION}"
+            echo "app_version=${APP_VERSION}" >> "${GITHUB_OUTPUT}"
+            echo "✅ Version set to: ${VERSION}"
+            echo "✅ AppVersion set to: ${APP_VERSION}"
           fi
-          echo "✅ Version set to: ${VERSION}"
 
       - name: Push Helm chart to GHCR
         id: push
@@ -105,6 +114,7 @@ jobs:
           name: csi-driver-rclone
           repository: ${{ github.repository_owner }}/charts
           tag: ${{ steps.version.outputs.version }}
+          app_version: ${{ steps.version.outputs.app_version }}
           path: ${{ env.CHART_PATH }}
           registry: ghcr.io
           registry_username: ${{ github.actor }}
