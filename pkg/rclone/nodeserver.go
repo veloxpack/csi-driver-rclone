@@ -996,7 +996,7 @@ func (ns *NodeServer) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVo
 
 	// Calculate volume usage in bytes
 	// Note: Bsize might be different on different platforms, so we use int64 to ensure compatibility
-	blockSize := int64(statfs.Bsize)
+	blockSize := int64(statfs.Bsize) //nolint:unconvert // Bsize type varies by platform (uint32 on darwin, int64 on linux)
 	totalBytes := int64(statfs.Blocks) * blockSize
 	availableBytes := int64(statfs.Bavail) * blockSize
 	freeBytes := int64(statfs.Bfree) * blockSize
