@@ -45,28 +45,6 @@ jobs:
           set -euo pipefail
           helm template test "${CHART_PATH}" > /dev/null
 
-      - name: Extract chart metadata
-        id: chart
-        run: |
-          set -euo pipefail
-          CHART_NAME=$(yq eval '.name' "${CHART_PATH}/Chart.yaml")
-          CHART_VERSION=$(yq eval '.version' "${CHART_PATH}/Chart.yaml")
-          echo "name=${CHART_NAME}" >> "${GITHUB_OUTPUT}"
-          echo "version=${CHART_VERSION}" >> "${GITHUB_OUTPUT}"
-
-      - name: Summary
-        if: always()
-        run: |
-          CHART_NAME=$(yq eval '.name' "${CHART_PATH}/Chart.yaml")
-          CHART_VERSION=$(yq eval '.version' "${CHART_PATH}/Chart.yaml")
-          cat >> "${GITHUB_STEP_SUMMARY}" <<EOF
-          ## Helm Chart Validation
-
-          **Chart:** ${CHART_NAME}
-          **Version:** ${CHART_VERSION}
-          **Status:** ✅ Linting and validation passed
-          EOF
-
   publish-ghcr:
     runs-on: ubuntu-latest
     container:
