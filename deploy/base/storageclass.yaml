@@ -23,7 +23,7 @@ parameters:
   #   access_key_id = xxx
   #   secret_access_key = yyy
   # Optional: additional rclone flags (space-separated)
-# Optional: Reference to secret containing sensitive parameters
-# Secrets are merged with parameters above (parameters override secrets)
-# csi.storage.k8s.io/node-publish-secret-name: "rclone-secret"
-# csi.storage.k8s.io/node-publish-secret-namespace: "default"
+  # Optional: Reference to secret containing sensitive parameters
+  # Secrets are merged with parameters above (parameters override secrets)
+  # csi.storage.k8s.io/node-publish-secret-name: "rclone-secret"
+  # csi.storage.k8s.io/node-publish-secret-namespace: "default"

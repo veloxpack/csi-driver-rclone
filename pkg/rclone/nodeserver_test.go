@@ -210,7 +210,7 @@ func TestUnimplementedNodeMethods(t *testing.T) {
 	// Test NodeGetVolumeStats
 	_, err = ns.NodeGetVolumeStats(ctx, &csi.NodeGetVolumeStatsRequest{})
 	assert.Error(t, err)
-	assert.Equal(t, codes.Unimplemented, status.Code(err))
+	assert.Equal(t, codes.InvalidArgument, status.Code(err))
 
 	// Test NodeExpandVolume
 	_, err = ns.NodeExpandVolume(ctx, &csi.NodeExpandVolumeRequest{})

@@ -34,6 +34,7 @@ import (
 	"github.com/rclone/rclone/fs/rc" //nolint:misspell // Don't include misspell when running golangci-lint - unknwon is the package author's username
 	"github.com/rclone/rclone/lib/atexit"
 	"github.com/rclone/rclone/vfs/vfscommon"
+	"golang.org/x/sys/unix"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
@@ -916,21 +917,26 @@ func (ns *NodeServer) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpubl
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
-func (ns *NodeServer) isMountHealthy(targetPath string) bool {
+// isMountHealthy checks if a mount is healthy and returns a detailed error message
+func (ns *NodeServer) isMountHealthy(targetPath string) (bool, string) {
 	// Check if mount point is accessible
 	if _, err := os.ReadDir(targetPath); err != nil {
-		return false
+		return false, fmt.Sprintf("mount point not accessible: %v", err)
 	}
 
-	// Check VFS stats for errors
+	// Check VFS stats for errors if mount context is available
 	if mc := ns.getMountContext(targetPath); mc != nil {
-		stats := mc.mountPoint.VFS.Stats()
-		if errors, ok := stats["errors"]; ok && errors.(int) > 0 {
-			return false
+		if mc.mountPoint != nil && mc.mountPoint.VFS != nil {
+			stats := mc.mountPoint.VFS.Stats()
+			if errors, ok := stats["errors"]; ok && errors.(int) > 0 {
+				return false, fmt.Sprintf("VFS errors detected: %d", errors.(int))
+			}
 		}
 	}
 
-	return true
+	// If we can read the directory, consider it healthy even if we don't have mount context
+	// (this handles edge cases where mount context might be missing but mount is working)
+	return true, ""
 }
 
 // NodeStageVolume is not implemented (rclone doesn't require staging)
@@ -963,11 +969,82 @@ func (ns *NodeServer) NodeGetCapabilities(_ context.Context, _ *csi.NodeGetCapab
 	}, nil
 }
 
-// NodeGetVolumeStats returns volume stats (not implemented)
+// NodeGetVolumeStats returns volume stats and health condition
 //
 //nolint:lll
-func (ns *NodeServer) NodeGetVolumeStats(_ context.Context, _ *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+func (ns *NodeServer) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+	volumePath := req.GetVolumePath()
+	if volumePath == "" {
+		return nil, status.Error(codes.InvalidArgument, "volume path is required")
+	}
+
+	klog.V(4).Infof("NodeGetVolumeStats called for volume path: %s", volumePath)
+
+	// Get filesystem statistics
+	var statfs unix.Statfs_t
+	if err := unix.Statfs(volumePath, &statfs); err != nil {
+		klog.Errorf("Failed to get filesystem stats for %s: %v", volumePath, err)
+		// Return abnormal condition if we can't read stats
+		return &csi.NodeGetVolumeStatsResponse{
+			Usage: []*csi.VolumeUsage{},
+			VolumeCondition: &csi.VolumeCondition{
+				Abnormal: true,
+				Message:  fmt.Sprintf("Failed to get filesystem statistics: %v", err),
+			},
+		}, nil
+	}
+
+	// Calculate volume usage in bytes
+	// Note: Bsize might be different on different platforms, so we use int64 to ensure compatibility
+	blockSize := int64(statfs.Bsize) //nolint:unconvert // Bsize type varies by platform (uint32 on darwin, int64 on linux)
+	totalBytes := int64(statfs.Blocks) * blockSize
+	availableBytes := int64(statfs.Bavail) * blockSize
+	freeBytes := int64(statfs.Bfree) * blockSize
+	usedBytes := totalBytes - freeBytes
+
+	// Get inode statistics
+	totalInodes := int64(statfs.Files)
+	freeInodes := int64(statfs.Ffree)
+	usedInodes := totalInodes - freeInodes
+
+	// Build volume usage for bytes
+	usage := []*csi.VolumeUsage{
+		{
+			Available: availableBytes,
+			Total:     totalBytes,
+			Used:      usedBytes,
+			Unit:      csi.VolumeUsage_BYTES,
+		},
+	}
+
+	// Add inode usage if available
+	if totalInodes > 0 {
+		usage = append(usage, &csi.VolumeUsage{
+			Available: freeInodes,
+			Total:     totalInodes,
+			Used:      usedInodes,
+			Unit:      csi.VolumeUsage_INODES,
+		})
+	}
+
+	// Check mount health
+	healthy, healthMessage := ns.isMountHealthy(volumePath)
+	volumeCondition := &csi.VolumeCondition{
+		Abnormal: !healthy,
+		Message:  healthMessage,
+	}
+
+	if healthy {
+		volumeCondition.Message = "Volume is healthy and accessible"
+	}
+
+	klog.V(4).Infof("Volume stats for %s: Total=%d bytes, Available=%d bytes, Used=%d bytes, Healthy=%v",
+		volumePath, totalBytes, availableBytes, usedBytes, healthy)
+
+	return &csi.NodeGetVolumeStatsResponse{
+		Usage:           usage,
+		VolumeCondition: volumeCondition,
+	}, nil
 }
 
 // NodeExpandVolume is not implemented

@@ -7,10 +7,9 @@ customLabels: {}
 image:
     rclone:
         repository: ghcr.io/veloxpack/csi-driver-rclone
-        # Default tag is 'latest' for convenience in development
-        # PRODUCTION: Override with a specific version tag for reproducible deployments
-        # Example: --set image.rclone.tag=v0.1.0
-        tag: latest
+        # Tag defaults to Chart.AppVersion if not specified
+        # Override with: --set image.rclone.tag=v0.1.0
+        # tag: ""  # Uncomment and set to override Chart.AppVersion
         pullPolicy: IfNotPresent
     csiProvisioner:
         repository: registry.k8s.io/sig-storage/csi-provisioner
