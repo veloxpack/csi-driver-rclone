@@ -42,13 +42,16 @@ import (
 )
 
 const (
-	paramCacheDir         = "cache_dir"
-	paramTmpDir           = "temp_dir"
-	paramLogLevel         = "log_level"
-	paramMountType        = "mount_type"
-	paramBackendType      = "remoteType"
-	paramBackendTypeKey   = "type"
-	paramDisabledFeatures = "disable"
+	paramCacheDir              = "cache_dir"
+	paramTmpDir                = "temp_dir"
+	paramLogLevel              = "log_level"
+	paramMountType             = "mount_type"
+	paramBackendType           = "remoteType"
+	paramBackendTypeKey        = "type"
+	paramDisabledFeatures      = "disable"
+	paramVolumeMountGroup      = "gid"
+	paramVolumeMountUser       = "uid"
+	paramVolumeMountAllowOther = "allow_other"
 )
 
 // reservedParams contains parameter names that should not be passed to rclone backend
@@ -804,6 +807,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	volumeID := req.GetVolumeId()
 	targetPath := req.GetTargetPath()
+	mountCap := req.GetVolumeCapability().GetMount()
 
 	// Acquire lock for this volume operation
 	lockKey := fmt.Sprintf("%s-%s", volumeID, targetPath)
@@ -814,13 +818,28 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	// Get mount options from VolumeCapability (CSI standard)
 	readOnly := req.GetReadonly()
-	mountOptions := req.GetVolumeCapability().GetMount().GetMountFlags()
-	if readOnly {
-		mountOptions = append(mountOptions, "read-only")
+	var mountOptions []string
+
+	if mountCap != nil {
+		mountOptions = mountCap.GetMountFlags()
+		if readOnly {
+			mountOptions = append(mountOptions, "read-only")
+		}
 	}
 
 	// Merge parameters from secrets and volume context
 	params := ns.mergeVolumeParameters(req)
+
+	// Extract volume mount group from fsGroup in CSI request.
+	if mountCap != nil {
+		volumeMountGroup := mountCap.GetVolumeMountGroup()
+		if volumeMountGroup != "" {
+			params[paramVolumeMountGroup] = volumeMountGroup
+			params[paramVolumeMountUser] = volumeMountGroup
+			params[paramVolumeMountAllowOther] = "true"
+			klog.V(2).Infof("Volume mount group: %s, user: %s", volumeMountGroup, params[paramVolumeMountUser])
+		}
+	}
 
 	// Extract and validate required parameters
 	pvp, err := extractPublishParams(params)

@@ -81,6 +81,7 @@ func NewDriver(options *DriverOptions) *Driver {
 	d.AddNodeServiceCapabilities([]csi.NodeServiceCapability_RPC_Type{
 		csi.NodeServiceCapability_RPC_UNKNOWN,
 		csi.NodeServiceCapability_RPC_VOLUME_CONDITION,
+		csi.NodeServiceCapability_RPC_VOLUME_MOUNT_GROUP,
 	})
 
 	d.volumeLocks = NewVolumeLocks()
