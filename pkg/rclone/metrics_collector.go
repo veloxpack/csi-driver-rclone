@@ -30,6 +30,8 @@ import (
 
 const (
 	unknownValue = "unknown"
+	trueValue    = "true"
+	falseValue   = "false"
 )
 
 var (
@@ -591,11 +593,11 @@ func getVolumeName(mc *mountContext) string {
 // Helper function to determine read-only status
 func isReadOnly(mc *mountContext) string {
 	if mc == nil || mc.mountPoint == nil {
-		return "false"
+		return falseValue
 	}
 	// Check VFS options for read-only mode
 	if mc.mountPoint.VFSOpt.ReadOnly {
-		return "true"
+		return trueValue
 	}
-	return "false"
+	return falseValue
 }

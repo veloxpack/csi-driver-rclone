@@ -61,6 +61,11 @@ WORKDIR /
 RUN apk add --no-cache ca-certificates fuse3 tzdata && \
     rm -rf /var/cache/apk/* /tmp/*
 
+# Enable allow_other for FUSE mounts
+RUN printf '%s\n' \
+    "# Allow rclone to use the --allow-other flag" \
+    "user_allow_other" >> /etc/fuse.conf
+
 COPY --from=builder /workspace/rcloneplugin .
 
 ENTRYPOINT ["/rcloneplugin"]

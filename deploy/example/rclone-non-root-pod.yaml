@@ -1,0 +1,79 @@
+---
+# Rclone CSI Driver Storage Class
+# This is a template StorageClass that can be customized for different backends
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-csi
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  # Required: Rclone remote name (backend type)
+  remote: "minio-sample"
+  # Optional: Path within the remote storage
+  remotePath: "mybucket"
+  # Reference to secret containing sensitive configuration
+  csi.storage.k8s.io/node-publish-secret-name: "rclone-secret"
+  csi.storage.k8s.io/node-publish-secret-namespace: "default"
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+---
+# Example Secret for S3 Configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rclone-secret
+  namespace: default
+type: Opaque
+stringData:
+  # Rclone configuration in INI format
+  configData: |
+    [minio-sample]
+    type = s3
+    provider = Minio
+    endpoint = http://minio.default.svc.cluster.local:9000
+    access_key_id = admin
+    secret_access_key = password
+---
+# Example PVC using the StorageClass
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-rclone-example
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: rclone-csi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rclone-test-app
+  namespace: default
+spec:
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    fsGroupChangePolicy: OnRootMismatch
+    runAsNonRoot: true
+  containers:
+  - name: test
+    image: busybox
+    command:
+    - sleep
+    - "3600"
+    volumeMounts:
+    - name: rclone-storage
+      mountPath: /data
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+  volumes:
+  - name: rclone-storage
+    persistentVolumeClaim:
+      claimName: pvc-rclone-example

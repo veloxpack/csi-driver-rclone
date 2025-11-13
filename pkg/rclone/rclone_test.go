@@ -112,12 +112,14 @@ func TestNewDriver(t *testing.T) {
 			// assert.Equal(t, csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
 			// 	driver.cscap[1].GetRpc().Type)
 
-			// Verify node capabilities (UNKNOWN and VOLUME_CONDITION)
-			assert.Equal(t, 2, len(driver.nscap))
+			// Verify node capabilities include UNKNOWN, VOLUME_CONDITION, and VOLUME_MOUNT_GROUP
+			assert.Equal(t, 3, len(driver.nscap))
 			assert.Equal(t, csi.NodeServiceCapability_RPC_UNKNOWN,
 				driver.nscap[0].GetRpc().Type)
 			assert.Equal(t, csi.NodeServiceCapability_RPC_VOLUME_CONDITION,
 				driver.nscap[1].GetRpc().Type)
+			assert.Equal(t, csi.NodeServiceCapability_RPC_VOLUME_MOUNT_GROUP,
+				driver.nscap[2].GetRpc().Type)
 		})
 	}
 }
