@@ -11,6 +11,9 @@
 
 ![build status](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/test.yaml/badge.svg)
 [![Trivy vulnerability scanner](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/trivy.yaml/badge.svg?branch=main)](https://github.com/veloxpack/csi-driver-rclone/actions/workflows/trivy.yaml)
+<a href="https://ko-fi.com/paulgrammer">
+  <img src="https://ko-fi.com/img/githubbutton_sm.svg" width="150" alt="Support on Ko-fi"/>
+</a>
 
 **Quick Links:** [Features](#features) | [Requirements](#requirements) | [Installation](#install-driver-on-a-kubernetes-cluster) | [Quick Start](#quick-start-guide) | [Examples](#examples) | [Development](#development) | [Documentation](./docs/)
 
