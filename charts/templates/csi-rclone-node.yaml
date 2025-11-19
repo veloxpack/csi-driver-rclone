@@ -139,6 +139,10 @@ spec:
               mountPropagation: "Bidirectional"
             - mountPath: /csi
               name: plugin-dir
+            {{- if .Values.node.cache.enabled }}
+            - name: rclone-cache
+              mountPath: {{ .Values.node.cache.mountPath }}
+            {{- end }}
           resources:
             {{- toYaml .Values.node.resources.rclone | nindent 12 }}
       volumes:
@@ -156,3 +160,14 @@ spec:
           hostPath:
             path: {{ .Values.kubeletDir }}/plugins_registry
             type: DirectoryOrCreate
+        {{- if .Values.node.cache.enabled }}
+        - name: rclone-cache
+          {{- if eq .Values.node.cache.type "hostPath" }}
+          hostPath:
+            path: {{ .Values.node.cache.hostPath }}
+            type: DirectoryOrCreate
+          {{- else if eq .Values.node.cache.type "pvc" }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.node.cache.pvcName }}
+          {{- end }}
+        {{- end }}

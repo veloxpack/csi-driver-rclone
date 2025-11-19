@@ -413,6 +413,87 @@ spec:
         secret_access_key = YOUR_SECRET_ACCESS_KEY
 ```
 
+### Separate Cache Directory Mount
+
+For improved performance, you can mount a separate volume for the rclone cache directory. This is especially useful for:
+- Using faster storage for cache (e.g., local SSD, NVMe)
+- Mounting host paths in Talos/PVE environments
+- Using CSI volumes for cache storage
+
+**Option 1: Host Path Mount (for Talos/PVE)**
+
+```bash
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
+  --namespace veloxpack --create-namespace \
+  --set node.cache.enabled=true \
+  --set node.cache.type=hostPath \
+  --set node.cache.hostPath=/mnt/rclone-cache
+```
+
+**Option 2: PVC Mount (for faster storage)**
+
+First, create a PVC for the cache:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rclone-cache-pvc
+  namespace: veloxpack
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: fast-ssd  # Use your fast storage class
+```
+
+Then install with cache PVC:
+
+```bash
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
+  --namespace veloxpack --create-namespace \
+  --set node.cache.enabled=true \
+  --set node.cache.type=pvc \
+  --set node.cache.pvcName=rclone-cache-pvc
+```
+
+**Using the Cache Directory**
+
+Once the cache mount is enabled, specify the cache directory in your volume configuration:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-rclone-with-cache
+spec:
+  csi:
+    driver: rclone.csi.veloxpack.io
+    volumeHandle: cache-volume
+    volumeAttributes:
+      remote: "s3"
+      remotePath: "my-bucket"
+      cache_dir: /var/lib/rclone-cache/my-volume  # Use the mounted cache path
+      configData: |
+        [s3]
+        type = s3
+        provider = AWS
+        access_key_id = YOUR_ACCESS_KEY_ID
+        secret_access_key = YOUR_SECRET_ACCESS_KEY
+```
+
+**Configuration Options:**
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `node.cache.enabled` | Enable cache volume mount | `false` |
+| `node.cache.type` | Volume type: `hostPath` or `pvc` | `hostPath` |
+| `node.cache.hostPath` | Host path (required if type is `hostPath`) | `""` |
+| `node.cache.pvcName` | PVC name (required if type is `pvc`) | `""` |
+| `node.cache.mountPath` | Mount path in container | `/var/lib/rclone-cache` |
+
 ## Troubleshooting
 
 ### Check Driver Status
