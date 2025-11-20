@@ -27,7 +27,7 @@ jobs:
       image: alpine/helm:3.19.0
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -53,7 +53,7 @@ jobs:
     if: github.event_name != 'pull_request'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
