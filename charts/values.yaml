@@ -193,15 +193,12 @@ node:
   extraArgs: {}
 
   # Cache directory mount configuration
-  # This allows mounting a separate volume for rclone cache directory, useful for:
-  # - Using faster storage for cache (e.g., local SSD, NVMe)
-  # - Mounting host paths in Talos/PVE environments
-  # - Using CSI volumes for cache storage
+  # This allows mounting a host path for the rclone cache directory, useful for:
+  # - Using faster local storage for cache (e.g., SSD, NVMe)
+  # - Mounting dedicated disks
   cache:
     enabled: false
-    type: hostPath  # Options: "hostPath" or "pvc"
-    hostPath: ""  # Required if type is "hostPath" (e.g., "/mnt/rclone-cache")
-    pvcName: ""  # Required if type is "pvc" (e.g., "rclone-cache-pvc")
+    hostPath: ""  # Required when enabled (e.g., "/mnt/rclone-cache")
     mountPath: /var/lib/rclone-cache  # Path where cache volume will be mounted in container
 
 ## Reference to one or more secrets to be used when pulling images
