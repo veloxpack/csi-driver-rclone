@@ -192,6 +192,15 @@ node:
   # Example: helm template ./charts --set node.extraArgs.metrics-addr=":5572"
   extraArgs: {}
 
+  # Cache directory mount configuration
+  # This allows mounting a host path for the rclone cache directory, useful for:
+  # - Using faster local storage for cache (e.g., SSD, NVMe)
+  # - Mounting dedicated disks
+  cache:
+    enabled: false
+    hostPath: ""  # Required when enabled (e.g., "/mnt/rclone-cache")
+    mountPath: /var/lib/rclone-cache  # Path where cache volume will be mounted in container
+
 ## Reference to one or more secrets to be used when pulling images
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 ##

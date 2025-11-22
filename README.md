@@ -416,6 +416,52 @@ spec:
         secret_access_key = YOUR_SECRET_ACCESS_KEY
 ```
 
+### Separate Cache Directory Mount
+
+For improved performance, you can mount a separate host path for the rclone cache directory. This is especially useful for:
+- Using faster local storage for cache (e.g., SSD, NVMe)
+- Mounting dedicated disks
+
+```bash
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
+  --namespace veloxpack --create-namespace \
+  --set node.cache.enabled=true \
+  --set node.cache.hostPath=/mnt/rclone-cache
+```
+
+**Using the Cache Directory**
+
+Once the cache mount is enabled, specify the cache directory in your volume configuration:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-rclone-with-cache
+spec:
+  csi:
+    driver: rclone.csi.veloxpack.io
+    volumeHandle: cache-volume
+    volumeAttributes:
+      remote: "s3"
+      remotePath: "my-bucket"
+      cache_dir: /var/lib/rclone-cache/my-volume  # Use the mounted cache path
+      configData: |
+        [s3]
+        type = s3
+        provider = AWS
+        access_key_id = YOUR_ACCESS_KEY_ID
+        secret_access_key = YOUR_SECRET_ACCESS_KEY
+```
+
+**Configuration Options:**
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `node.cache.enabled` | Enable cache volume mount | `false` |
+| `node.cache.hostPath` | Host path (required when enabled) | `""` |
+| `node.cache.mountPath` | Mount path in container | `/var/lib/rclone-cache` |
+
 ## Troubleshooting
 
 ### Check Driver Status
