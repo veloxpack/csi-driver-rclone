@@ -78,11 +78,7 @@ helm install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
   --namespace veloxpack --create-namespace
 ```
 
-**Selecting a specific driver/Rclone image:**
-
-- Images are tagged using `<driver-version>-rclone<rclone-version>` (example: `0.2.0-rclone1.72.0`).
-- To pin a specific build, override the Helm value: `--set image.rclone.tag=0.2.0-rclone1.72.0`.
-- If `image.rclone.tag` is empty, the Helm chart defaults to the chart `appVersion`.
+**Selecting a specific driver image:**
 
 **With Monitoring & Observability:**
 
