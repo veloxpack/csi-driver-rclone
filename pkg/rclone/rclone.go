@@ -17,12 +17,12 @@ limitations under the License.
 package rclone
 
 import (
+	"context"
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/rclone/rclone/fs"
 	"github.com/rclone/rclone/fs/accounting"
-	"golang.org/x/net/context"
 	"k8s.io/klog/v2"
 	mount "k8s.io/mount-utils"
 )
