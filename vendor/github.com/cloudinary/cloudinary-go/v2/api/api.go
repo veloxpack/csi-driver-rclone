@@ -25,7 +25,7 @@ import (
 type EndPoint = string
 
 // Version is the Cloudinary Go package version.
-const Version = "2.12.0"
+const Version = "2.13.0"
 
 // UserAgent contains information about the SDK user agent. Passed to the Cloudinary servers.
 var UserAgent = fmt.Sprintf("CloudinaryGo/%s (Go %s)", Version, strings.TrimPrefix(runtime.Version(), "go"))
@@ -186,7 +186,9 @@ func (at AutoTranscription) MarshalJSON() ([]byte, error) {
 }
 
 // AutoVideoDetails represents the auto video details param.
-type AutoVideoDetails struct{}
+type AutoVideoDetails struct {
+	Fields []string `json:"fields,omitempty"`
+}
 
 // BriefAssetResult represents a partial asset result that is returned when assets are listed.
 type BriefAssetResult struct {

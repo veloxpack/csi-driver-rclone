@@ -185,11 +185,17 @@ config := &extsort.Config{
     NumWorkers:         4,       // Parallel sorting/merging workers (default: 2)
     ChanBuffSize:       10,      // Channel buffer size (default: 1)
     SortedChanBuffSize: 1000,    // Output channel buffer (default: 1000)
-    TempFilesDir:       "/tmp",  // Temporary files directory (default: OS temp)
+    TempFilesDir:       "/var/tmp",  // Temporary files directory (default: intelligent selection)
 }
 
 sorter, outputChan, errChan := extsort.Ordered(inputChan, config)
 ```
+
+### Temporary Directory Selection
+
+When `TempFilesDir` is empty (default), the library intelligently selects temporary directories that prefer disk-backed locations over potentially memory-backed filesystems. On Linux systems where `/tmp` may be mounted as tmpfs (memory-backed), this helps prevent out-of-memory issues when sorting datasets larger than available RAM.
+
+**For production use with large datasets, it's recommended to explicitly set `TempFilesDir` to a known disk-backed directory** (such as `/var/tmp` on Unix systems) to ensure optimal performance and avoid memory limitations.
 
 ## Legacy Interface-Based API
 
@@ -456,7 +462,10 @@ func main() {
 
 - **Memory Usage**: Configure `ChunkSize` based on available memory (larger chunks = less I/O, more memory)
 - **Parallelism**: Increase `NumWorkers` on multi-core systems
-- **I/O Performance**: Use fast storage for `TempFilesDir` (SSD recommended for large datasets)
+- **Temporary Storage**:
+  - Explicitly set `TempFilesDir` to a known disk-backed directory for large datasets
+  - On Linux, prefer `/var/tmp` over `/tmp` (which may be tmpfs/memory-backed)
+  - Use fast storage (SSD recommended) for temporary files
 - **Channel Buffers**: Tune buffer sizes based on your producer/consumer patterns
 
 ## Error Handling

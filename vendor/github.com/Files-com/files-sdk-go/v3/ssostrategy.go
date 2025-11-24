@@ -44,6 +44,7 @@ type SsoStrategy struct {
 	ProvisionTimeZone                string `json:"provision_time_zone,omitempty" path:"provision_time_zone,omitempty" url:"provision_time_zone,omitempty"`
 	ProvisionCompany                 string `json:"provision_company,omitempty" path:"provision_company,omitempty" url:"provision_company,omitempty"`
 	ProvisionRequire2fa              string `json:"provision_require_2fa,omitempty" path:"provision_require_2fa,omitempty" url:"provision_require_2fa,omitempty"`
+	ProvisionFilesystemLayout        string `json:"provision_filesystem_layout,omitempty" path:"provision_filesystem_layout,omitempty" url:"provision_filesystem_layout,omitempty"`
 	ProviderIdentifier               string `json:"provider_identifier,omitempty" path:"provider_identifier,omitempty" url:"provider_identifier,omitempty"`
 	LdapBaseDn                       string `json:"ldap_base_dn,omitempty" path:"ldap_base_dn,omitempty" url:"ldap_base_dn,omitempty"`
 	LdapDomain                       string `json:"ldap_domain,omitempty" path:"ldap_domain,omitempty" url:"ldap_domain,omitempty"`

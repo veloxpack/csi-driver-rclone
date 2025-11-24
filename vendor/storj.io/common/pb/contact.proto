@@ -100,6 +100,7 @@ message AmnestyReportRequest {
 enum LostPieceReason {
     ZERO_HASH = 0;
     HASH_MISMATCH = 1;
+    READ_FAILURE = 2;
 }
 
 message LostPiece {

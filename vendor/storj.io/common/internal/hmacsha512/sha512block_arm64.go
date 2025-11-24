@@ -6,8 +6,10 @@ package hmacsha512
 
 import "golang.org/x/sys/cpu"
 
+var useSHA512 = cpu.ARM64.HasSHA512
+
 func block(dig *digest, p []byte) {
-	if cpu.ARM64.HasSHA512 {
+	if useSHA512 {
 		blockAsm(dig, p)
 		return
 	}

@@ -32,7 +32,9 @@
         "strconv",
         "tempfile",
         "tempfiles",
-        "timsort"
+        "timsort",
+        "tmpfs",
+        "writability"
     ],
     "ignoreWords": [],
     "import": []

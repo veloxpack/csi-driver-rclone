@@ -64,19 +64,19 @@ func (scheme RedundancyScheme) PieceSize(size int64) int64 {
 	return pieceSize
 }
 
-// Value implements the driver.Valuer interface.
-func (scheme RedundancyScheme) Value() (driver.Value, error) {
+// EncodeInt64 encodes the scheme as a int64.
+func (scheme RedundancyScheme) EncodeInt64() (int64, error) {
 	switch {
 	case scheme.ShareSize < 0 || scheme.ShareSize >= 1<<24:
-		return nil, errs.New("invalid share size %v", scheme.ShareSize)
+		return 0, errs.New("invalid share size %v", scheme.ShareSize)
 	case scheme.RequiredShares < 0 || scheme.RequiredShares >= 1<<8:
-		return nil, errs.New("invalid required shares %v", scheme.RequiredShares)
+		return 0, errs.New("invalid required shares %v", scheme.RequiredShares)
 	case scheme.RepairShares < 0 || scheme.RepairShares >= 1<<8:
-		return nil, errs.New("invalid repair shares %v", scheme.RepairShares)
+		return 0, errs.New("invalid repair shares %v", scheme.RepairShares)
 	case scheme.OptimalShares < 0 || scheme.OptimalShares >= 1<<8:
-		return nil, errs.New("invalid optimal shares %v", scheme.OptimalShares)
+		return 0, errs.New("invalid optimal shares %v", scheme.OptimalShares)
 	case scheme.TotalShares < 0 || scheme.TotalShares >= 1<<8:
-		return nil, errs.New("invalid total shares %v", scheme.TotalShares)
+		return 0, errs.New("invalid total shares %v", scheme.TotalShares)
 	}
 
 	var bytes [8]byte
@@ -93,6 +93,15 @@ func (scheme RedundancyScheme) Value() (driver.Value, error) {
 	bytes[7] = byte(scheme.TotalShares)
 
 	return int64(binary.LittleEndian.Uint64(bytes[:])), nil
+}
+
+// Value implements the driver.Valuer interface.
+func (scheme RedundancyScheme) Value() (driver.Value, error) {
+	v, err := scheme.EncodeInt64()
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 // Scan implements the sql.Scanner interface.

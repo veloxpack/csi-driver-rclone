@@ -9,6 +9,7 @@ import (
 type URL struct {
 	*url.URL
 	time.Time
+	Type URLType
 }
 
 func New(urlStr string) (d *URL, err error) {
@@ -35,13 +36,23 @@ type expire struct {
 	date       string
 	expire     string
 	expireDate string
+	urlType    URLType
 }
 
+type URLType string
+
+const (
+	AmazonS3 URLType = "AmazonS3"
+	Google   URLType = "Google"
+	Azure    URLType = "Azure"
+	Files    URLType = "Files"
+)
+
 var (
-	amazonS3       = expire{"X-Amz-Date", "X-Amz-Expires", ""}
-	filesDate      = expire{"X-Files-Date", "X-Files-Expires", ""}
-	googleDate     = expire{"X-Goog-Date", "X-Goog-Expires", ""}
-	azureBlob      = expire{"sp", "", "se"}
+	amazonS3       = expire{"X-Amz-Date", "X-Amz-Expires", "", AmazonS3}
+	filesDate      = expire{"X-Files-Date", "X-Files-Expires", "", Files}
+	googleDate     = expire{"X-Goog-Date", "X-Goog-Expires", "", Google}
+	azureBlob      = expire{"sp", "", "se", Azure}
 	timeDateFormat = "20060102T150405Z"
 )
 
@@ -54,6 +65,7 @@ func (d *URL) parseTime() (err error) {
 			query := (&url.URL{RawQuery: date}).Query()
 			if len(query[parser.expireDate]) == 1 {
 				d.Time, err = time.Parse(timeDateFormat, query[parser.expireDate][0])
+				d.Type = parser.urlType
 			} else {
 				continue
 			}

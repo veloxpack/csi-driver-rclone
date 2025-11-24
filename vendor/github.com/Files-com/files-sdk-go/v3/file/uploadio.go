@@ -13,6 +13,7 @@ import (
 	"time"
 
 	files_sdk "github.com/Files-com/files-sdk-go/v3"
+	"github.com/Files-com/files-sdk-go/v3/downloadurl"
 	"github.com/Files-com/files-sdk-go/v3/file/manager"
 	"github.com/Files-com/files-sdk-go/v3/file/status"
 	"github.com/Files-com/files-sdk-go/v3/lib"
@@ -53,6 +54,8 @@ type uploadIO struct {
 	RewindAllProgressOnFailure bool
 	notResumable               *atomic.Bool
 	actionAttributes           map[string]any
+	startedCallback            func(files_sdk.FileUploadPart)
+	renamedCallback            func() (string, string)
 }
 
 func (u *uploadIO) Run(ctx context.Context) (UploadResumable, error) {
@@ -85,14 +88,14 @@ func (u *uploadIO) Run(ctx context.Context) (UploadResumable, error) {
 		u.MkdirParents = lib.Bool(true)
 	}
 	var err error
-	if time.Now().After(u.FileUploadPart.UploadExpires()) || u.isRemoteMount(u.FileUploadPart) {
+	if time.Now().After(u.FileUploadPart.UploadExpires()) || u.isParallelParts(u.FileUploadPart) {
 		if len(u.Parts) > 0 {
 			u.LogPath(u.Path, map[string]any{
-				"timestamp":     time.Now(),
-				"event":         "check resumability",
-				"isRemoteMount": u.isRemoteMount(u.FileUploadPart),
-				"expired":       time.Now().After(u.FileUploadPart.UploadExpires()),
-				"message":       "parts are invalidated must start over",
+				"timestamp":      time.Now(),
+				"event":          "check resumability",
+				"parallel_parts": u.isParallelParts(u.FileUploadPart),
+				"expired":        time.Now().After(u.FileUploadPart.UploadExpires()),
+				"message":        "parts are invalidated must start over",
 			})
 		}
 		u.Parts = Parts{} // parts are invalidated
@@ -158,7 +161,11 @@ func (u *uploadIO) waitOnParts(ctx context.Context, cancelParts context.CancelCa
 			// Rate limit all outgoing connections
 			if u.Manager.WaitWithContext(ctx) {
 				var err error
-				u.file, err = u.completeUpload(ctx, u.ProvidedMtime, u.etags, u.bytesWritten, u.Path, u.FileUploadPart.Ref)
+				path, ref := u.Path, u.FileUploadPart.Ref
+				if u.renamedCallback != nil {
+					path, ref = u.renamedCallback()
+				}
+				u.file, err = u.completeUpload(ctx, u.ProvidedMtime, u.etags, u.bytesWritten, path, ref)
 				u.Manager.Done()
 				if err != nil {
 					u.LogPath(u.Path, map[string]any{
@@ -230,12 +237,16 @@ func (u *uploadIO) partBuilder(offset OffSet, final bool, number int) *Part {
 			Path:          u.FileUploadPart.Path,
 			Ref:           u.FileUploadPart.Ref,
 			PartNumber:    int64(number),
-			ParallelParts: lib.Bool(lib.UnWrapBool(u.ParallelParts)),
+			ParallelParts: u.ParallelParts,
 		}
 
 		if u.usesSameUrl(u.FileUploadPart) {
 			part.FileUploadPart.UploadUri = u.FileUploadPart.UploadUri
 			part.Expires = u.FileUploadPart.Expires
+			if part.PartNumber > 1 {
+				// When using the same URL, after each use, the expiry time is extended by 3 minutes.
+				part.Expires = u.FileUploadPart.ExpiresTime().Add(3 * time.Minute).Format(time.RFC3339)
+			}
 			u.ensurePartNumber(part)
 		}
 	}
@@ -336,7 +347,7 @@ func (u *uploadIO) runUploadPart(ctx context.Context, part *Part) {
 		part.Touch()
 		if part.error == nil && runCount < 3 {
 			break
-		} else if lib.S3ErrorIsRequestHasExpired(part.error) {
+		} else if lib.S3ErrorIsRequestHasExpired(part.error) || files_sdk.IsExpired(part.error) {
 			part.FileUploadPart.Expires = ""
 			part.FileUploadPart.UploadUri = ""
 			if part.ProxyReader.Rewind() {
@@ -383,6 +394,11 @@ func (u *uploadIO) uploadParts(ctx context.Context) {
 		iterator Iterator
 		index    int
 	)
+	if !u.isParallelParts(u.FileUploadPart) {
+		// Server optimization for remotes that don't support parallel parts.
+		// There is no maximum part count of 10,000, so we can use the default chunk size of 5MB
+		u.ByteOffset.OverrideChunkSize = lib.BasePart
+	}
 	if len(u.Parts) > 0 {
 		lastPart := u.Parts[len(u.Parts)-1]
 		iterator = u.ByteOffset.Resume(u.Size, lastPart.off, lastPart.number-1)
@@ -418,7 +434,11 @@ func (u *uploadIO) startUpload(ctx context.Context, beginUpload files_sdk.FileBe
 		return files_sdk.FileUploadPart{}, err
 	}
 	u.Progress(0)
-	return uploads[0], err
+	part := uploads[0]
+	if u.startedCallback != nil {
+		u.startedCallback(part)
+	}
+	return part, err
 }
 
 func (u *uploadIO) completeUpload(ctx context.Context, providedMtime *time.Time, etags []files_sdk.EtagsParam, bytesWritten int64, path string, ref string) (files_sdk.File, error) {
@@ -503,14 +523,15 @@ func (u *uploadIO) uploadPart(ctx context.Context, part *Part) (files_sdk.EtagsP
 }
 
 func (u *uploadIO) usesSameUrl(file files_sdk.FileUploadPart) bool {
-	// Remote Mounts use the same URL
-	usesSameURL := u.isRemoteMount(file)
-	return usesSameURL
+	downloadURL, err := downloadurl.New(file.UploadUri)
+	if err != nil {
+		return false
+	}
+	return downloadURL.Type == downloadurl.Files
 }
 
-func (u *uploadIO) isRemoteMount(file files_sdk.FileUploadPart) bool {
-	isRemoteMount := !lib.UnWrapBool(file.ParallelParts)
-	return isRemoteMount
+func (u *uploadIO) isParallelParts(file files_sdk.FileUploadPart) bool {
+	return lib.UnWrapBool(file.ParallelParts)
 }
 
 func uploadProgress(uploadStatus *UploadStatus) func(bytesCount int64) {

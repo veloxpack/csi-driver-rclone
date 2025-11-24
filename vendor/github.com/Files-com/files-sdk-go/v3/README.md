@@ -1,5 +1,11 @@
 # Files.com Go Client
 
+The Files.com Go SDK provides a direct, high performance integration to Files.com from applications written in Go.
+
+Files.com is the cloud-native, next-gen MFT, SFTP, and secure file-sharing platform that replaces brittle legacy servers with one always-on, secure fabric. Automate mission-critical file flows—across any cloud, protocol, or partner—while supporting human collaboration and eliminating manual work.
+
+With universal SFTP, AS2, HTTPS, and 50+ native connectors backed by military-grade encryption, Files.com unifies governance, visibility, and compliance in a single pane of glass.
+
 The content included here should be enough to get started, but please visit our
 [Developer Documentation Website](https://developers.files.com/go/) for the complete documentation.
 
@@ -758,6 +764,7 @@ ResponseError errors have additional data returned from the Files.com API to hel
 | `processing-failure/invalid-priority-color` | Invalid Priority Color |
 | `processing-failure/invalid-range` | Invalid Range |
 | `processing-failure/invalid-site` | Invalid Site |
+| `processing-failure/metadata-not-supported-on-remotes` | Metadata Not Supported On Remotes |
 | `processing-failure/model-save-error` | Model Save Error |
 | `processing-failure/multiple-processing-errors` | Multiple Processing Errors |
 | `processing-failure/path-too-long` | Path Too Long |

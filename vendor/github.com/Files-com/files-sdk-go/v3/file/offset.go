@@ -2,12 +2,11 @@ package file
 
 import (
 	"context"
-	"math"
 	"sync"
 	"time"
 
 	files_sdk "github.com/Files-com/files-sdk-go/v3"
-	"github.com/Files-com/files-sdk-go/v3/lib"
+	"github.com/samber/lo"
 )
 
 type OffSet struct {
@@ -93,68 +92,91 @@ func (p Parts) SuccessfulBytes() (b int64) {
 }
 
 type ByteOffset struct {
-	PartSizes []int64
-}
-
-func (b ByteOffset) WithDefaultChunkSize(size *int64, off int64, index int, defaultChunkSize int64) Iterator {
-	return func() (OffSet, Iterator, int) {
-		// if size is nil or off is still less than size
-		if size == nil || off < *size {
-			endRange := off + b.PartSizes[index]
-
-			if size != nil && *size > endRange {
-				endRange = defaultChunkSize
-			}
-
-			// if size is not nil, limit endRange by size
-			if size != nil {
-				endRange = int64(math.Min(float64(endRange), float64(*size)))
-			}
-
-			offset := OffSet{off: off, len: endRange - off}
-
-			off = endRange
-
-			// if there are no more partSizes or off is already more than size, return nil iterator
-			if index >= len(lib.PartSizes)-1 || (size != nil && off >= *size) {
-				return offset, nil, index + 1
-			}
-
-			return offset, b.Resume(size, off, index+1), index
-		}
-
-		return OffSet{}, nil, index
-	}
+	PartSizes         []int64
+	OverrideChunkSize int64
 }
 
 func (b ByteOffset) BySize(size *int64) Iterator {
 	return b.Resume(size, 0, 0)
 }
 
+// Resume creates an iterator that generates file chunks starting from a given offset.
+// When OverrideChunkSize is set (or computed for large files), use a constant-size iterator.
+// Otherwise, use the PartSizes-driven iterator.
 func (b ByteOffset) Resume(size *int64, off int64, index int) Iterator {
-	return func() (OffSet, Iterator, int) {
-		// if size is nil or off is still less than size
-		if size == nil || off < *size {
-			endRange := off + b.PartSizes[index]
+	// Compute dynamic override for large files (>10) when not explicitly set.
+	// OK to assign on value receiver: only the closure needs this adjusted value.
+	if b.OverrideChunkSize == 0 && size != nil && *size > 10*1024*1024 {
+		b.OverrideChunkSize = lo.Clamp((*size+9999)/10000, 10*1024*1024, 525*1024*1024)
+	}
 
-			// if size is not nil, limit endRange by size
-			if size != nil {
-				endRange = int64(math.Min(float64(endRange), float64(*size)))
+	// Iterator for constant-size chunks (override mode).
+	// Ignores PartSizes and advances by a fixed size until end (when size known).
+	if b.OverrideChunkSize > 0 {
+		return func() (OffSet, Iterator, int) {
+			// If end reached (only meaningful with known size), stop.
+			if size != nil && off >= *size {
+				return OffSet{}, nil, index
 			}
 
-			offset := OffSet{off: off, len: endRange - off}
+			partSize := b.OverrideChunkSize
+			// Cap to remaining bytes when the file size is known.
+			if size != nil {
+				remaining := *size - off
+				if remaining <= 0 {
+					return OffSet{}, nil, index
+				}
+				if partSize > remaining {
+					partSize = remaining
+				}
+			}
 
-			off = endRange
+			offset := OffSet{off: off, len: partSize}
+			nextOff := off + partSize
 
-			// if there are no more partSizes or off is already more than size, return nil iterator
-			if index >= len(lib.PartSizes)-1 || (size != nil && off >= *size) {
+			// Stop when we hit the end; otherwise continue with the same index (override mode).
+			if size != nil && nextOff >= *size {
 				return offset, nil, index
 			}
+			// Increment index to track chunk number for external use (logging, progress, etc.)
+			return offset, b.Resume(size, nextOff, index+1), index
+		}
+	}
 
-			return offset, b.Resume(size, off, index+1), index
+	// Iterator driven by PartSizes (no override).
+	// Uses slice entries to define each chunk, advancing index per part.
+	return func() (OffSet, Iterator, int) {
+		// If size is known and we're done, stop.
+		if size != nil && off >= *size {
+			return OffSet{}, nil, index
 		}
 
-		return OffSet{}, nil, index
+		// If no size is known, PartSizes must define iteration; stop when exhausted.
+		if len(b.PartSizes) == 0 || index >= len(b.PartSizes) {
+			return OffSet{}, nil, index
+		}
+
+		partSize := b.PartSizes[index]
+		// Cap to remaining bytes when file size is known.
+		if size != nil {
+			remaining := *size - off
+			if remaining <= 0 {
+				return OffSet{}, nil, index
+			}
+			if partSize > remaining {
+				partSize = remaining
+			}
+		}
+
+		offset := OffSet{off: off, len: partSize}
+		nextOff := off + partSize
+
+		// Terminate if: unknown size and last PartSizes entry, or known size end.
+		if (size == nil && index >= len(b.PartSizes)-1) || (size != nil && nextOff >= *size) {
+			return offset, nil, index
+		}
+
+		return offset, b.Resume(size, nextOff, index+1), index
 	}
 }
 

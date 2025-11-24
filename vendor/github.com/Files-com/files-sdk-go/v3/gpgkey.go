@@ -11,6 +11,8 @@ type GpgKey struct {
 	Id                    int64      `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
 	ExpiresAt             *time.Time `json:"expires_at,omitempty" path:"expires_at,omitempty" url:"expires_at,omitempty"`
 	Name                  string     `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
+	PartnerId             int64      `json:"partner_id,omitempty" path:"partner_id,omitempty" url:"partner_id,omitempty"`
+	PartnerName           string     `json:"partner_name,omitempty" path:"partner_name,omitempty" url:"partner_name,omitempty"`
 	UserId                int64      `json:"user_id,omitempty" path:"user_id,omitempty" url:"user_id,omitempty"`
 	PublicKeyMd5          string     `json:"public_key_md5,omitempty" path:"public_key_md5,omitempty" url:"public_key_md5,omitempty"`
 	PrivateKeyMd5         string     `json:"private_key_md5,omitempty" path:"private_key_md5,omitempty" url:"private_key_md5,omitempty"`
@@ -44,6 +46,7 @@ type GpgKeyFindParams struct {
 
 type GpgKeyCreateParams struct {
 	UserId             int64      `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
+	PartnerId          int64      `url:"partner_id,omitempty" json:"partner_id,omitempty" path:"partner_id"`
 	PublicKey          string     `url:"public_key,omitempty" json:"public_key,omitempty" path:"public_key"`
 	PrivateKey         string     `url:"private_key,omitempty" json:"private_key,omitempty" path:"private_key"`
 	PrivateKeyPassword string     `url:"private_key_password,omitempty" json:"private_key_password,omitempty" path:"private_key_password"`
@@ -56,6 +59,7 @@ type GpgKeyCreateParams struct {
 
 type GpgKeyUpdateParams struct {
 	Id                 int64  `url:"-,omitempty" json:"-,omitempty" path:"id"`
+	PartnerId          int64  `url:"partner_id,omitempty" json:"partner_id,omitempty" path:"partner_id"`
 	PublicKey          string `url:"public_key,omitempty" json:"public_key,omitempty" path:"public_key"`
 	PrivateKey         string `url:"private_key,omitempty" json:"private_key,omitempty" path:"private_key"`
 	PrivateKeyPassword string `url:"private_key_password,omitempty" json:"private_key_password,omitempty" path:"private_key_password"`

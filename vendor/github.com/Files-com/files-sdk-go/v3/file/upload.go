@@ -128,6 +128,20 @@ func UploadWithActionAttributes(attributes map[string]any) UploadOption {
 	}
 }
 
+func WithUploadStartedCallback(cb func(files_sdk.FileUploadPart)) UploadOption {
+	return func(io uploadIO) (uploadIO, error) {
+		io.startedCallback = cb
+		return io, nil
+	}
+}
+
+func WithUploadRenamedCallback(cb func() (path, ref string)) UploadOption {
+	return func(io uploadIO) (uploadIO, error) {
+		io.renamedCallback = cb
+		return io, nil
+	}
+}
+
 func (c *Client) Upload(opts ...UploadOption) error {
 	_, err := c.UploadWithResume(opts...)
 

@@ -1,3 +1,11 @@
+2.13.0 / 2025-08-20
+==================
+
+New Functionality And Features
+------------------------------
+
+  * Add support for `Fields` in `AutoVideoDetails` upload parameter
+
 2.12.0 / 2025-08-11
 ==================
 
