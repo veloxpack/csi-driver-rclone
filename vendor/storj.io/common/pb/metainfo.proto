@@ -275,8 +275,9 @@ message BucketSetAttributionResponse {
 }
 
 message AddressedOrderLimit {
-    orders.OrderLimit limit = 1;
-    node.NodeAddress storage_node_address = 2;
+    orders.OrderLimit  limit = 1;
+    node.NodeAddress   storage_node_address = 2;
+    map<string, bytes> tags = 3;
 }
 
 message ProjectInfoRequest {
@@ -292,6 +293,7 @@ message EdgeUrlOverrides {
 message ProjectInfoResponse {
     bytes project_salt = 1;
     bytes project_public_id = 2;
+    google.protobuf.Timestamp project_created_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     EdgeUrlOverrides edge_url_overrides = 3;
 }
 
@@ -812,6 +814,29 @@ message BeginSegmentResponse {
     repeated AddressedOrderLimit addressed_limits = 2;
     bytes                        private_key = 3 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
     pointerdb.RedundancyScheme   redundancy_scheme = 4;
+    CohortRequirements           cohort_requirements = 5;
+}
+
+message CohortRequirements {
+    message And {
+        repeated CohortRequirements requirements = 1;
+    }
+
+    message Literal {
+        int32 value = 1;
+    }
+
+    message Withhold {
+        string             tag_key = 1;
+        int32              amount  = 2;
+        CohortRequirements child   = 3;
+   }
+
+    oneof Requirement {
+        And      and      = 1;
+        Literal  literal  = 2;
+        Withhold withhold = 3;
+    }
 }
 
 message RetryBeginSegmentPiecesRequest {

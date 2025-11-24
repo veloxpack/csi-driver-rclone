@@ -1584,11 +1584,12 @@ func (m *BucketSetAttributionResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_BucketSetAttributionResponse proto.InternalMessageInfo
 
 type AddressedOrderLimit struct {
-	Limit                *OrderLimit  `protobuf:"bytes,1,opt,name=limit,proto3" json:"limit,omitempty"`
-	StorageNodeAddress   *NodeAddress `protobuf:"bytes,2,opt,name=storage_node_address,json=storageNodeAddress,proto3" json:"storage_node_address,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	Limit                *OrderLimit       `protobuf:"bytes,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	StorageNodeAddress   *NodeAddress      `protobuf:"bytes,2,opt,name=storage_node_address,json=storageNodeAddress,proto3" json:"storage_node_address,omitempty"`
+	Tags                 map[string][]byte `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
 func (m *AddressedOrderLimit) Reset()         { *m = AddressedOrderLimit{} }
@@ -1623,6 +1624,13 @@ func (m *AddressedOrderLimit) GetLimit() *OrderLimit {
 func (m *AddressedOrderLimit) GetStorageNodeAddress() *NodeAddress {
 	if m != nil {
 		return m.StorageNodeAddress
+	}
+	return nil
+}
+
+func (m *AddressedOrderLimit) GetTags() map[string][]byte {
+	if m != nil {
+		return m.Tags
 	}
 	return nil
 }
@@ -1718,6 +1726,7 @@ func (m *EdgeUrlOverrides) GetPrivateLinksharing() []byte {
 type ProjectInfoResponse struct {
 	ProjectSalt          []byte            `protobuf:"bytes,1,opt,name=project_salt,json=projectSalt,proto3" json:"project_salt,omitempty"`
 	ProjectPublicId      []byte            `protobuf:"bytes,2,opt,name=project_public_id,json=projectPublicId,proto3" json:"project_public_id,omitempty"`
+	ProjectCreatedAt     time.Time         `protobuf:"bytes,4,opt,name=project_created_at,json=projectCreatedAt,proto3,stdtime" json:"project_created_at"`
 	EdgeUrlOverrides     *EdgeUrlOverrides `protobuf:"bytes,3,opt,name=edge_url_overrides,json=edgeUrlOverrides,proto3" json:"edge_url_overrides,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
@@ -1758,6 +1767,13 @@ func (m *ProjectInfoResponse) GetProjectPublicId() []byte {
 		return m.ProjectPublicId
 	}
 	return nil
+}
+
+func (m *ProjectInfoResponse) GetProjectCreatedAt() time.Time {
+	if m != nil {
+		return m.ProjectCreatedAt
+	}
+	return time.Time{}
 }
 
 func (m *ProjectInfoResponse) GetEdgeUrlOverrides() *EdgeUrlOverrides {
@@ -4693,6 +4709,7 @@ type BeginSegmentResponse struct {
 	AddressedLimits      []*AddressedOrderLimit `protobuf:"bytes,2,rep,name=addressed_limits,json=addressedLimits,proto3" json:"addressed_limits,omitempty"`
 	PrivateKey           PiecePrivateKey        `protobuf:"bytes,3,opt,name=private_key,json=privateKey,proto3,customtype=PiecePrivateKey" json:"private_key"`
 	RedundancyScheme     *RedundancyScheme      `protobuf:"bytes,4,opt,name=redundancy_scheme,json=redundancyScheme,proto3" json:"redundancy_scheme,omitempty"`
+	CohortRequirements   *CohortRequirements    `protobuf:"bytes,5,opt,name=cohort_requirements,json=cohortRequirements,proto3" json:"cohort_requirements,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
 	XXX_unrecognized     []byte                 `json:"-"`
 	XXX_sizecache        int32                  `json:"-"`
@@ -4730,6 +4747,226 @@ func (m *BeginSegmentResponse) GetAddressedLimits() []*AddressedOrderLimit {
 func (m *BeginSegmentResponse) GetRedundancyScheme() *RedundancyScheme {
 	if m != nil {
 		return m.RedundancyScheme
+	}
+	return nil
+}
+
+func (m *BeginSegmentResponse) GetCohortRequirements() *CohortRequirements {
+	if m != nil {
+		return m.CohortRequirements
+	}
+	return nil
+}
+
+type CohortRequirements struct {
+	// Types that are valid to be assigned to Requirement:
+	//
+	//	*CohortRequirements_And_
+	//	*CohortRequirements_Literal_
+	//	*CohortRequirements_Withhold_
+	Requirement          isCohortRequirements_Requirement `protobuf_oneof:"Requirement"`
+	XXX_NoUnkeyedLiteral struct{}                         `json:"-"`
+	XXX_unrecognized     []byte                           `json:"-"`
+	XXX_sizecache        int32                            `json:"-"`
+}
+
+func (m *CohortRequirements) Reset()         { *m = CohortRequirements{} }
+func (m *CohortRequirements) String() string { return proto.CompactTextString(m) }
+func (*CohortRequirements) ProtoMessage()    {}
+
+func (m *CohortRequirements) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CohortRequirements.Unmarshal(m, b)
+}
+func (m *CohortRequirements) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CohortRequirements.Marshal(b, m, deterministic)
+}
+func (m *CohortRequirements) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CohortRequirements.Merge(m, src)
+}
+func (m *CohortRequirements) XXX_Size() int {
+	return xxx_messageInfo_CohortRequirements.Size(m)
+}
+func (m *CohortRequirements) XXX_DiscardUnknown() {
+	xxx_messageInfo_CohortRequirements.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CohortRequirements proto.InternalMessageInfo
+
+type isCohortRequirements_Requirement interface {
+	isCohortRequirements_Requirement()
+}
+
+type CohortRequirements_And_ struct {
+	And *CohortRequirements_And `protobuf:"bytes,1,opt,name=and,proto3,oneof" json:"and,omitempty"`
+}
+type CohortRequirements_Literal_ struct {
+	Literal *CohortRequirements_Literal `protobuf:"bytes,2,opt,name=literal,proto3,oneof" json:"literal,omitempty"`
+}
+type CohortRequirements_Withhold_ struct {
+	Withhold *CohortRequirements_Withhold `protobuf:"bytes,3,opt,name=withhold,proto3,oneof" json:"withhold,omitempty"`
+}
+
+func (*CohortRequirements_And_) isCohortRequirements_Requirement()      {}
+func (*CohortRequirements_Literal_) isCohortRequirements_Requirement()  {}
+func (*CohortRequirements_Withhold_) isCohortRequirements_Requirement() {}
+
+func (m *CohortRequirements) GetRequirement() isCohortRequirements_Requirement {
+	if m != nil {
+		return m.Requirement
+	}
+	return nil
+}
+
+func (m *CohortRequirements) GetAnd() *CohortRequirements_And {
+	if x, ok := m.GetRequirement().(*CohortRequirements_And_); ok {
+		return x.And
+	}
+	return nil
+}
+
+func (m *CohortRequirements) GetLiteral() *CohortRequirements_Literal {
+	if x, ok := m.GetRequirement().(*CohortRequirements_Literal_); ok {
+		return x.Literal
+	}
+	return nil
+}
+
+func (m *CohortRequirements) GetWithhold() *CohortRequirements_Withhold {
+	if x, ok := m.GetRequirement().(*CohortRequirements_Withhold_); ok {
+		return x.Withhold
+	}
+	return nil
+}
+
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*CohortRequirements) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
+		(*CohortRequirements_And_)(nil),
+		(*CohortRequirements_Literal_)(nil),
+		(*CohortRequirements_Withhold_)(nil),
+	}
+}
+
+type CohortRequirements_And struct {
+	Requirements         []*CohortRequirements `protobuf:"bytes,1,rep,name=requirements,proto3" json:"requirements,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
+	XXX_unrecognized     []byte                `json:"-"`
+	XXX_sizecache        int32                 `json:"-"`
+}
+
+func (m *CohortRequirements_And) Reset()         { *m = CohortRequirements_And{} }
+func (m *CohortRequirements_And) String() string { return proto.CompactTextString(m) }
+func (*CohortRequirements_And) ProtoMessage()    {}
+
+func (m *CohortRequirements_And) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CohortRequirements_And.Unmarshal(m, b)
+}
+func (m *CohortRequirements_And) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CohortRequirements_And.Marshal(b, m, deterministic)
+}
+func (m *CohortRequirements_And) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CohortRequirements_And.Merge(m, src)
+}
+func (m *CohortRequirements_And) XXX_Size() int {
+	return xxx_messageInfo_CohortRequirements_And.Size(m)
+}
+func (m *CohortRequirements_And) XXX_DiscardUnknown() {
+	xxx_messageInfo_CohortRequirements_And.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CohortRequirements_And proto.InternalMessageInfo
+
+func (m *CohortRequirements_And) GetRequirements() []*CohortRequirements {
+	if m != nil {
+		return m.Requirements
+	}
+	return nil
+}
+
+type CohortRequirements_Literal struct {
+	Value                int32    `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CohortRequirements_Literal) Reset()         { *m = CohortRequirements_Literal{} }
+func (m *CohortRequirements_Literal) String() string { return proto.CompactTextString(m) }
+func (*CohortRequirements_Literal) ProtoMessage()    {}
+
+func (m *CohortRequirements_Literal) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CohortRequirements_Literal.Unmarshal(m, b)
+}
+func (m *CohortRequirements_Literal) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CohortRequirements_Literal.Marshal(b, m, deterministic)
+}
+func (m *CohortRequirements_Literal) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CohortRequirements_Literal.Merge(m, src)
+}
+func (m *CohortRequirements_Literal) XXX_Size() int {
+	return xxx_messageInfo_CohortRequirements_Literal.Size(m)
+}
+func (m *CohortRequirements_Literal) XXX_DiscardUnknown() {
+	xxx_messageInfo_CohortRequirements_Literal.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CohortRequirements_Literal proto.InternalMessageInfo
+
+func (m *CohortRequirements_Literal) GetValue() int32 {
+	if m != nil {
+		return m.Value
+	}
+	return 0
+}
+
+type CohortRequirements_Withhold struct {
+	TagKey               string              `protobuf:"bytes,1,opt,name=tag_key,json=tagKey,proto3" json:"tag_key,omitempty"`
+	Amount               int32               `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Child                *CohortRequirements `protobuf:"bytes,3,opt,name=child,proto3" json:"child,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
+}
+
+func (m *CohortRequirements_Withhold) Reset()         { *m = CohortRequirements_Withhold{} }
+func (m *CohortRequirements_Withhold) String() string { return proto.CompactTextString(m) }
+func (*CohortRequirements_Withhold) ProtoMessage()    {}
+
+func (m *CohortRequirements_Withhold) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CohortRequirements_Withhold.Unmarshal(m, b)
+}
+func (m *CohortRequirements_Withhold) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CohortRequirements_Withhold.Marshal(b, m, deterministic)
+}
+func (m *CohortRequirements_Withhold) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CohortRequirements_Withhold.Merge(m, src)
+}
+func (m *CohortRequirements_Withhold) XXX_Size() int {
+	return xxx_messageInfo_CohortRequirements_Withhold.Size(m)
+}
+func (m *CohortRequirements_Withhold) XXX_DiscardUnknown() {
+	xxx_messageInfo_CohortRequirements_Withhold.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CohortRequirements_Withhold proto.InternalMessageInfo
+
+func (m *CohortRequirements_Withhold) GetTagKey() string {
+	if m != nil {
+		return m.TagKey
+	}
+	return ""
+}
+
+func (m *CohortRequirements_Withhold) GetAmount() int32 {
+	if m != nil {
+		return m.Amount
+	}
+	return 0
+}
+
+func (m *CohortRequirements_Withhold) GetChild() *CohortRequirements {
+	if m != nil {
+		return m.Child
 	}
 	return nil
 }

@@ -58,7 +58,6 @@ type SyncCreateParams struct {
 	DestPath            string   `url:"dest_path,omitempty" json:"dest_path,omitempty" path:"dest_path"`
 	SrcRemoteServerId   int64    `url:"src_remote_server_id,omitempty" json:"src_remote_server_id,omitempty" path:"src_remote_server_id"`
 	DestRemoteServerId  int64    `url:"dest_remote_server_id,omitempty" json:"dest_remote_server_id,omitempty" path:"dest_remote_server_id"`
-	TwoWay              *bool    `url:"two_way,omitempty" json:"two_way,omitempty" path:"two_way"`
 	KeepAfterCopy       *bool    `url:"keep_after_copy,omitempty" json:"keep_after_copy,omitempty" path:"keep_after_copy"`
 	DeleteEmptyFolders  *bool    `url:"delete_empty_folders,omitempty" json:"delete_empty_folders,omitempty" path:"delete_empty_folders"`
 	Disabled            *bool    `url:"disabled,omitempty" json:"disabled,omitempty" path:"disabled"`
@@ -91,7 +90,6 @@ type SyncUpdateParams struct {
 	DestPath            string   `url:"dest_path,omitempty" json:"dest_path,omitempty" path:"dest_path"`
 	SrcRemoteServerId   int64    `url:"src_remote_server_id,omitempty" json:"src_remote_server_id,omitempty" path:"src_remote_server_id"`
 	DestRemoteServerId  int64    `url:"dest_remote_server_id,omitempty" json:"dest_remote_server_id,omitempty" path:"dest_remote_server_id"`
-	TwoWay              *bool    `url:"two_way,omitempty" json:"two_way,omitempty" path:"two_way"`
 	KeepAfterCopy       *bool    `url:"keep_after_copy,omitempty" json:"keep_after_copy,omitempty" path:"keep_after_copy"`
 	DeleteEmptyFolders  *bool    `url:"delete_empty_folders,omitempty" json:"delete_empty_folders,omitempty" path:"delete_empty_folders"`
 	Disabled            *bool    `url:"disabled,omitempty" json:"disabled,omitempty" path:"disabled"`

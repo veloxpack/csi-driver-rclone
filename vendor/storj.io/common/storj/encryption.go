@@ -13,6 +13,9 @@ import (
 	"github.com/zeebo/errs"
 )
 
+// ErrEncryptionParameters is used when something goes wrong with a stream ID.
+var ErrEncryptionParameters = errs.Class("encryption parameters")
+
 // EncryptionParameters is the cipher suite and parameters used for encryption.
 type EncryptionParameters struct {
 	// CipherSuite specifies the cipher suite to be used for encryption.
@@ -69,6 +72,45 @@ func (suite CipherSuite) String() string {
 	default:
 		return "CipherSuite(" + strconv.Itoa(int(suite)) + ")"
 	}
+}
+
+// Value implements sql/driver.Valuer interface.
+func (params EncryptionParameters) Value() (driver.Value, error) {
+	var bytes [8]byte
+	bytes[0] = byte(params.CipherSuite)
+	binary.LittleEndian.PutUint32(bytes[1:], uint32(params.BlockSize))
+	return int64(binary.LittleEndian.Uint64(bytes[:])), nil
+}
+
+// Scan implements sql.Scanner interface.
+func (params *EncryptionParameters) Scan(value interface{}) error {
+	switch value := value.(type) {
+	case int64:
+		var bytes [8]byte
+		binary.LittleEndian.PutUint64(bytes[:], uint64(value))
+		params.CipherSuite = CipherSuite(bytes[0])
+		params.BlockSize = int32(binary.LittleEndian.Uint32(bytes[1:]))
+		return nil
+	default:
+		return ErrEncryptionParameters.New("unable to scan %T into EncryptionParameters", value)
+	}
+}
+
+// EncodeSpanner implements spanner.Encoder interface.
+func (params EncryptionParameters) EncodeSpanner() (interface{}, error) {
+	return params.Value()
+}
+
+// DecodeSpanner implements spanner.Decoder interface.
+func (params *EncryptionParameters) DecodeSpanner(input interface{}) error {
+	if value, ok := input.(string); ok {
+		iVal, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return ErrEncryptionParameters.Wrap(err)
+		}
+		input = iVal
+	}
+	return params.Scan(input)
 }
 
 // Constant definitions for key and nonce sizes.

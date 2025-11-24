@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 package ntlmssp
 
 import (
@@ -25,8 +28,8 @@ var defaultFlags = negotiateFlagNTLMSSPNEGOTIATETARGETINFO |
 	negotiateFlagNTLMSSPNEGOTIATEUNICODE |
 	negotiateFlagNTLMSSPNEGOTIATEEXTENDEDSESSIONSECURITY
 
-//NewNegotiateMessage creates a new NEGOTIATE message with the
-//flags that this package supports.
+// NewNegotiateMessage creates a new NEGOTIATE message with the
+// flags that this package supports.
 func NewNegotiateMessage(domainName, workstationName string) ([]byte, error) {
 	payloadOffset := expMsgBodyLen
 	flags := defaultFlags

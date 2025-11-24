@@ -1,5 +1,6 @@
-// Package ntlmssp provides NTLM/Negotiate authentication over HTTP
-//
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Protocol details from https://msdn.microsoft.com/en-us/library/cc236621.aspx,
 // implementation hints from http://davenport.sourceforge.net/ntlm.html .
 // This package only implements authentication, no key exchange or encryption. It
@@ -10,8 +11,9 @@ package ntlmssp
 import (
 	"crypto/hmac"
 	"crypto/md5"
-	"golang.org/x/crypto/md4"
 	"strings"
+
+	"github.com/Azure/go-ntlmssp/internal/md4"
 )
 
 func getNtlmV2Hash(password, username, target string) []byte {
@@ -25,8 +27,8 @@ func getNtlmHash(password string) []byte {
 }
 
 func computeNtlmV2Response(ntlmV2Hash, serverChallenge, clientChallenge,
-	timestamp, targetInfo []byte) []byte {
-
+	timestamp, targetInfo []byte,
+) []byte {
 	temp := []byte{1, 1, 0, 0, 0, 0, 0, 0}
 	temp = append(temp, timestamp...)
 	temp = append(temp, clientChallenge...)

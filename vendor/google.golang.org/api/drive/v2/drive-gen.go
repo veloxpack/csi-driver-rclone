@@ -1044,51 +1044,47 @@ func (s ChildReference) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
-// Comment: A comment on a file in Google Drive. Some resource methods (such as
-// `comments.update`) require a `commentId`. Use the `comments.list` method to
-// retrieve the ID for a comment in a file.
+// Comment: A comment on a file in Google Drive.
 type Comment struct {
 	// Anchor: A region of the document represented as a JSON string. For details
-	// on defining anchor properties, refer to Add comments and replies
-	// (https://developers.google.com/workspace/drive/api/v2/manage-comments).
+	// on defining anchor properties, refer to Manage comments and replies
+	// (https://developers.google.com/workspace/drive/api/v3/manage-comments).
 	Anchor string `json:"anchor,omitempty"`
-	// Author: Output only. The author of the comment. The author's email address
-	// and permission ID will not be populated.
+	// Author: The user who wrote this comment.
 	Author *User `json:"author,omitempty"`
-	// CommentId: Output only. The ID of the comment.
+	// CommentId: The ID of the comment.
 	CommentId string `json:"commentId,omitempty"`
 	// Content: The plain text content used to create this comment. This is not
 	// HTML safe and should only be used as a starting point to make edits to a
 	// comment's content.
 	Content string `json:"content,omitempty"`
-	// Context: The context of the file which is being commented on.
+	// Context: Context of a file which is being commented on.
 	Context *CommentContext `json:"context,omitempty"`
 	// CreatedDate: The date when this comment was first created.
 	CreatedDate string `json:"createdDate,omitempty"`
-	// Deleted: Output only. Whether this comment has been deleted. If a comment
-	// has been deleted the content will be cleared and this will only represent a
-	// comment that once existed.
+	// Deleted: Whether this comment has been deleted. If a comment has been
+	// deleted the content will be cleared and this will only represent a comment
+	// that once existed.
 	Deleted bool `json:"deleted,omitempty"`
-	// FileId: Output only. The file which this comment is addressing.
+	// FileId: The file which this comment is addressing.
 	FileId string `json:"fileId,omitempty"`
-	// FileTitle: Output only. The title of the file which this comment is
-	// addressing.
+	// FileTitle: The title of the file which this comment is addressing.
 	FileTitle string `json:"fileTitle,omitempty"`
-	// HtmlContent: Output only. HTML formatted content for this comment.
+	// HtmlContent: HTML formatted content for this comment.
 	HtmlContent string `json:"htmlContent,omitempty"`
-	// Kind: Output only. This is always `drive#comment`.
+	// Kind: This is always drive#comment.
 	Kind string `json:"kind,omitempty"`
 	// ModifiedDate: The date when this comment or any of its replies were last
 	// modified.
 	ModifiedDate string `json:"modifiedDate,omitempty"`
-	// Replies: Output only. Replies to this post.
+	// Replies: Replies to this post.
 	Replies []*CommentReply `json:"replies,omitempty"`
-	// SelfLink: Output only. A link back to this comment.
+	// SelfLink: A link back to this comment.
 	SelfLink string `json:"selfLink,omitempty"`
-	// Status: Output only. The status of this comment. Status can be changed by
-	// posting a reply to a comment with the desired status. * `open` - The comment
-	// is still open. * `resolved` - The comment has been resolved by one of its
-	// replies.
+	// Status: The status of this comment. Status can be changed by posting a reply
+	// to a comment with the desired status. Possible values are: * `open` - The
+	// comment is still open. * `resolved` - The comment has been resolved by one
+	// of its replies.
 	Status string `json:"status,omitempty"`
 
 	// ServerResponse contains the HTTP response code and headers from the server.
@@ -1111,7 +1107,7 @@ func (s Comment) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
-// CommentContext: The context of the file which is being commented on.
+// CommentContext: Context of a file which is being commented on.
 type CommentContext struct {
 	// Type: The MIME type of the context snippet.
 	Type string `json:"type,omitempty"`
@@ -1142,7 +1138,7 @@ type CommentList struct {
 	// Items: The list of comments. If nextPageToken is populated, then this list
 	// may be incomplete and an additional page of results should be fetched.
 	Items []*Comment `json:"items,omitempty"`
-	// Kind: This is always `drive#commentList`.
+	// Kind: This is always drive#commentList.
 	Kind string `json:"kind,omitempty"`
 	// NextLink: A link to the next page of comments.
 	NextLink string `json:"nextLink,omitempty"`
@@ -1174,12 +1170,9 @@ func (s CommentList) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(NoMethod(s), s.ForceSendFields, s.NullFields)
 }
 
-// CommentReply: A comment on a file in Google Drive. Some resource methods
-// (such as `replies.update`) require a `replyId`. Use the `replies.list`
-// method to retrieve the ID for a reply.
+// CommentReply: A reply to a comment on a file in Google Drive.
 type CommentReply struct {
-	// Author: Output only. The author of the reply. The author's email address and
-	// permission ID will not be populated.
+	// Author: The user who wrote this reply.
 	Author *User `json:"author,omitempty"`
 	// Content: The plain text content used to create this reply. This is not HTML
 	// safe and should only be used as a starting point to make edits to a reply's
@@ -1188,20 +1181,20 @@ type CommentReply struct {
 	Content string `json:"content,omitempty"`
 	// CreatedDate: The date when this reply was first created.
 	CreatedDate string `json:"createdDate,omitempty"`
-	// Deleted: Output only. Whether this reply has been deleted. If a reply has
-	// been deleted the content will be cleared and this will only represent a
-	// reply that once existed.
+	// Deleted: Whether this reply has been deleted. If a reply has been deleted
+	// the content will be cleared and this will only represent a reply that once
+	// existed.
 	Deleted bool `json:"deleted,omitempty"`
-	// HtmlContent: Output only. HTML formatted content for this reply.
+	// HtmlContent: HTML formatted content for this reply.
 	HtmlContent string `json:"htmlContent,omitempty"`
-	// Kind: Output only. This is always `drive#commentReply`.
+	// Kind: This is always drive#commentReply.
 	Kind string `json:"kind,omitempty"`
 	// ModifiedDate: The date when this reply was last modified.
 	ModifiedDate string `json:"modifiedDate,omitempty"`
-	// ReplyId: Output only. The ID of the reply.
+	// ReplyId: The ID of the reply.
 	ReplyId string `json:"replyId,omitempty"`
 	// Verb: The action this reply performed to the parent comment. When creating a
-	// new reply this is the action to be perform to the parent comment. Possible
+	// new reply this is the action to be perform tSo the parent comment. Possible
 	// values are: * `resolve` - To resolve a comment. * `reopen` - To reopen
 	// (un-resolve) a comment.
 	Verb string `json:"verb,omitempty"`
@@ -7698,13 +7691,12 @@ type FilesListCall struct {
 	header_      http.Header
 }
 
-// List:  Lists the user's files. This method accepts the `q` parameter, which
-// is a search query combining one or more search terms. For more information,
-// see the Search for files & folders
-// (/workspace/drive/api/guides/search-files) guide. *Note:* This method
-// returns *all* files by default, including trashed files. If you don't want
-// trashed files to appear in the list, use the `trashed=false` query parameter
-// to remove trashed files from the results.
+// List:  Lists the user's files. For more information, see Search for files
+// and folders (/workspace/drive/api/guides/search-files). This method accepts
+// the `q` parameter, which is a search query combining one or more search
+// terms. This method returns *all* files by default, including trashed files.
+// If you don't want trashed files to appear in the list, use the
+// `trashed=false` query parameter to remove trashed files from the results.
 func (r *FilesService) List() *FilesListCall {
 	c := &FilesListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	return c
@@ -8867,14 +8859,16 @@ type FilesUpdateCall struct {
 	header_    http.Header
 }
 
-// Update:  Updates a file's metadata and/or content. When calling this method,
-// only populate fields in the request that you want to modify. When updating
-// fields, some fields might be changed automatically, such as `modifiedDate`.
-// This method supports patch semantics. This method supports an */upload* URI
-// and accepts uploaded media with the following characteristics: - *Maximum
-// file size:* 5,120 GB - *Accepted Media MIME types:*`*/*` Note: Specify a
-// valid MIME type, rather than the literal `*/*` value. The literal `*/*` is
-// only used to indicate that any valid MIME type can be uploaded. For more
+// Update:  Updates a file's metadata, content, or both. When calling this
+// method, only populate fields in the request that you want to modify. When
+// updating fields, some fields might be changed automatically, such as
+// `modifiedDate`. This method supports patch semantics. This method supports
+// an */upload* URI and accepts uploaded media with the following
+// characteristics: - *Maximum file size:* 5,120 GB - *Accepted Media MIME
+// types:* `*/*` (Specify a valid MIME type, rather than the literal `*/*`
+// value. The literal `*/*` is only used to indicate that any valid MIME type
+// can be uploaded. For more information, see Google Workspace and Google Drive
+// supported MIME types (/workspace/drive/api/guides/mime-types).) For more
 // information on uploading files, see Upload file data
 // (/workspace/drive/api/guides/manage-uploads).
 //

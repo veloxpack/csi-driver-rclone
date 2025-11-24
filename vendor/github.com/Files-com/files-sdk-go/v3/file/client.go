@@ -128,7 +128,7 @@ func (c *Client) DownloadUri(params files_sdk.FileDownloadParams, opts ...files_
 		return params.File, err
 	} else {
 		url, parseErr := downloadurl.New(params.File.DownloadUri)
-		remaining, valid := url.Valid(time.Millisecond * 100)
+		remaining, valid := url.Valid(time.Millisecond * 250)
 		if parseErr == nil {
 			if !valid {
 				err = files_sdk.Resource(c.Config, lib.Resource{Method: "GET", Path: "/files/{path}", Params: params, Entity: &params.File})

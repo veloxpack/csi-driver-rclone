@@ -20,16 +20,19 @@ type LostPieceReason int32
 const (
 	LostPieceReason_ZERO_HASH     LostPieceReason = 0
 	LostPieceReason_HASH_MISMATCH LostPieceReason = 1
+	LostPieceReason_READ_FAILURE  LostPieceReason = 2
 )
 
 var LostPieceReason_name = map[int32]string{
 	0: "ZERO_HASH",
 	1: "HASH_MISMATCH",
+	2: "READ_FAILURE",
 }
 
 var LostPieceReason_value = map[string]int32{
 	"ZERO_HASH":     0,
 	"HASH_MISMATCH": 1,
+	"READ_FAILURE":  2,
 }
 
 func (x LostPieceReason) String() string {

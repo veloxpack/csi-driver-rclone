@@ -27,6 +27,7 @@ type User struct {
 	Disabled                         *bool      `json:"disabled,omitempty" path:"disabled,omitempty" url:"disabled,omitempty"`
 	DisabledExpiredOrInactive        *bool      `json:"disabled_expired_or_inactive,omitempty" path:"disabled_expired_or_inactive,omitempty" url:"disabled_expired_or_inactive,omitempty"`
 	Email                            string     `json:"email,omitempty" path:"email,omitempty" url:"email,omitempty"`
+	FilesystemLayout                 string     `json:"filesystem_layout,omitempty" path:"filesystem_layout,omitempty" url:"filesystem_layout,omitempty"`
 	FirstLoginAt                     *time.Time `json:"first_login_at,omitempty" path:"first_login_at,omitempty" url:"first_login_at,omitempty"`
 	FtpPermission                    *bool      `json:"ftp_permission,omitempty" path:"ftp_permission,omitempty" url:"ftp_permission,omitempty"`
 	GroupIds                         string     `json:"group_ids,omitempty" path:"group_ids,omitempty" url:"group_ids,omitempty"`
@@ -48,6 +49,9 @@ type User struct {
 	Notes                            string     `json:"notes,omitempty" path:"notes,omitempty" url:"notes,omitempty"`
 	NotificationDailySendTime        int64      `json:"notification_daily_send_time,omitempty" path:"notification_daily_send_time,omitempty" url:"notification_daily_send_time,omitempty"`
 	OfficeIntegrationEnabled         *bool      `json:"office_integration_enabled,omitempty" path:"office_integration_enabled,omitempty" url:"office_integration_enabled,omitempty"`
+	PartnerAdmin                     *bool      `json:"partner_admin,omitempty" path:"partner_admin,omitempty" url:"partner_admin,omitempty"`
+	PartnerId                        int64      `json:"partner_id,omitempty" path:"partner_id,omitempty" url:"partner_id,omitempty"`
+	PartnerName                      string     `json:"partner_name,omitempty" path:"partner_name,omitempty" url:"partner_name,omitempty"`
 	PasswordSetAt                    *time.Time `json:"password_set_at,omitempty" path:"password_set_at,omitempty" url:"password_set_at,omitempty"`
 	PasswordValidityDays             int64      `json:"password_validity_days,omitempty" path:"password_validity_days,omitempty" url:"password_validity_days,omitempty"`
 	PublicKeysCount                  int64      `json:"public_keys_count,omitempty" path:"public_keys_count,omitempty" url:"public_keys_count,omitempty"`
@@ -68,6 +72,7 @@ type User struct {
 	SsoStrategyId                    int64      `json:"sso_strategy_id,omitempty" path:"sso_strategy_id,omitempty" url:"sso_strategy_id,omitempty"`
 	SubscribeToNewsletter            *bool      `json:"subscribe_to_newsletter,omitempty" path:"subscribe_to_newsletter,omitempty" url:"subscribe_to_newsletter,omitempty"`
 	ExternallyManaged                *bool      `json:"externally_managed,omitempty" path:"externally_managed,omitempty" url:"externally_managed,omitempty"`
+	Tags                             string     `json:"tags,omitempty" path:"tags,omitempty" url:"tags,omitempty"`
 	TimeZone                         string     `json:"time_zone,omitempty" path:"time_zone,omitempty" url:"time_zone,omitempty"`
 	TypeOf2fa                        string     `json:"type_of_2fa,omitempty" path:"type_of_2fa,omitempty" url:"type_of_2fa,omitempty"`
 	TypeOf2faForDisplay              string     `json:"type_of_2fa_for_display,omitempty" path:"type_of_2fa_for_display,omitempty" url:"type_of_2fa_for_display,omitempty"`
@@ -85,6 +90,8 @@ type User struct {
 	Password                         string     `json:"password,omitempty" path:"password,omitempty" url:"password,omitempty"`
 	PasswordConfirmation             string     `json:"password_confirmation,omitempty" path:"password_confirmation,omitempty" url:"password_confirmation,omitempty"`
 	AnnouncementsRead                *bool      `json:"announcements_read,omitempty" path:"announcements_read,omitempty" url:"announcements_read,omitempty"`
+	Clear2fa                         *bool      `json:"clear_2fa,omitempty" path:"clear_2fa,omitempty" url:"clear_2fa,omitempty"`
+	ConvertToPartnerUser             *bool      `json:"convert_to_partner_user,omitempty" path:"convert_to_partner_user,omitempty" url:"convert_to_partner_user,omitempty"`
 }
 
 func (u User) Identifier() interface{} {
@@ -107,6 +114,21 @@ func (u UserAuthenticationMethodEnum) Enum() map[string]UserAuthenticationMethod
 		"email_signup":                UserAuthenticationMethodEnum("email_signup"),
 		"password_with_imported_hash": UserAuthenticationMethodEnum("password_with_imported_hash"),
 		"password_and_ssh_key":        UserAuthenticationMethodEnum("password_and_ssh_key"),
+	}
+}
+
+type UserFilesystemLayoutEnum string
+
+func (u UserFilesystemLayoutEnum) String() string {
+	return string(u)
+}
+
+func (u UserFilesystemLayoutEnum) Enum() map[string]UserFilesystemLayoutEnum {
+	return map[string]UserFilesystemLayoutEnum{
+		"site_root":           UserFilesystemLayoutEnum("site_root"),
+		"user_root":           UserFilesystemLayoutEnum("user_root"),
+		"partner_root":        UserFilesystemLayoutEnum("partner_root"),
+		"integration_centric": UserFilesystemLayoutEnum("integration_centric"),
 	}
 }
 
@@ -178,6 +200,7 @@ type UserCreateParams struct {
 	BypassSiteAllowedIps       *bool                        `url:"bypass_site_allowed_ips,omitempty" json:"bypass_site_allowed_ips,omitempty" path:"bypass_site_allowed_ips"`
 	DavPermission              *bool                        `url:"dav_permission,omitempty" json:"dav_permission,omitempty" path:"dav_permission"`
 	Disabled                   *bool                        `url:"disabled,omitempty" json:"disabled,omitempty" path:"disabled"`
+	FilesystemLayout           UserFilesystemLayoutEnum     `url:"filesystem_layout,omitempty" json:"filesystem_layout,omitempty" path:"filesystem_layout"`
 	FtpPermission              *bool                        `url:"ftp_permission,omitempty" json:"ftp_permission,omitempty" path:"ftp_permission"`
 	HeaderText                 string                       `url:"header_text,omitempty" json:"header_text,omitempty" path:"header_text"`
 	Language                   string                       `url:"language,omitempty" json:"language,omitempty" path:"language"`
@@ -186,6 +209,8 @@ type UserCreateParams struct {
 	Company                    string                       `url:"company,omitempty" json:"company,omitempty" path:"company"`
 	Notes                      string                       `url:"notes,omitempty" json:"notes,omitempty" path:"notes"`
 	OfficeIntegrationEnabled   *bool                        `url:"office_integration_enabled,omitempty" json:"office_integration_enabled,omitempty" path:"office_integration_enabled"`
+	PartnerAdmin               *bool                        `url:"partner_admin,omitempty" json:"partner_admin,omitempty" path:"partner_admin"`
+	PartnerId                  int64                        `url:"partner_id,omitempty" json:"partner_id,omitempty" path:"partner_id"`
 	PasswordValidityDays       int64                        `url:"password_validity_days,omitempty" json:"password_validity_days,omitempty" path:"password_validity_days"`
 	ReadonlySiteAdmin          *bool                        `url:"readonly_site_admin,omitempty" json:"readonly_site_admin,omitempty" path:"readonly_site_admin"`
 	ReceiveAdminAlerts         *bool                        `url:"receive_admin_alerts,omitempty" json:"receive_admin_alerts,omitempty" path:"receive_admin_alerts"`
@@ -200,6 +225,7 @@ type UserCreateParams struct {
 	SsoStrategyId              int64                        `url:"sso_strategy_id,omitempty" json:"sso_strategy_id,omitempty" path:"sso_strategy_id"`
 	SubscribeToNewsletter      *bool                        `url:"subscribe_to_newsletter,omitempty" json:"subscribe_to_newsletter,omitempty" path:"subscribe_to_newsletter"`
 	Require2fa                 UserRequire2faEnum           `url:"require_2fa,omitempty" json:"require_2fa,omitempty" path:"require_2fa"`
+	Tags                       string                       `url:"tags,omitempty" json:"tags,omitempty" path:"tags"`
 	TimeZone                   string                       `url:"time_zone,omitempty" json:"time_zone,omitempty" path:"time_zone"`
 	UserRoot                   string                       `url:"user_root,omitempty" json:"user_root,omitempty" path:"user_root"`
 	UserHome                   string                       `url:"user_home,omitempty" json:"user_home,omitempty" path:"user_home"`
@@ -244,6 +270,7 @@ type UserUpdateParams struct {
 	BypassSiteAllowedIps       *bool                        `url:"bypass_site_allowed_ips,omitempty" json:"bypass_site_allowed_ips,omitempty" path:"bypass_site_allowed_ips"`
 	DavPermission              *bool                        `url:"dav_permission,omitempty" json:"dav_permission,omitempty" path:"dav_permission"`
 	Disabled                   *bool                        `url:"disabled,omitempty" json:"disabled,omitempty" path:"disabled"`
+	FilesystemLayout           UserFilesystemLayoutEnum     `url:"filesystem_layout,omitempty" json:"filesystem_layout,omitempty" path:"filesystem_layout"`
 	FtpPermission              *bool                        `url:"ftp_permission,omitempty" json:"ftp_permission,omitempty" path:"ftp_permission"`
 	HeaderText                 string                       `url:"header_text,omitempty" json:"header_text,omitempty" path:"header_text"`
 	Language                   string                       `url:"language,omitempty" json:"language,omitempty" path:"language"`
@@ -252,6 +279,8 @@ type UserUpdateParams struct {
 	Company                    string                       `url:"company,omitempty" json:"company,omitempty" path:"company"`
 	Notes                      string                       `url:"notes,omitempty" json:"notes,omitempty" path:"notes"`
 	OfficeIntegrationEnabled   *bool                        `url:"office_integration_enabled,omitempty" json:"office_integration_enabled,omitempty" path:"office_integration_enabled"`
+	PartnerAdmin               *bool                        `url:"partner_admin,omitempty" json:"partner_admin,omitempty" path:"partner_admin"`
+	PartnerId                  int64                        `url:"partner_id,omitempty" json:"partner_id,omitempty" path:"partner_id"`
 	PasswordValidityDays       int64                        `url:"password_validity_days,omitempty" json:"password_validity_days,omitempty" path:"password_validity_days"`
 	ReadonlySiteAdmin          *bool                        `url:"readonly_site_admin,omitempty" json:"readonly_site_admin,omitempty" path:"readonly_site_admin"`
 	ReceiveAdminAlerts         *bool                        `url:"receive_admin_alerts,omitempty" json:"receive_admin_alerts,omitempty" path:"receive_admin_alerts"`
@@ -266,10 +295,13 @@ type UserUpdateParams struct {
 	SsoStrategyId              int64                        `url:"sso_strategy_id,omitempty" json:"sso_strategy_id,omitempty" path:"sso_strategy_id"`
 	SubscribeToNewsletter      *bool                        `url:"subscribe_to_newsletter,omitempty" json:"subscribe_to_newsletter,omitempty" path:"subscribe_to_newsletter"`
 	Require2fa                 UserRequire2faEnum           `url:"require_2fa,omitempty" json:"require_2fa,omitempty" path:"require_2fa"`
+	Tags                       string                       `url:"tags,omitempty" json:"tags,omitempty" path:"tags"`
 	TimeZone                   string                       `url:"time_zone,omitempty" json:"time_zone,omitempty" path:"time_zone"`
 	UserRoot                   string                       `url:"user_root,omitempty" json:"user_root,omitempty" path:"user_root"`
 	UserHome                   string                       `url:"user_home,omitempty" json:"user_home,omitempty" path:"user_home"`
 	Username                   string                       `url:"username,omitempty" json:"username,omitempty" path:"username"`
+	Clear2fa                   *bool                        `url:"clear_2fa,omitempty" json:"clear_2fa,omitempty" path:"clear_2fa"`
+	ConvertToPartnerUser       *bool                        `url:"convert_to_partner_user,omitempty" json:"convert_to_partner_user,omitempty" path:"convert_to_partner_user"`
 }
 
 type UserDeleteParams struct {

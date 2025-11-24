@@ -8,19 +8,22 @@ import (
 )
 
 type ApiKey struct {
-	Id               int64      `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
-	DescriptiveLabel string     `json:"descriptive_label,omitempty" path:"descriptive_label,omitempty" url:"descriptive_label,omitempty"`
-	Description      string     `json:"description,omitempty" path:"description,omitempty" url:"description,omitempty"`
-	CreatedAt        *time.Time `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
-	ExpiresAt        *time.Time `json:"expires_at,omitempty" path:"expires_at,omitempty" url:"expires_at,omitempty"`
-	Key              string     `json:"key,omitempty" path:"key,omitempty" url:"key,omitempty"`
-	LastUseAt        *time.Time `json:"last_use_at,omitempty" path:"last_use_at,omitempty" url:"last_use_at,omitempty"`
-	Name             string     `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
-	PermissionSet    string     `json:"permission_set,omitempty" path:"permission_set,omitempty" url:"permission_set,omitempty"`
-	Platform         string     `json:"platform,omitempty" path:"platform,omitempty" url:"platform,omitempty"`
-	Url              string     `json:"url,omitempty" path:"url,omitempty" url:"url,omitempty"`
-	UserId           int64      `json:"user_id,omitempty" path:"user_id,omitempty" url:"user_id,omitempty"`
-	Path             string     `json:"path,omitempty" path:"path,omitempty" url:"path,omitempty"`
+	Id                  int64      `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	DescriptiveLabel    string     `json:"descriptive_label,omitempty" path:"descriptive_label,omitempty" url:"descriptive_label,omitempty"`
+	Description         string     `json:"description,omitempty" path:"description,omitempty" url:"description,omitempty"`
+	CreatedAt           *time.Time `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
+	ExpiresAt           *time.Time `json:"expires_at,omitempty" path:"expires_at,omitempty" url:"expires_at,omitempty"`
+	Key                 string     `json:"key,omitempty" path:"key,omitempty" url:"key,omitempty"`
+	AwsStyleCredentials *bool      `json:"aws_style_credentials,omitempty" path:"aws_style_credentials,omitempty" url:"aws_style_credentials,omitempty"`
+	AwsAccessKeyId      string     `json:"aws_access_key_id,omitempty" path:"aws_access_key_id,omitempty" url:"aws_access_key_id,omitempty"`
+	AwsSecretKey        string     `json:"aws_secret_key,omitempty" path:"aws_secret_key,omitempty" url:"aws_secret_key,omitempty"`
+	LastUseAt           *time.Time `json:"last_use_at,omitempty" path:"last_use_at,omitempty" url:"last_use_at,omitempty"`
+	Name                string     `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
+	PermissionSet       string     `json:"permission_set,omitempty" path:"permission_set,omitempty" url:"permission_set,omitempty"`
+	Platform            string     `json:"platform,omitempty" path:"platform,omitempty" url:"platform,omitempty"`
+	Url                 string     `json:"url,omitempty" path:"url,omitempty" url:"url,omitempty"`
+	UserId              int64      `json:"user_id,omitempty" path:"user_id,omitempty" url:"user_id,omitempty"`
+	Path                string     `json:"path,omitempty" path:"path,omitempty" url:"path,omitempty"`
 }
 
 func (a ApiKey) Identifier() interface{} {
@@ -62,12 +65,13 @@ type ApiKeyFindParams struct {
 }
 
 type ApiKeyCreateParams struct {
-	UserId        int64                   `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
-	Description   string                  `url:"description,omitempty" json:"description,omitempty" path:"description"`
-	ExpiresAt     *time.Time              `url:"expires_at,omitempty" json:"expires_at,omitempty" path:"expires_at"`
-	PermissionSet ApiKeyPermissionSetEnum `url:"permission_set,omitempty" json:"permission_set,omitempty" path:"permission_set"`
-	Name          string                  `url:"name" json:"name" path:"name"`
-	Path          string                  `url:"path,omitempty" json:"path,omitempty" path:"path"`
+	UserId              int64                   `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
+	Description         string                  `url:"description,omitempty" json:"description,omitempty" path:"description"`
+	ExpiresAt           *time.Time              `url:"expires_at,omitempty" json:"expires_at,omitempty" path:"expires_at"`
+	PermissionSet       ApiKeyPermissionSetEnum `url:"permission_set,omitempty" json:"permission_set,omitempty" path:"permission_set"`
+	Name                string                  `url:"name" json:"name" path:"name"`
+	AwsStyleCredentials *bool                   `url:"aws_style_credentials,omitempty" json:"aws_style_credentials,omitempty" path:"aws_style_credentials"`
+	Path                string                  `url:"path,omitempty" json:"path,omitempty" path:"path"`
 }
 
 type ApiKeyUpdateCurrentParams struct {

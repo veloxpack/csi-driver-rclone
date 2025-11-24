@@ -14,6 +14,7 @@ type RemoteServer struct {
 	RemoteHomePath                          string `json:"remote_home_path,omitempty" path:"remote_home_path,omitempty" url:"remote_home_path,omitempty"`
 	Name                                    string `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
 	Port                                    int64  `json:"port,omitempty" path:"port,omitempty" url:"port,omitempty"`
+	BufferUploadsAlways                     *bool  `json:"buffer_uploads_always,omitempty" path:"buffer_uploads_always,omitempty" url:"buffer_uploads_always,omitempty"`
 	MaxConnections                          int64  `json:"max_connections,omitempty" path:"max_connections,omitempty" url:"max_connections,omitempty"`
 	PinToSiteRegion                         *bool  `json:"pin_to_site_region,omitempty" path:"pin_to_site_region,omitempty" url:"pin_to_site_region,omitempty"`
 	PinnedRegion                            string `json:"pinned_region,omitempty" path:"pinned_region,omitempty" url:"pinned_region,omitempty"`
@@ -219,6 +220,7 @@ type RemoteServerCreateParams struct {
 	AzureFilesStorageShareName              string                                  `url:"azure_files_storage_share_name,omitempty" json:"azure_files_storage_share_name,omitempty" path:"azure_files_storage_share_name"`
 	BackblazeB2Bucket                       string                                  `url:"backblaze_b2_bucket,omitempty" json:"backblaze_b2_bucket,omitempty" path:"backblaze_b2_bucket"`
 	BackblazeB2S3Endpoint                   string                                  `url:"backblaze_b2_s3_endpoint,omitempty" json:"backblaze_b2_s3_endpoint,omitempty" path:"backblaze_b2_s3_endpoint"`
+	BufferUploadsAlways                     *bool                                   `url:"buffer_uploads_always,omitempty" json:"buffer_uploads_always,omitempty" path:"buffer_uploads_always"`
 	CloudflareAccessKey                     string                                  `url:"cloudflare_access_key,omitempty" json:"cloudflare_access_key,omitempty" path:"cloudflare_access_key"`
 	CloudflareBucket                        string                                  `url:"cloudflare_bucket,omitempty" json:"cloudflare_bucket,omitempty" path:"cloudflare_bucket"`
 	CloudflareEndpoint                      string                                  `url:"cloudflare_endpoint,omitempty" json:"cloudflare_endpoint,omitempty" path:"cloudflare_endpoint"`
@@ -304,6 +306,7 @@ type RemoteServerUpdateParams struct {
 	AzureFilesStorageShareName              string                                  `url:"azure_files_storage_share_name,omitempty" json:"azure_files_storage_share_name,omitempty" path:"azure_files_storage_share_name"`
 	BackblazeB2Bucket                       string                                  `url:"backblaze_b2_bucket,omitempty" json:"backblaze_b2_bucket,omitempty" path:"backblaze_b2_bucket"`
 	BackblazeB2S3Endpoint                   string                                  `url:"backblaze_b2_s3_endpoint,omitempty" json:"backblaze_b2_s3_endpoint,omitempty" path:"backblaze_b2_s3_endpoint"`
+	BufferUploadsAlways                     *bool                                   `url:"buffer_uploads_always,omitempty" json:"buffer_uploads_always,omitempty" path:"buffer_uploads_always"`
 	CloudflareAccessKey                     string                                  `url:"cloudflare_access_key,omitempty" json:"cloudflare_access_key,omitempty" path:"cloudflare_access_key"`
 	CloudflareBucket                        string                                  `url:"cloudflare_bucket,omitempty" json:"cloudflare_bucket,omitempty" path:"cloudflare_bucket"`
 	CloudflareEndpoint                      string                                  `url:"cloudflare_endpoint,omitempty" json:"cloudflare_endpoint,omitempty" path:"cloudflare_endpoint"`

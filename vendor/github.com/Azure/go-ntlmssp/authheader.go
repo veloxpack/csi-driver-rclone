@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 package ntlmssp
 
 import (
@@ -9,7 +12,7 @@ type authheader []string
 
 func (h authheader) IsBasic() bool {
 	for _, s := range h {
-		if strings.HasPrefix(string(s), "Basic ") {
+		if strings.HasPrefix(s, "Basic ") {
 			return true
 		}
 	}
@@ -18,7 +21,7 @@ func (h authheader) IsBasic() bool {
 
 func (h authheader) Basic() string {
 	for _, s := range h {
-		if strings.HasPrefix(string(s), "Basic ") {
+		if strings.HasPrefix(s, "Basic ") {
 			return s
 		}
 	}
@@ -27,7 +30,7 @@ func (h authheader) Basic() string {
 
 func (h authheader) IsNegotiate() bool {
 	for _, s := range h {
-		if strings.HasPrefix(string(s), "Negotiate") {
+		if strings.HasPrefix(s, "Negotiate") {
 			return true
 		}
 	}
@@ -36,7 +39,7 @@ func (h authheader) IsNegotiate() bool {
 
 func (h authheader) IsNTLM() bool {
 	for _, s := range h {
-		if strings.HasPrefix(string(s), "NTLM") {
+		if strings.HasPrefix(s, "NTLM") {
 			return true
 		}
 	}
@@ -45,12 +48,12 @@ func (h authheader) IsNTLM() bool {
 
 func (h authheader) GetData() ([]byte, error) {
 	for _, s := range h {
-		if strings.HasPrefix(string(s), "NTLM") || strings.HasPrefix(string(s), "Negotiate") || strings.HasPrefix(string(s), "Basic ") {
-			p := strings.Split(string(s), " ")
+		if strings.HasPrefix(s, "NTLM") || strings.HasPrefix(s, "Negotiate") || strings.HasPrefix(s, "Basic ") {
+			p := strings.Split(s, " ")
 			if len(p) < 2 {
 				return nil, nil
 			}
-			return base64.StdEncoding.DecodeString(string(p[1]))
+			return base64.StdEncoding.DecodeString(p[1])
 		}
 	}
 	return nil, nil

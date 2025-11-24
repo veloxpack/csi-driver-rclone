@@ -24,8 +24,17 @@ type Config struct {
 	SortedChanBuffSize int
 
 	// TempFilesDir specifies the directory for temporary files during sorting.
-	// Empty string uses the OS default temporary directory (e.g., /tmp on Unix).
-	// Default: "" (OS default).
+	// When empty (default), the library uses intelligent directory selection that
+	// prefers disk-backed locations over potentially memory-backed filesystems
+	// (like tmpfs on Linux). This helps prevent out-of-memory issues when sorting
+	// datasets larger than available RAM.
+	//
+	// For production use with large datasets, it's recommended to explicitly set
+	// this to a known disk-backed directory (such as "/var/tmp" on Unix systems)
+	// to ensure optimal performance and avoid memory limitations. On Linux systems,
+	// prefer "/var/tmp" over "/tmp" since "/tmp" may be mounted as tmpfs.
+	//
+	// Default: "" (intelligent selection).
 	TempFilesDir string
 }
 

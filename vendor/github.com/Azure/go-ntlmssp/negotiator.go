@@ -1,39 +1,39 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 package ntlmssp
 
 import (
 	"bytes"
 	"encoding/base64"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 )
 
-// GetDomain : parse domain name from based on slashes in the input
-// Need to check for upn as well
-func GetDomain(user string) (string, string, bool) {
-	domain := ""
-	domainNeeded := false
-
-	if strings.Contains(user, "\\") {
-		ucomponents := strings.SplitN(user, "\\", 2)
+// GetDomain extracts the domain from the username if present.
+func GetDomain(username string) (user string, domain string, domainNeeded bool) {
+	if strings.Contains(username, "\\") {
+		ucomponents := strings.SplitN(username, "\\", 2)
 		domain = ucomponents[0]
 		user = ucomponents[1]
 		domainNeeded = true
-	} else if strings.Contains(user, "@") {
+	} else if strings.Contains(username, "@") {
+		user = username
 		domainNeeded = false
 	} else {
+		user = username
 		domainNeeded = true
 	}
 	return user, domain, domainNeeded
 }
 
-//Negotiator is a http.Roundtripper decorator that automatically
-//converts basic authentication to NTLM/Negotiate authentication when appropriate.
+// Negotiator is a http.Roundtripper decorator that automatically
+// converts basic authentication to NTLM/Negotiate authentication when appropriate.
 type Negotiator struct{ http.RoundTripper }
 
-//RoundTrip sends the request to the server, handling any authentication
-//re-sends as needed.
+// RoundTrip sends the request to the server, handling any authentication
+// re-sends as needed.
 func (l Negotiator) RoundTrip(req *http.Request) (res *http.Response, err error) {
 	// Use default round tripper if not provided
 	rt := l.RoundTripper
@@ -45,17 +45,43 @@ func (l Negotiator) RoundTrip(req *http.Request) (res *http.Response, err error)
 	if !reqauth.IsBasic() {
 		return rt.RoundTrip(req)
 	}
+	req = req.Clone(req.Context())
 	reqauthBasic := reqauth.Basic()
-	// Save request body
-	body := bytes.Buffer{}
+	// We need to buffer or seek the request body to handle authentication challenges
+	// that require resending the body multiple times during the NTLM handshake.
+	var body io.ReadSeeker
+	var bodyStartPos int64
 	if req.Body != nil {
-		_, err = body.ReadFrom(req.Body)
-		if err != nil {
-			return nil, err
+		// Check if body is already seekable to avoid buffering large bodies
+		if seeker, ok := req.Body.(io.ReadSeeker); ok {
+			// Remember the current position
+			bodyStartPos, err = seeker.Seek(0, io.SeekCurrent)
+			if err == nil {
+				// Seeking succeeded, use the seekable body directly
+				body = seeker
+				// Close the original body as mandated by http.RoundTripper
+				defer req.Body.Close()
+			} else {
+				// Seeking failed (e.g., pipes), fallback to buffering
+				bodyBytes, err := io.ReadAll(req.Body)
+				req.Body.Close()
+				if err != nil {
+					return nil, err
+				}
+				body = bytes.NewReader(bodyBytes)
+				bodyStartPos = 0
+			}
+		} else {
+			// For non-seekable bodies, buffer in memory as required
+			bodyBytes, err := io.ReadAll(req.Body)
+			req.Body.Close()
+			if err != nil {
+				return nil, err
+			}
+			body = bytes.NewReader(bodyBytes)
+			bodyStartPos = 0
 		}
-
-		req.Body.Close()
-		req.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
+		req.Body = io.NopCloser(body)
 	}
 	// first try anonymous, in case the server still finds us
 	// authenticated from previous traffic
@@ -70,10 +96,16 @@ func (l Negotiator) RoundTrip(req *http.Request) (res *http.Response, err error)
 	resauth := authheader(res.Header.Values("Www-Authenticate"))
 	if !resauth.IsNegotiate() && !resauth.IsNTLM() {
 		// Unauthorized, Negotiate not requested, let's try with basic auth
-		req.Header.Set("Authorization", string(reqauthBasic))
-		io.Copy(ioutil.Discard, res.Body)
+		req.Header.Set("Authorization", reqauthBasic)
+		_, _ = io.Copy(io.Discard, res.Body)
 		res.Body.Close()
-		req.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
+		if body != nil {
+			_, err = body.Seek(bodyStartPos, io.SeekStart)
+			if err != nil {
+				return nil, err
+			}
+			req.Body = io.NopCloser(body)
+		}
 
 		res, err = rt.RoundTrip(req)
 		if err != nil {
@@ -87,7 +119,7 @@ func (l Negotiator) RoundTrip(req *http.Request) (res *http.Response, err error)
 
 	if resauth.IsNegotiate() || resauth.IsNTLM() {
 		// 401 with request:Basic and response:Negotiate
-		io.Copy(ioutil.Discard, res.Body)
+		_, _ = io.Copy(io.Discard, res.Body)
 		res.Body.Close()
 
 		// recycle credentials
@@ -111,7 +143,13 @@ func (l Negotiator) RoundTrip(req *http.Request) (res *http.Response, err error)
 			req.Header.Set("Authorization", "Negotiate "+base64.StdEncoding.EncodeToString(negotiateMessage))
 		}
 
-		req.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
+		if body != nil {
+			_, err = body.Seek(bodyStartPos, io.SeekStart)
+			if err != nil {
+				return nil, err
+			}
+			req.Body = io.NopCloser(body)
+		}
 
 		res, err = rt.RoundTrip(req)
 		if err != nil {
@@ -128,7 +166,7 @@ func (l Negotiator) RoundTrip(req *http.Request) (res *http.Response, err error)
 			// Negotiation failed, let client deal with response
 			return res, nil
 		}
-		io.Copy(ioutil.Discard, res.Body)
+		_, _ = io.Copy(io.Discard, res.Body)
 		res.Body.Close()
 
 		// send authenticate
@@ -142,7 +180,13 @@ func (l Negotiator) RoundTrip(req *http.Request) (res *http.Response, err error)
 			req.Header.Set("Authorization", "Negotiate "+base64.StdEncoding.EncodeToString(authenticateMessage))
 		}
 
-		req.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
+		if body != nil {
+			_, err = body.Seek(bodyStartPos, io.SeekStart)
+			if err != nil {
+				return nil, err
+			}
+			req.Body = io.NopCloser(body)
+		}
 
 		return rt.RoundTrip(req)
 	}

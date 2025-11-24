@@ -18,6 +18,7 @@ package rclone
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -26,7 +27,6 @@ import (
 	"github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 	"github.com/rclone/rclone/fs/rc"
 	"github.com/unknwon/goconfig" //nolint:misspell // unknwon is the package author's GitHub username
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"

@@ -52,6 +52,7 @@ type File struct {
 	Restart                            int64                  `json:"restart,omitempty" path:"restart,omitempty" url:"restart,omitempty"`
 	Structure                          string                 `json:"structure,omitempty" path:"structure,omitempty" url:"structure,omitempty"`
 	WithRename                         *bool                  `json:"with_rename,omitempty" path:"with_rename,omitempty" url:"with_rename,omitempty"`
+	BufferedUpload                     *bool                  `json:"buffered_upload,omitempty" path:"buffered_upload,omitempty" url:"buffered_upload,omitempty"`
 }
 
 func (f File) Identifier() interface{} {
@@ -89,6 +90,7 @@ type FileCreateParams struct {
 	Size             int64          `url:"size,omitempty" json:"size,omitempty" path:"size"`
 	Structure        string         `url:"structure,omitempty" json:"structure,omitempty" path:"structure"`
 	WithRename       *bool          `url:"with_rename,omitempty" json:"with_rename,omitempty" path:"with_rename"`
+	BufferedUpload   *bool          `url:"buffered_upload,omitempty" json:"buffered_upload,omitempty" path:"buffered_upload"`
 	ActionAttributes map[string]any `url:"action_attributes,omitempty" json:"action_attributes,omitempty" path:"action_attributes"`
 }
 

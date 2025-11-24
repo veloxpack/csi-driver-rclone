@@ -466,5 +466,29 @@
         "realmKey": "oc51",
         "regionIdentifier": "eu-budapest-1",
         "realmDomainComponent": "oraclecloud51.com"
+    },
+    {
+        "regionKey": "ibr",
+        "realmKey": "oc9",
+        "regionIdentifier": "me-ibri-1",
+        "realmDomainComponent": "oraclecloud9.com"
+    },
+    {
+        "regionKey": "orf",
+        "realmKey": "oc1",
+        "regionIdentifier": "eu-madrid-3",
+        "realmDomainComponent": "oraclecloud.com"
+    },
+    {
+        "regionKey": "des",
+        "realmKey": "oc1",
+        "regionIdentifier": "ap-chennai-1",
+        "realmDomainComponent": "oraclecloud.com"
+    },
+    {
+        "regionKey": "vkz",
+        "realmKey": "oc1",
+        "regionIdentifier": "us-columbus-1",
+        "realmDomainComponent": "oraclecloud.com"
     }
 ]

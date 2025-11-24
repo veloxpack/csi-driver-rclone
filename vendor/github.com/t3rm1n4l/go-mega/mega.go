@@ -372,6 +372,23 @@ func (m *Mega) SetClient(client *http.Client) *Mega {
 func discardLogf(format string, v ...interface{}) {
 }
 
+// Returns an opaque string representing the session
+func (m *Mega) GetSessionID() string {
+	return m.sid
+}
+
+func (m *Mega) GetMasterKey() []byte {
+	return m.k
+}
+
+// "Login" using the session ID (for API auth) and master key (for decryption). Alternative to logging in with username/password
+// This can be used to import back a session exported with GetSessionID and GetMasterKey without requiring the password again
+func (m *Mega) LoginWithKeys(sessionId string, masterKey []byte) error {
+	m.sid = sessionId
+	m.k = masterKey
+	return m.postAuthInit()
+}
+
 // SetLogger sets the logger for important messages.  By default this
 // is log.Printf.  Use nil to discard the messages.
 func (m *Mega) SetLogger(logf func(format string, v ...interface{})) *Mega {
@@ -665,9 +682,15 @@ func (m *Mega) MultiFactorLogin(email, passwd, multiFactor string) error {
 		return err
 	}
 
+	return m.postAuthInit()
+}
+
+// Finish initializing the Mega client after Login*()
+func (m *Mega) postAuthInit() error {
+
 	waitEvent := m.WaitEventsStart()
 
-	err = m.getFileSystem()
+	err := m.getFileSystem()
 	if err != nil {
 		return err
 	}

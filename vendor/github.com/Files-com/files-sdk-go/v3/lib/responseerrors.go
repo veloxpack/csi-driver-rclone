@@ -13,6 +13,7 @@ import (
 type ResponseError struct {
 	StatusCode int
 	err        error
+	Response   *http.Response
 }
 
 func (r ResponseError) Error() string {
@@ -91,6 +92,7 @@ func IsXML(res *http.Response) bool {
 
 func S3XMLError(res *http.Response) error {
 	if IsNonOkStatus(res) && IsXML(res) {
+		defer CloseBody(res)
 		body, err := io.ReadAll(res.Body)
 		if err != nil {
 			return err
@@ -101,7 +103,7 @@ func S3XMLError(res *http.Response) error {
 			return err
 		}
 		if s3Err.Empty() {
-			return ResponseError{StatusCode: res.StatusCode, err: fmt.Errorf(strings.ReplaceAll(string(body), "\n", " "))}
+			return ResponseError{StatusCode: res.StatusCode, err: fmt.Errorf(strings.ReplaceAll(string(body), "\n", " ")), Response: res}
 		}
 		return s3Err
 	}
@@ -131,8 +133,9 @@ func errorFromBodyDefault(res *http.Response) error {
 }
 
 func errorFromBody(res *http.Response, callbacks []func(error) error) error {
+	defer CloseBody(res)
 	if IsHTML(res) {
-		return ResponseError{StatusCode: res.StatusCode, err: fmt.Errorf(http.StatusText(res.StatusCode))}
+		return ResponseError{StatusCode: res.StatusCode, err: fmt.Errorf(http.StatusText(res.StatusCode)), Response: res}
 	}
 	var body []byte
 	var err error
@@ -142,11 +145,10 @@ func errorFromBody(res *http.Response, callbacks []func(error) error) error {
 		body = make([]byte, int(math.Min(float64(res.ContentLength), float64(512))))
 	}
 	_, err = io.ReadFull(res.Body, body)
-	defer CloseBody(res)
 	if err == nil || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
-		err = ResponseError{StatusCode: res.StatusCode, err: fmt.Errorf(strings.ReplaceAll(string(body), "\n", " "))}
+		err = ResponseError{StatusCode: res.StatusCode, err: fmt.Errorf(strings.ReplaceAll(string(body), "\n", " ")), Response: res}
 	} else {
-		err = ResponseError{StatusCode: res.StatusCode, err: fmt.Errorf(http.StatusText(res.StatusCode))}
+		err = ResponseError{StatusCode: res.StatusCode, err: fmt.Errorf(http.StatusText(res.StatusCode)), Response: res}
 	}
 
 	for _, callback := range callbacks {

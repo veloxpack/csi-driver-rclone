@@ -97,6 +97,7 @@ type rawBridge struct {
 	//
 	// A simple incrementing counter is used as the NodeID (see `nextNodeID`).
 	kernelNodeIds map[uint64]*Inode
+
 	// nextNodeID is the next free NodeID. Increment after copying the value.
 	nextNodeId uint64
 	// nodeCountHigh records the highest number of entries we had in the
@@ -958,8 +959,6 @@ func (b *rawBridge) Release(cancel <-chan struct{}, input *fuse.ReleaseIn) {
 func (b *rawBridge) ReleaseDir(input *fuse.ReleaseIn) {
 	n, f := b.releaseFileEntry(input.NodeId, input.Fh)
 	if f == nil {
-		// State corruption prevented panic in releaseFileEntry
-		// Gracefully skip cleanup similar to Release() function
 		return
 	}
 	f.wg.Wait()
@@ -989,66 +988,40 @@ func (b *rawBridge) releaseFileEntry(nid uint64, fh uint64) (*Inode, *fileEntry)
 
 		// Guard against empty openFiles slice
 		if len(n.openFiles) == 0 {
-			// State corruption: no open files but we're trying to release one
-			// Return nil to signal error to caller
 			return n, nil
 		}
 
 		last := len(n.openFiles) - 1
 
-		// Guard against last being negative (shouldn't happen after above check, but be defensive)
-		if last < 0 {
-			return n, nil
+		// Validate nodeIndex is within bounds AND points to correct file handle
+		if entry.nodeIndex < 0 || entry.nodeIndex > last || n.openFiles[entry.nodeIndex] != uint32(fh) {
+			// nodeIndex corrupted, search for actual position
+			found := false
+			for i, handleVal := range n.openFiles {
+				if handleVal == uint32(fh) {
+					entry.nodeIndex = i
+					found = true
+					break
+				}
+			}
+			if !found {
+				// File handle not in openFiles, state too corrupted
+				return n, nil
+			}
+			// Update last after we found the correct index
+			last = len(n.openFiles) - 1
 		}
 
 		if last != entry.nodeIndex {
-			// Verify nodeIndex is valid AND points to the correct file handle
-			// This prevents panic from corrupted state in concurrent multi-mount scenarios
-			validIndex := entry.nodeIndex >= 0 &&
-				entry.nodeIndex < len(n.openFiles) &&
-				n.openFiles[entry.nodeIndex] == uint32(fh)
+			// Capture values before modification to prevent double-access bugs
+			movedFileHandle := n.openFiles[last]
+			n.openFiles[entry.nodeIndex] = movedFileHandle
 
-			if validIndex {
-				// Normal case: nodeIndex is correct, do the swap
-				// Capture the file handle being moved BEFORE modifying the array
-				movedFileHandle := n.openFiles[last]
-				n.openFiles[entry.nodeIndex] = movedFileHandle
-
-				// Update the moved entry's nodeIndex to its new position
-				// Bounds check on b.files access
-				if movedFileHandle < uint32(len(b.files)) && b.files[movedFileHandle] != nil {
-					b.files[movedFileHandle].nodeIndex = entry.nodeIndex
-				}
-			} else {
-				// nodeIndex is corrupted - search for the actual position
-				actualIndex := -1
-				for i, fileHandle := range n.openFiles {
-					if fileHandle == uint32(fh) {
-						actualIndex = i
-						break
-					}
-				}
-
-				if actualIndex == -1 {
-					// File handle not found in openFiles - severe state corruption
-					// Cannot safely recover, return nil to caller
-					return n, nil
-				}
-
-				// Found actual position, fix the corruption and do the swap
-				if actualIndex != last {
-					movedFileHandle := n.openFiles[last]
-					n.openFiles[actualIndex] = movedFileHandle
-
-					// Update the moved entry's nodeIndex
-					if movedFileHandle < uint32(len(b.files)) && b.files[movedFileHandle] != nil {
-						b.files[movedFileHandle].nodeIndex = actualIndex
-					}
-				}
+			// Additional bounds check before accessing b.files with movedFileHandle
+			if movedFileHandle < uint32(len(b.files)) && b.files[movedFileHandle] != nil {
+				b.files[movedFileHandle].nodeIndex = entry.nodeIndex
 			}
 		}
-
-		// Shrink the slice - we've either swapped or verified it's safe
 		n.openFiles = n.openFiles[:last]
 	}
 	return n, entry
@@ -1308,7 +1281,13 @@ func (b *rawBridge) readDirMaybeLookup(cancel <-chan struct{}, input *fuse.ReadI
 			continue
 		}
 
-		child, errno := b.lookup(ctx, n, de.Name, entryOut)
+		var child *Inode
+		if fileLookupper, ok := f.file.(FileLookuper); ok {
+			child, errno = fileLookupper.Lookup(ctx, de.Name, entryOut)
+		} else {
+			child, errno = b.lookup(ctx, n, de.Name, entryOut)
+		}
+
 		if errno != 0 {
 			if b.options.NegativeTimeout != nil {
 				entryOut.SetEntryTimeout(*b.options.NegativeTimeout)
@@ -1316,6 +1295,7 @@ func (b *rawBridge) readDirMaybeLookup(cancel <-chan struct{}, input *fuse.ReadI
 				// TODO: maybe simply not produce the dirent here?
 				// test?
 			}
+			// TODO: should break?
 		} else {
 			child, _ = b.addNewChild(n, de.Name, child, nil, 0, entryOut)
 			child.setEntryOut(entryOut)

@@ -7,22 +7,23 @@ import (
 )
 
 type RemoteMountBackend struct {
-	CanaryFilePath        string `json:"canary_file_path,omitempty" path:"canary_file_path,omitempty" url:"canary_file_path,omitempty"`
-	Enabled               *bool  `json:"enabled,omitempty" path:"enabled,omitempty" url:"enabled,omitempty"`
-	Fall                  int64  `json:"fall,omitempty" path:"fall,omitempty" url:"fall,omitempty"`
-	HealthCheckEnabled    *bool  `json:"health_check_enabled,omitempty" path:"health_check_enabled,omitempty" url:"health_check_enabled,omitempty"`
-	HealthCheckType       string `json:"health_check_type,omitempty" path:"health_check_type,omitempty" url:"health_check_type,omitempty"`
-	Id                    int64  `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
-	Interval              int64  `json:"interval,omitempty" path:"interval,omitempty" url:"interval,omitempty"`
-	MinFreeCpu            string `json:"min_free_cpu,omitempty" path:"min_free_cpu,omitempty" url:"min_free_cpu,omitempty"`
-	MinFreeMem            string `json:"min_free_mem,omitempty" path:"min_free_mem,omitempty" url:"min_free_mem,omitempty"`
-	Priority              int64  `json:"priority,omitempty" path:"priority,omitempty" url:"priority,omitempty"`
-	RemotePath            string `json:"remote_path,omitempty" path:"remote_path,omitempty" url:"remote_path,omitempty"`
-	RemoteServerId        int64  `json:"remote_server_id,omitempty" path:"remote_server_id,omitempty" url:"remote_server_id,omitempty"`
-	RemoteServerMountId   int64  `json:"remote_server_mount_id,omitempty" path:"remote_server_mount_id,omitempty" url:"remote_server_mount_id,omitempty"`
-	Rise                  int64  `json:"rise,omitempty" path:"rise,omitempty" url:"rise,omitempty"`
-	Status                string `json:"status,omitempty" path:"status,omitempty" url:"status,omitempty"`
-	UndergoingMaintenance *bool  `json:"undergoing_maintenance,omitempty" path:"undergoing_maintenance,omitempty" url:"undergoing_maintenance,omitempty"`
+	CanaryFilePath        string                   `json:"canary_file_path,omitempty" path:"canary_file_path,omitempty" url:"canary_file_path,omitempty"`
+	Enabled               *bool                    `json:"enabled,omitempty" path:"enabled,omitempty" url:"enabled,omitempty"`
+	Fall                  int64                    `json:"fall,omitempty" path:"fall,omitempty" url:"fall,omitempty"`
+	HealthCheckEnabled    *bool                    `json:"health_check_enabled,omitempty" path:"health_check_enabled,omitempty" url:"health_check_enabled,omitempty"`
+	HealthCheckResults    []map[string]interface{} `json:"health_check_results,omitempty" path:"health_check_results,omitempty" url:"health_check_results,omitempty"`
+	HealthCheckType       string                   `json:"health_check_type,omitempty" path:"health_check_type,omitempty" url:"health_check_type,omitempty"`
+	Id                    int64                    `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	Interval              int64                    `json:"interval,omitempty" path:"interval,omitempty" url:"interval,omitempty"`
+	MinFreeCpu            string                   `json:"min_free_cpu,omitempty" path:"min_free_cpu,omitempty" url:"min_free_cpu,omitempty"`
+	MinFreeMem            string                   `json:"min_free_mem,omitempty" path:"min_free_mem,omitempty" url:"min_free_mem,omitempty"`
+	Priority              int64                    `json:"priority,omitempty" path:"priority,omitempty" url:"priority,omitempty"`
+	RemotePath            string                   `json:"remote_path,omitempty" path:"remote_path,omitempty" url:"remote_path,omitempty"`
+	RemoteServerId        int64                    `json:"remote_server_id,omitempty" path:"remote_server_id,omitempty" url:"remote_server_id,omitempty"`
+	RemoteServerMountId   int64                    `json:"remote_server_mount_id,omitempty" path:"remote_server_mount_id,omitempty" url:"remote_server_mount_id,omitempty"`
+	Rise                  int64                    `json:"rise,omitempty" path:"rise,omitempty" url:"rise,omitempty"`
+	Status                string                   `json:"status,omitempty" path:"status,omitempty" url:"status,omitempty"`
+	UndergoingMaintenance *bool                    `json:"undergoing_maintenance,omitempty" path:"undergoing_maintenance,omitempty" url:"undergoing_maintenance,omitempty"`
 }
 
 func (r RemoteMountBackend) Identifier() interface{} {

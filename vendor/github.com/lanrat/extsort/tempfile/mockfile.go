@@ -60,7 +60,8 @@ func (w *MockFileWriter) WriteString(s string) (int, error) {
 	return w.data.WriteString(s)
 }
 
-// Next stops writing the the current section/file and prepares the tempWriter for the next one
+// Next finalizes the current virtual file section and prepares for writing the next section.
+// It records the section boundary for later reading and returns the offset where the next section begins.
 func (w *MockFileWriter) Next() (int64, error) {
 	// save offsets
 	pos := w.data.Len()
@@ -68,7 +69,9 @@ func (w *MockFileWriter) Next() (int64, error) {
 	return int64(pos), nil
 }
 
-// Save stops allowing new writes and returns a TempReader for reading the data back
+// Save finalizes all virtual file sections and returns a TempReader for accessing the data.
+// After calling Save(), the MockFileWriter can no longer be used for writing.
+// The returned TempReader allows concurrent access to any virtual file section.
 func (w *MockFileWriter) Save() (TempReader, error) {
 	_, err := w.Next()
 	if err != nil {
@@ -77,6 +80,8 @@ func (w *MockFileWriter) Save() (TempReader, error) {
 	return newMockTempReader(w.sections, w.data.Bytes())
 }
 
+// newMockTempReader creates a TempReader from in-memory data with section boundaries.
+// This allows reading back data written by MockFileWriter in the same sectioned manner.
 func newMockTempReader(sections []int, data []byte) (*mockFileReader, error) {
 	// create TempReader
 	var r mockFileReader
@@ -94,19 +99,21 @@ func newMockTempReader(sections []int, data []byte) (*mockFileReader, error) {
 	return &r, nil
 }
 
-// Close does nothing much on a MockTempWriter
+// Close releases memory used by the mockFileReader.
+// This should be called after all reading operations are complete.
 func (r *mockFileReader) Close() error {
 	r.readers = nil
 	r.data = nil
 	return nil
 }
 
-// Size returns the number of sections/files in the reader
+// Size returns the number of virtual file sections available for reading.
 func (r *mockFileReader) Size() int {
 	return len(r.readers)
 }
 
-// Read returns a reader for the provided section
+// Read returns a buffered reader for the specified virtual file section.
+// Panics if the section index is out of range.
 func (r *mockFileReader) Read(i int) *bufio.Reader {
 	if i < 0 || i >= len(r.readers) {
 		panic("tempfile: read request out of range")

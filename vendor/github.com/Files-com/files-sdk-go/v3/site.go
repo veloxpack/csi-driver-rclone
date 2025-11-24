@@ -25,6 +25,7 @@ type Site struct {
 	AllowedCountries                         string                 `json:"allowed_countries,omitempty" path:"allowed_countries,omitempty" url:"allowed_countries,omitempty"`
 	AllowedIps                               string                 `json:"allowed_ips,omitempty" path:"allowed_ips,omitempty" url:"allowed_ips,omitempty"`
 	AlwaysMkdirParents                       *bool                  `json:"always_mkdir_parents,omitempty" path:"always_mkdir_parents,omitempty" url:"always_mkdir_parents,omitempty"`
+	As2MessageRetentionDays                  int64                  `json:"as2_message_retention_days,omitempty" path:"as2_message_retention_days,omitempty" url:"as2_message_retention_days,omitempty"`
 	AskAboutOverwrites                       *bool                  `json:"ask_about_overwrites,omitempty" path:"ask_about_overwrites,omitempty" url:"ask_about_overwrites,omitempty"`
 	BundleActivityNotifications              string                 `json:"bundle_activity_notifications,omitempty" path:"bundle_activity_notifications,omitempty" url:"bundle_activity_notifications,omitempty"`
 	BundleExpiration                         int64                  `json:"bundle_expiration,omitempty" path:"bundle_expiration,omitempty" url:"bundle_expiration,omitempty"`
@@ -108,6 +109,7 @@ type Site struct {
 	Logo                                     Image                  `json:"logo,omitempty" path:"logo,omitempty" url:"logo,omitempty"`
 	LoginPageBackgroundImage                 Image                  `json:"login_page_background_image,omitempty" path:"login_page_background_image,omitempty" url:"login_page_background_image,omitempty"`
 	MaxPriorPasswords                        int64                  `json:"max_prior_passwords,omitempty" path:"max_prior_passwords,omitempty" url:"max_prior_passwords,omitempty"`
+	ManagedSiteSettings                      map[string]interface{} `json:"managed_site_settings,omitempty" path:"managed_site_settings,omitempty" url:"managed_site_settings,omitempty"`
 	MotdText                                 string                 `json:"motd_text,omitempty" path:"motd_text,omitempty" url:"motd_text,omitempty"`
 	MotdUseForFtp                            *bool                  `json:"motd_use_for_ftp,omitempty" path:"motd_use_for_ftp,omitempty" url:"motd_use_for_ftp,omitempty"`
 	MotdUseForSftp                           *bool                  `json:"motd_use_for_sftp,omitempty" path:"motd_use_for_sftp,omitempty" url:"motd_use_for_sftp,omitempty"`
@@ -180,7 +182,6 @@ type Site struct {
 	WelcomeScreen                            string                 `json:"welcome_screen,omitempty" path:"welcome_screen,omitempty" url:"welcome_screen,omitempty"`
 	WindowsModeFtp                           *bool                  `json:"windows_mode_ftp,omitempty" path:"windows_mode_ftp,omitempty" url:"windows_mode_ftp,omitempty"`
 	GroupAdminsCanSetUserPassword            *bool                  `json:"group_admins_can_set_user_password,omitempty" path:"group_admins_can_set_user_password,omitempty" url:"group_admins_can_set_user_password,omitempty"`
-	ManagedSiteSettings                      []string               `json:"managed_site_settings,omitempty" path:"managed_site_settings,omitempty" url:"managed_site_settings,omitempty"`
 }
 
 func (s Site) Identifier() interface{} {
@@ -233,6 +234,7 @@ type SiteUpdateParams struct {
 	CalculateFileChecksumsSha256             *bool                  `url:"calculate_file_checksums_sha256,omitempty" json:"calculate_file_checksums_sha256,omitempty" path:"calculate_file_checksums_sha256"`
 	LegacyChecksumsMode                      *bool                  `url:"legacy_checksums_mode,omitempty" json:"legacy_checksums_mode,omitempty" path:"legacy_checksums_mode"`
 	MigrateRemoteServerSyncToSync            *bool                  `url:"migrate_remote_server_sync_to_sync,omitempty" json:"migrate_remote_server_sync_to_sync,omitempty" path:"migrate_remote_server_sync_to_sync"`
+	As2MessageRetentionDays                  int64                  `url:"as2_message_retention_days,omitempty" json:"as2_message_retention_days,omitempty" path:"as2_message_retention_days"`
 	SessionExpiry                            string                 `url:"session_expiry,omitempty" json:"session_expiry,omitempty" path:"session_expiry"`
 	SslRequired                              *bool                  `url:"ssl_required,omitempty" json:"ssl_required,omitempty" path:"ssl_required"`
 	SftpInsecureCiphers                      *bool                  `url:"sftp_insecure_ciphers,omitempty" json:"sftp_insecure_ciphers,omitempty" path:"sftp_insecure_ciphers"`
