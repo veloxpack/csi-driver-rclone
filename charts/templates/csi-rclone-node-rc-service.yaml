@@ -1,0 +1,30 @@
+{{- if and .Values.node.rc.enabled .Values.node.rc.service.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rclone.fullname" . }}-node-rc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "rclone.commonLabels" . | nindent 4 }}
+    app.kubernetes.io/component: node-rc
+  {{- with .Values.node.rc.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.node.rc.service.type }}
+  {{- if eq .Values.node.rc.service.type "ClusterIP" }}
+  {{- if .Values.node.rc.service.headless }}
+  clusterIP: None
+  {{- end }}
+  {{- end }}
+  ports:
+    - name: rc
+      port: {{ regexFind "[0-9]+$" .Values.node.rc.addr | int }}
+      targetPort: rc
+      protocol: TCP
+  selector:
+    app: {{ .Values.node.name }}
+{{- end }}
+
