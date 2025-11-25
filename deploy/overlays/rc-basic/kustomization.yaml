@@ -1,0 +1,19 @@
+# Basic RC API setup: Only enables RC API on the DaemonSet (no Service)
+# This is the minimal overlay. For more complete setups, see:
+# - rc-service/       : Adds Service to expose RC API
+#
+# Prerequisites:
+#   Create the RC auth secret before applying:
+#   kubectl create secret generic csi-rclone-rc-auth \
+#     --from-literal=username=admin \
+#     --from-literal=password=secure-password \
+#     -n veloxpack
+
+namespace: veloxpack
+
+resources:
+  - ../../base
+
+components:
+  - ../../components/rc-basic
+

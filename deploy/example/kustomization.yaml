@@ -8,4 +8,5 @@ resources:
 - storageclass-minio.yaml
 - secret-dropbox.yaml
 - secret-sftp.yaml
+- secret-rc-auth.yaml
 - storageclass.yaml

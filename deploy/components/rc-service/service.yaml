@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: csi-rclone-node-rc
+  namespace: system
+  labels:
+    app.kubernetes.io/name: csi-driver-rclone
+    app.kubernetes.io/component: node-rc
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: csi-rclone-node
+  ports:
+    - name: rc
+      port: 5573
+      targetPort: rc
+      protocol: TCP
+

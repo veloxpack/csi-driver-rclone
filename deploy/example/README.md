@@ -38,6 +38,7 @@ This directory contains examples demonstrating how to use the Rclone CSI driver 
 - [`secret-gcs.yaml`](secret-gcs.yaml) - GCS service account secret
 - [`secret-azure.yaml`](secret-azure.yaml) - Azure credentials secret
 - [`secret-dropbox.yaml`](secret-dropbox.yaml) - Dropbox token secret
+- [`secret-rc-auth.yaml`](secret-rc-auth.yaml) - RC API authentication secret (for Remote Control API)
 
 ## Configuration Methods
 
@@ -170,6 +171,37 @@ parameters:
 - **Provider**: SFTP server
 - **Configuration**: Host, username, password/key
 - **Example**: [`secret-sftp.yaml`](secret-sftp.yaml)
+
+## Remote Control (RC) API
+
+The driver can expose rclone's Remote Control API for programmatic control of mounts. This is useful for:
+
+- **VFS Cache Refresh**: Trigger cache refresh for specific paths
+- **Statistics**: Get real-time mount statistics
+- **Operations**: Control rclone operations programmatically
+
+### Setup
+
+1. **Create the RC auth secret**:
+   ```bash
+   kubectl apply -f secret-rc-auth.yaml
+   ```
+
+2. **Enable RC API** in your deployment (via Helm or kustomize)
+
+3. **Use the RC API** from within your cluster:
+   ```bash
+   # Get RC service endpoint
+   RC_SERVICE=$(kubectl get svc -n veloxpack csi-rclone-node-rc -o jsonpath='{.metadata.name}')
+
+   # Example: Refresh VFS cache
+   curl -X POST http://${RC_SERVICE}:5573/vfs/refresh \
+     -u admin:secure-password \
+     -H "Content-Type: application/json" \
+     -d '{"recursive": true, "dir": "/path/to/mount"}'
+   ```
+
+For more information, see the [RC API documentation](https://rclone.org/rc/).
 
 ### Resource Limits
 ```yaml
