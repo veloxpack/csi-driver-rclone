@@ -291,3 +291,31 @@ rclone lsd remote:path
 # Test mount
 rclone mount remote:path /tmp/mount --daemon
 ```
+
+### Remote Control (RC) API
+The CSI node plugin can expose rclone's [Remote Control API](https://rclone.org/rc/) for operational tasks (e.g., triggering cache refreshes). The API is disabled by default and must be explicitly enabled in the Helm chart:
+
+```yaml
+node:
+  rc:
+    enabled: true
+    addr: ":5573"
+    service:
+      enabled: true
+      annotations:
+        prometheus.io/scrape: "false"
+    basicAuth:
+      existingSecret: rclone-rc-auth
+```
+
+**Security Notes**
+- Always keep `rc.noAuth` at `false` unless you understand the risks.
+- Use a Kubernetes secret (`node.rc.basicAuth.existingSecret`) to provide the `username` and `password` keys consumed by the DaemonSet.
+- Expose the RC service only on internal networks; the default service template creates a headless `ClusterIP`.
+
+Once enabled, any in-cluster workload can reach the RC service on the published port. For example:
+
+```bash
+kubectl run rc-shell --image=ghcr.io/veloxpack/csi-driver-rclone \
+  --rm -it -- bash -lc 'curl -u user:pass http://csi-rclone-node-rc.veloxpack.svc:5573/core/stats'
+```
