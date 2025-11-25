@@ -23,6 +23,7 @@ import (
 	"time"
 
 	metricsserver "github.com/veloxpack/csi-driver-rclone/internal/metrics"
+	rcserver "github.com/veloxpack/csi-driver-rclone/internal/rc"
 	"github.com/veloxpack/csi-driver-rclone/pkg/rclone"
 	"k8s.io/klog/v2"
 )
@@ -38,6 +39,7 @@ func main() {
 	_ = flag.Set("logtostderr", "true")
 
 	metricsOpts := metricsserver.NewOptions()
+	rcOpts := rcserver.NewOptions()
 
 	// Metrics Options
 	flag.StringVar(&metricsOpts.MetricsAddr, "metrics-addr",
@@ -50,6 +52,17 @@ func main() {
 		metricsOpts.WriteTimeout, "Metrics server write timeout")
 	flag.DurationVar(&metricsOpts.IdleTimeout, "metrics-server-idle-timeout",
 		metricsOpts.IdleTimeout, "Metrics server idle timeout")
+	// RC Options
+	flag.BoolVar(&rcOpts.Enabled, "rc",
+		rcOpts.Enabled, "Enable rclone Remote Control (RC) API")
+	flag.StringVar(&rcOpts.Address, "rc-addr",
+		rcOpts.Address, "RC server listening address")
+	flag.BoolVar(&rcOpts.NoAuth, "rc-no-auth",
+		rcOpts.NoAuth, "Disable authentication for RC (insecure)")
+	flag.StringVar(&rcOpts.Username, "rc-user",
+		rcOpts.Username, "RC basic auth username")
+	flag.StringVar(&rcOpts.Password, "rc-pass",
+		rcOpts.Password, "RC basic auth password")
 
 	flag.Parse()
 
@@ -57,10 +70,10 @@ func main() {
 		klog.Warning("nodeid is empty")
 	}
 
+	ctx := context.Background()
+
 	// Start metrics server if enabled
 	if metricsOpts.MetricsAddr != "" {
-		ctx := context.Background()
-
 		// Start metrics server
 		metricsSrv, err := metricsserver.Start(metricsOpts)
 		if err != nil {
@@ -73,6 +86,22 @@ func main() {
 				defer cancel()
 				if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
 					klog.Errorf("Error shutting down metrics server: %v", err)
+				}
+			}()
+		}
+	}
+
+	// Start RC server if enabled
+	if rcOpts.Enabled {
+		rcSrv, err := rcserver.Start(ctx, rcOpts)
+		if err != nil {
+			klog.Fatalf("Failed to start RC server: %v", err)
+		}
+		if rcSrv != nil {
+			klog.Infof("RC server listening on %s", rcOpts.Address)
+			defer func() {
+				if err := rcSrv.Shutdown(); err != nil {
+					klog.Errorf("Error shutting down RC server: %v", err)
 				}
 			}()
 		}
