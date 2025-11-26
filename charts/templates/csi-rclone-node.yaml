@@ -88,7 +88,7 @@ spec:
               drop:
                 - ALL
         - name: rclone
-          image: {{ .Values.image.rclone.repository }}:{{ .Values.image.rclone.tag | default .Chart.AppVersion }}
+          image: {{ .Values.image.rclone.repository }}:{{ include "rclone.rcloneImageTag" . }}
           imagePullPolicy: {{ .Values.image.rclone.pullPolicy }}
           securityContext:
             privileged: true

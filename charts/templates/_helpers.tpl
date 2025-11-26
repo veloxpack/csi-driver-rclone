@@ -69,3 +69,15 @@ labels:
 app.kubernetes.io/name: {{ include "rclone.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
+
+{{/* Resolve the tag to use for the rclone image */}}
+{{- define "rclone.rcloneImageTag" -}}
+{{- $tag := default "" .Values.image.rclone.tag -}}
+{{- if $tag }}
+{{- $tag -}}
+{{- else if hasPrefix "v" .Chart.AppVersion }}
+{{- .Chart.AppVersion -}}
+{{- else -}}
+{{- printf "v%s" .Chart.AppVersion -}}
+{{- end -}}
+{{- end -}}
