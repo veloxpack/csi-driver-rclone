@@ -94,6 +94,45 @@ components:
 
 This is a template directory that you can copy and customize for your specific needs.
 
+---
+
+### `rc-basic/`
+
+Enables the rclone Remote Control (RC) API on every node pod.
+
+**What it does:** Appends the RC CLI flags, exposes container port `5573`, and wires credentials from a Kubernetes secret.
+
+**Prerequisites:**
+- Create a secret named `csi-rclone-rc-auth` with `username` and `password` keys:
+
+```bash
+kubectl create secret generic csi-rclone-rc-auth \
+  --from-literal=username=rc-admin \
+  --from-literal=password='change-me' \
+  -n veloxpack
+```
+
+**Usage in your overlay:**
+```yaml
+components:
+  - ../../components/rc-basic
+```
+
+---
+
+### `rc-service/`
+
+Creates a headless `ClusterIP` so in-cluster workloads can call the RC API.
+
+**What it does:** Adds the `csi-rclone-node-rc` Service (port `5573`, selector `app=csi-rclone-node`).
+
+**Usage in your overlay:**
+```yaml
+components:
+  - ../../components/rc-basic     # enables RC on the DaemonSet
+  - ../../components/rc-service   # exposes it via a Service
+```
+
 ## How to Customize Metrics Configuration
 
 ### Step 1: Copy the Template

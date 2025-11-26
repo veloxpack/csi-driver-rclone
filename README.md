@@ -37,6 +37,7 @@ This is a repository for [Rclone](https://rclone.org/) [CSI](https://kubernetes-
 - **Inline Configuration**: Direct configuration in StorageClass parameters
 - **Template Variable Support**: Dynamic path substitution using PVC/PV metadata
 - **VFS Caching**: High-performance caching with configurable options
+- **Remote Control API**: Expose rclone RC API for programmatic control (VFS cache refresh, stats, etc.)
 - **No Staging Required**: Direct mount without volume staging
 - **Flexible Backend Support**: Choose between minimal or full backend support for smaller images
 
@@ -128,6 +129,70 @@ helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclo
 
 </details>
 
+**With Remote Control (RC) API:**
+
+Enable the rclone Remote Control API for programmatic control (e.g., VFS cache refresh, stats):
+
+```bash
+# Option A: RC API with basic auth (recommended for production)
+# First, create a secret with credentials
+kubectl create secret generic csi-rclone-rc-auth \
+  --from-literal=username=admin \
+  --from-literal=password=secure-password \
+  -n veloxpack
+
+# Install with RC API enabled
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
+  --namespace veloxpack --create-namespace \
+  --set node.rc.enabled=true \
+  --set node.rc.basicAuth.existingSecret=csi-rclone-rc-auth \
+  --set node.rc.service.enabled=true
+
+# Option B: RC API without auth (development only - not recommended)
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
+  --namespace veloxpack --create-namespace \
+  --set node.rc.enabled=true \
+  --set node.rc.noAuth=true \
+  --set node.rc.service.enabled=true
+```
+
+<details>
+<summary>Advanced RC API configuration options</summary>
+
+Customize RC API server settings:
+
+```bash
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
+  --namespace veloxpack --create-namespace \
+  --set node.rc.enabled=true \
+  --set node.rc.addr=:5573 \
+  --set node.rc.basicAuth.existingSecret=csi-rclone-rc-auth \
+  --set node.rc.service.enabled=true \
+  --set node.rc.service.type=ClusterIP
+```
+
+</details>
+
+**Using RC API:**
+
+Once enabled, you can call the RC API from within your cluster:
+
+```bash
+# Get RC API endpoint
+RC_SERVICE=$(kubectl get svc -n veloxpack -l app.kubernetes.io/component=node-rc -o jsonpath='{.items[0].metadata.name}')
+
+# Example: Refresh VFS cache for a mount
+curl -X POST http://${RC_SERVICE}:5573/vfs/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"recursive": true, "dir": "/path/to/mount"}'
+
+# Example: Get mount stats
+curl -X POST http://${RC_SERVICE}:5573/vfs/stats \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+For more RC API endpoints, see the [rclone RC documentation](https://rclone.org/rc/).
 
 Verify the installation:
 
@@ -153,6 +218,22 @@ This will install:
 - CSI Node Driver (DaemonSet)
 - RBAC permissions
 - CSIDriver CRD
+
+**Enable RC API with kustomize:**
+
+```bash
+# Create RC auth secret
+kubectl create secret generic csi-rclone-rc-auth \
+  --from-literal=username=admin \
+  --from-literal=password=secure-password \
+  -n veloxpack
+
+# Deploy with RC API enabled
+kubectl apply -k deploy/overlays/default
+# Then apply RC components
+kubectl apply -k deploy/components/rc-basic
+kubectl apply -k deploy/components/rc-service
+```
 
 For detailed manual installation options and overlays, see the [manual installation guide](./docs/install-rclone-csi-driver.md).
 
@@ -464,6 +545,72 @@ spec:
 | `node.cache.hostPath` | Host path (required when enabled) | `""` |
 | `node.cache.mountPath` | Mount path in container | `/var/lib/rclone-cache` |
 
+### Remote Control (RC) API
+
+The driver can expose rclone's Remote Control API, allowing programmatic control of mounts from within your cluster. This is useful for:
+
+- **VFS Cache Refresh**: Trigger cache refresh for specific paths
+- **Statistics**: Get real-time mount statistics
+- **Operations**: Control rclone operations programmatically
+
+**Enable RC API via Helm:**
+
+```bash
+# Create authentication secret
+kubectl create secret generic csi-rclone-rc-auth \
+  --from-literal=username=admin \
+  --from-literal=password=secure-password \
+  -n veloxpack
+
+# Install with RC API
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
+  --namespace veloxpack --create-namespace \
+  --set node.rc.enabled=true \
+  --set node.rc.basicAuth.existingSecret=csi-rclone-rc-auth \
+  --set node.rc.service.enabled=true
+```
+
+**Example: Refresh VFS Cache**
+
+```bash
+# Get the RC service endpoint
+RC_SERVICE=$(kubectl get svc -n veloxpack csi-rclone-node-rc -o jsonpath='{.metadata.name}')
+
+# Refresh cache for a specific path
+curl -X POST http://${RC_SERVICE}:5573/vfs/refresh \
+  -u admin:secure-password \
+  -H "Content-Type: application/json" \
+  -d '{"recursive": true, "dir": "/path/to/mount"}'
+```
+
+**Example: Get Mount Statistics**
+
+```bash
+curl -X POST http://${RC_SERVICE}:5573/vfs/stats \
+  -u admin:secure-password \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+**Configuration Options:**
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `node.rc.enabled` | Enable RC API server | `false` |
+| `node.rc.addr` | RC API listening address | `:5573` |
+| `node.rc.noAuth` | Disable authentication (not recommended) | `false` |
+| `node.rc.basicAuth.existingSecret` | Secret name for credentials | `""` |
+| `node.rc.service.enabled` | Create Kubernetes Service for RC API | `false` |
+
+**Security Considerations:**
+
+- Always use authentication in production (`node.rc.noAuth=false`)
+- Store credentials in Kubernetes secrets
+- Use network policies to restrict access to the RC service
+- The RC API has full control over mounts - restrict access appropriately
+
+For more RC API endpoints and capabilities, see the [rclone RC documentation](https://rclone.org/rc/).
+
 ## Troubleshooting
 
 ### Check Driver Status
@@ -582,6 +729,7 @@ This driver is based on the [csi-driver-nfs](https://github.com/kubernetes-csi/c
 3. **Network Policies**: Consider using network policies to restrict access
 4. **Image Security**: Use trusted container images
 5. **Credential Rotation**: Regularly rotate storage backend credentials
+6. **RC API Security**: When enabling Remote Control API, always use authentication and restrict access via network policies
 
 ### Log Levels
 Set log level for debugging:

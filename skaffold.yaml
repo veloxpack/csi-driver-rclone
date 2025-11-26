@@ -1,16 +1,19 @@
 # Skaffold configuration for CSI Driver Rclone
 #
 # Quick Start:
-#   skaffold dev                    # Default profile (no metrics)
+#   skaffold dev                    # Default profile (no metrics, no RC)
 #   skaffold dev -p metrics-full    # Full monitoring stack
+#   skaffold dev -p rc-service      # RC API with Service
 #
 # Available Profiles:
-#   default            - Basic CSI driver (no metrics)
+#   default            - Basic CSI driver (no metrics, no RC)
 #   metrics            - Metrics endpoint only
 #   metrics-service    - Metrics + Service
 #   metrics-prometheus - Metrics + Service + ServiceMonitor (requires Prometheus Operator)
 #   metrics-dashboard  - Grafana Dashboard only
 #   metrics-full       - Complete setup (Service + ServiceMonitor + Dashboard)
+#   rc-basic           - RC API endpoint only (requires csi-rclone-rc-auth secret)
+#   rc-service         - RC API + Service (requires csi-rclone-rc-auth secret)
 #
 # Port Forwards:
 #   metrics-service, metrics-prometheus, metrics-full:
@@ -19,6 +22,15 @@
 #     - localhost:9090  → Prometheus UI
 #   metrics-dashboard, metrics-full:
 #     - localhost:3000  → Grafana UI (credentials: admin/prom-operator)
+#   rc-service:
+#     - localhost:5573  → RC API endpoint
+#
+# Prerequisites for RC profiles:
+#   Create the RC auth secret before using RC profiles:
+#   kubectl create secret generic csi-rclone-rc-auth \
+#     --from-literal=username=admin \
+#     --from-literal=password=secure-password \
+#     -n veloxpack
 
 apiVersion: skaffold/v4beta13
 kind: Config
@@ -124,3 +136,25 @@ profiles:
         namespace: monitoring
         port: 80
         localPort: 3000
+
+  # Basic RC API profile — enables RC API endpoint only (no Service)
+  # Prerequisites: Create csi-rclone-rc-auth secret with username/password
+  - name: rc-basic
+    manifests:
+      kustomize:
+        paths:
+          - deploy/overlays/rc-basic
+
+  # RC API with Service — adds Kubernetes Service for RC API endpoint
+  # Prerequisites: Create csi-rclone-rc-auth secret with username/password
+  - name: rc-service
+    manifests:
+      kustomize:
+        paths:
+          - deploy/overlays/rc-service
+    portForward:
+      - resourceType: service
+        resourceName: csi-rclone-node-rc
+        namespace: veloxpack
+        port: 5573
+        localPort: 5573

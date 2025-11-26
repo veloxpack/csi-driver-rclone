@@ -8,7 +8,7 @@ image:
     rclone:
         repository: ghcr.io/veloxpack/csi-driver-rclone
         # To use a specific Rclone version, use the corresponding image tag
-        # Tag defaults to Chart.AppVersion if not specified
+        # Tag defaults to v{{ .Chart.AppVersion }} if not specified
         # Override with: --set image.rclone.tag=v0.1.0
         # tag: ""  # Uncomment and set to override Chart.AppVersion
         pullPolicy: IfNotPresent
@@ -187,6 +187,23 @@ node:
       labels:
         grafana_dashboard: "1"
       # Additional annotations for the ConfigMap
+      annotations: {}
+
+  # Remote Control (RC) API configuration
+  rc:
+    enabled: false
+    addr: ":5573"            # Maps to --rc-addr
+    noAuth: false            # When true, disables RC auth (not recommended)
+    basicAuth:
+      username: ""           # Optional username (use secrets for production)
+      password: ""
+      existingSecret: ""     # Reference an existing secret for credentials
+      usernameKey: username
+      passwordKey: password
+    service:
+      enabled: false
+      type: ClusterIP
+      headless: true
       annotations: {}
 
   # Additional command-line arguments.

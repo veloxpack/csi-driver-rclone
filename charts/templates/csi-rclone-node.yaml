@@ -88,7 +88,7 @@ spec:
               drop:
                 - ALL
         - name: rclone
-          image: {{ .Values.image.rclone.repository }}:{{ .Values.image.rclone.tag | default .Chart.AppVersion }}
+          image: {{ .Values.image.rclone.repository }}:{{ include "rclone.rcloneImageTag" . }}
           imagePullPolicy: {{ .Values.image.rclone.pullPolicy }}
           securityContext:
             privileged: true
@@ -108,14 +108,31 @@ spec:
             - "--metrics-server-write-timeout={{ .Values.node.metrics.writeTimeout }}"
             - "--metrics-server-idle-timeout={{ .Values.node.metrics.idleTimeout }}"
             {{- end }}
+            {{- if .Values.node.rc.enabled }}
+            - "--rc"
+            - "--rc-addr={{ .Values.node.rc.addr }}"
+            {{- if .Values.node.rc.noAuth }}
+            - "--rc-no-auth"
+            {{- else }}
+            - "--rc-user=$(RC_USERNAME)"
+            - "--rc-pass=$(RC_PASSWORD)"
+            {{- end }}
+            {{- end }}
             {{- range $key, $value := .Values.node.extraArgs }}
             - "--{{ $key }}={{ $value }}"
             {{- end }}
-          {{- if .Values.node.metrics.enabled }}
+          {{- if or .Values.node.metrics.enabled .Values.node.rc.enabled }}
           ports:
+            {{- if .Values.node.metrics.enabled }}
             - name: metrics
               containerPort: {{ regexFind "[0-9]+$" .Values.node.metrics.addr | int }}
               protocol: TCP
+            {{- end }}
+            {{- if .Values.node.rc.enabled }}
+            - name: rc
+              containerPort: {{ regexFind "[0-9]+$" .Values.node.rc.addr | int }}
+              protocol: TCP
+            {{- end }}
           {{- end }}
           env:
             - name: NODE_ID
@@ -124,6 +141,26 @@ spec:
                   fieldPath: spec.nodeName
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
+            {{- if and .Values.node.rc.enabled (not .Values.node.rc.noAuth) }}
+            - name: RC_USERNAME
+              {{- if .Values.node.rc.basicAuth.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.node.rc.basicAuth.existingSecret }}
+                  key: {{ .Values.node.rc.basicAuth.usernameKey }}
+              {{- else }}
+              value: {{ .Values.node.rc.basicAuth.username | quote }}
+              {{- end }}
+            - name: RC_PASSWORD
+              {{- if .Values.node.rc.basicAuth.existingSecret }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.node.rc.basicAuth.existingSecret }}
+                  key: {{ .Values.node.rc.basicAuth.passwordKey }}
+              {{- else }}
+              value: {{ .Values.node.rc.basicAuth.password | quote }}
+              {{- end }}
+            {{- end }}
           livenessProbe:
             failureThreshold: 5
             httpGet:
