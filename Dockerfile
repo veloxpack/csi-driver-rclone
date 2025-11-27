@@ -54,12 +54,12 @@ RUN RCLONE_VERSION=$(grep "github.com/rclone/rclone" go.mod | awk '{print $2}' |
     cmd/rcloneplugin/main.go
 
 # Use alpine as base image to package the rcloneplugin binary with rclone
-FROM alpine:3.22.2
+FROM registry.k8s.io/build-image/debian-base:bookworm-v1.0.6
 WORKDIR /
 
 # Install required dependencies
-RUN apk add --no-cache ca-certificates fuse3 tzdata && \
-    rm -rf /var/cache/apk/* /tmp/*
+RUN apt-get update && apt upgrade -y && clean-install ca-certificates fuse3 tzdata && \
+    rm -rf /var/cache/apt/* /tmp/*
 
 # Enable allow_other for FUSE mounts
 RUN printf '%s\n' \
