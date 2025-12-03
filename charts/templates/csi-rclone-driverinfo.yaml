@@ -16,6 +16,9 @@ spec:
   {{- if .Values.feature.propagateHostMountOptions }}
   volumeMountOptions: true
   {{- end }}
+  {{- if .Values.feature.enableFSGroupPolicy}}
+  fsGroupPolicy: File
+  {{- end}}
   {{- if .Values.driver.mountPermissions }}
   mountPermissions: {{ .Values.driver.mountPermissions }}
   {{- end }}

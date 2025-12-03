@@ -33,6 +33,7 @@ This is a repository for [Rclone](https://rclone.org/) [CSI](https://kubernetes-
 - **No External Dependencies**: Uses rclone as a Go library directly - no rclone binary installation required
 - **No Process Overhead**: Direct library integration means no subprocess spawning or external process management
 - **Dynamic Volume Provisioning**: Create persistent volumes via StorageClass
+- **Ephemeral/Inline Volumes**: Define storage directly in Pod specs without separate PV/PVC resources
 - **Secret-based Configuration**: Secure credential management using Kubernetes secrets
 - **Inline Configuration**: Direct configuration in StorageClass parameters
 - **Template Variable Support**: Dynamic path substitution using PVC/PV metadata
@@ -194,6 +195,22 @@ curl -X POST http://${RC_SERVICE}:5573/vfs/stats \
 
 For more RC API endpoints, see the [rclone RC documentation](https://rclone.org/rc/).
 
+**With Ephemeral/Inline Volumes:**
+
+Enable support for ephemeral volumes (inline volumes defined directly in Pod specs):
+
+```bash
+# Enable ephemeral volumes support
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
+  --namespace veloxpack --create-namespace \
+  --set feature.enableInlineVolume=true
+```
+
+Ephemeral volumes allow you to define storage configuration directly in Pod specifications without creating separate PV/PVC resources. This is useful for:
+- Temporary storage that should be deleted with the pod
+- Pod-specific configurations
+- Simplified deployment manifests
+
 Verify the installation:
 
 ```bash
@@ -242,6 +259,7 @@ Please refer to [`rclone.csi.veloxpack.io` driver parameters](./docs/driver-para
 
 ### Examples
  - [Basic usage](./deploy/example/README.md)
+ - [Ephemeral/Inline Volumes](./deploy/example/README-EPHEMERAL.md)
  - [S3 Storage](./deploy/example/storageclass-s3.yaml)
  - [Google Cloud Storage](./deploy/example/storageclass-gcs.yaml)
  - [Azure Blob Storage](./deploy/example/storageclass-azure.yaml)
