@@ -206,7 +206,7 @@ helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclo
   --set feature.enableInlineVolume=true
 ```
 
-Ephemeral volumes allow you to define storage configuration directly in Pod specifications without creating separate PV/PVC resources. This is useful for:
+Ephemeral volumes allow you to define storage configuration directly in Pod specifications without creating separate PV/PVC resources (see [Kubernetes Ephemeral Volumes](https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/)). This is useful for:
 - Temporary storage that should be deleted with the pod
 - Pod-specific configurations
 - Simplified deployment manifests
