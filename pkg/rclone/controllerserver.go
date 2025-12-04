@@ -69,13 +69,16 @@ func (cs *ControllerServer) CreateVolume(_ context.Context, req *csi.CreateVolum
 		}
 	}
 
-	// Validate required parameters
-	if parameters[paramRemote] == "" {
-		return nil, status.Error(codes.InvalidArgument, "remote parameter is required")
-	}
-	if parameters[paramRemotePath] == "" {
-		return nil, status.Error(codes.InvalidArgument, "remotePath parameter is required")
-	}
+	// NOTE: remote and remotePath validation relaxed to support secret-based configuration
+	// Fix for issue #51: Multiple Mounts with Different Secrets
+	// When using node-publish-secret, these values can be provided via secrets instead of StorageClass
+	// Validation will happen at NodePublishVolume time where secrets are available
+	// if parameters[paramRemote] == "" {
+	// 	return nil, status.Error(codes.InvalidArgument, "remote parameter is required")
+	// }
+	// if parameters[paramRemotePath] == "" {
+	// 	return nil, status.Error(codes.InvalidArgument, "remotePath parameter is required")
+	// }
 
 	// Validate parameters (case-insensitive)
 	var remote, remotePath string
@@ -110,10 +113,6 @@ func (cs *ControllerServer) CreateVolume(_ context.Context, req *csi.CreateVolum
 		}
 	}
 
-	if remote == "" {
-		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("%v is a required parameter", paramRemote))
-	}
-
 	// Log unknown parameters for debugging
 	if len(unknownParams) > 0 {
 		klog.V(2).Infof("Unknown parameters in storage class: %v", unknownParams)
@@ -125,18 +124,29 @@ func (cs *ControllerServer) CreateVolume(_ context.Context, req *csi.CreateVolum
 		remotePath = replaceWithMap(remotePath, remotePathReplaceMap)
 	}
 
-	klog.V(2).Infof("CreateVolume: name=%s, remote=%s, remotePath=%s", name, remote, remotePath)
+	// Generate volume ID
+	// When remote is provided in StorageClass: use format "remote#name" for better debugging
+	// When remote comes from secrets: use just the name (already unique, secrets provide remote at mount time)
+	var volumeID string
+	if remote != "" {
+		volumeID = fmt.Sprintf("%s%s%s", remote, separator, name)
+		klog.V(2).Infof("CreateVolume: name=%s, remote=%s, remotePath=%s, volumeID=%s", name, remote, remotePath, volumeID)
+	} else {
+		volumeID = name
+		klog.V(2).Infof("CreateVolume: name=%s, remote from secret, remotePath=%s, volumeID=%s", name, remotePath, volumeID)
+	}
 
-	// Generate volume ID with better validation
-	volumeID := fmt.Sprintf("%s%s%s", remote, separator, name)
-
-	// Build volumeContext from parameters, including the resolved remotePath
+	// Build volumeContext from parameters
 	volumeContext := make(map[string]string)
 	for k, v := range parameters {
 		volumeContext[k] = v
 	}
-	// Update with the resolved remotePath
-	volumeContext[paramRemotePath] = remotePath
+
+	// Update with the resolved remotePath only if it was provided in parameters
+	// If remotePath comes from secrets, don't override with empty value
+	if remotePath != "" {
+		volumeContext[paramRemotePath] = remotePath
+	}
 
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
