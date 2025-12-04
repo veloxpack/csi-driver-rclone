@@ -155,7 +155,7 @@ func TestCreateVolume(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name: "remote parameter missing",
+			name: "remote parameter missing (allowed - can come from secrets)",
 			req: &csi.CreateVolumeRequest{
 				Name: testVolumeName,
 				VolumeCapabilities: []*csi.VolumeCapability{
@@ -170,10 +170,17 @@ func TestCreateVolume(t *testing.T) {
 				},
 				Parameters: map[string]string{},
 			},
-			expectErr: true,
+			resp: &csi.CreateVolumeResponse{
+				Volume: &csi.Volume{
+					VolumeId:      testVolumeName, // Uses name as volumeID when remote not provided
+					CapacityBytes: 0,
+					VolumeContext: map[string]string{},
+				},
+			},
+			expectErr: false,
 		},
 		{
-			name: "remotePath parameter missing",
+			name: "remotePath parameter missing (allowed - can come from secrets)",
 			req: &csi.CreateVolumeRequest{
 				Name: testVolumeName,
 				VolumeCapabilities: []*csi.VolumeCapability{
@@ -190,7 +197,16 @@ func TestCreateVolume(t *testing.T) {
 					paramRemote: testRemote,
 				},
 			},
-			expectErr: true,
+			resp: &csi.CreateVolumeResponse{
+				Volume: &csi.Volume{
+					VolumeId:      testVolumeID, // Uses remote#name format when remote is provided
+					CapacityBytes: 0,
+					VolumeContext: map[string]string{
+						paramRemote: testRemote,
+					},
+				},
+			},
+			expectErr: false,
 		},
 	}
 

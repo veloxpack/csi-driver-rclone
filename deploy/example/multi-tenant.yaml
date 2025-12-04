@@ -1,0 +1,304 @@
+---
+# Example for issue #51: Multiple Mounts with Different Secrets
+# https://github.com/veloxpack/csi-driver-rclone/issues/51
+#
+
+---
+# MinIO 1 Deployment - First S3-compatible storage backend
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.28.0/_definitions.json#/definitions/io.k8s.api.apps.v1.Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: minio-1
+  name: minio-1
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: minio-1
+  template:
+    metadata:
+      labels:
+        app: minio-1
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - command:
+        - minio
+        - server
+        - /data
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: admin
+        - name: MINIO_SECRET_KEY
+          value: password
+        image: quay.io/minio/minio:RELEASE.2022-11-17T23-20-09Z@sha256:b2a98df34c3e8d605a5e96f0bc1657dd440a5bd53d95465a7b342e736da9c6cf
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - mkdir
+              - -p
+              - /data/bucket1
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        name: main
+        ports:
+        - containerPort: 9000
+          name: api
+        readinessProbe:
+          httpGet:
+            path: /minio/health/ready
+            port: 9000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.28.0/_definitions.json#/definitions/io.k8s.api.core.v1.Service
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: minio-1
+  name: minio-1
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: minio-1
+  ports:
+    - name: api
+      protocol: TCP
+      port: 9000
+      targetPort: 9000
+
+---
+# MinIO 2 Deployment - Second S3-compatible storage backend
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.28.0/_definitions.json#/definitions/io.k8s.api.apps.v1.Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: minio-2
+  name: minio-2
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: minio-2
+  template:
+    metadata:
+      labels:
+        app: minio-2
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - command:
+        - minio
+        - server
+        - /data
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: admin
+        - name: MINIO_SECRET_KEY
+          value: password
+        image: quay.io/minio/minio:RELEASE.2022-11-17T23-20-09Z@sha256:b2a98df34c3e8d605a5e96f0bc1657dd440a5bd53d95465a7b342e736da9c6cf
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - mkdir
+              - -p
+              - /data/bucket2
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        name: main
+        ports:
+        - containerPort: 9000
+          name: api
+        readinessProbe:
+          httpGet:
+            path: /minio/health/ready
+            port: 9000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.28.0/_definitions.json#/definitions/io.k8s.api.core.v1.Service
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: minio-2
+  name: minio-2
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: minio-2
+  ports:
+    - name: api
+      protocol: TCP
+      port: 9000
+      targetPort: 9000
+
+---
+# StorageClass with dynamic secret reference via annotation
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-csi-dynamic
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  # Dynamic secret reference - resolved from PVC annotation
+  csi.storage.k8s.io/node-publish-secret-name: ${pvc.annotations['rclone.csi.veloxpack.io/secret-name']}
+  csi.storage.k8s.io/node-publish-secret-namespace: ${pvc.namespace}
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+
+---
+# Secret for first mount - simulating first Google Drive or S3 bucket
+apiVersion: v1
+kind: Secret
+metadata:
+  name: target1
+  namespace: default
+type: Opaque
+stringData:
+  remote: "remote1"
+  remotePath: "bucket1"
+  configData: |
+    [remote1]
+    type = s3
+    provider = Minio
+    endpoint = http://minio-1.default.svc.cluster.local:9000
+    access_key_id = admin
+    secret_access_key = password
+
+---
+# Secret for second mount - simulating second Google Drive or S3 bucket
+apiVersion: v1
+kind: Secret
+metadata:
+  name: target2
+  namespace: default
+type: Opaque
+stringData:
+  remote: "remote2"
+  remotePath: "bucket2"
+  configData: |
+    [remote2]
+    type = s3
+    provider = Minio
+    endpoint = http://minio-2.default.svc.cluster.local:9000
+    access_key_id = admin
+    secret_access_key = password
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-target1
+  annotations:
+    rclone.csi.veloxpack.io/secret-name: target1
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: rclone-csi-dynamic
+
+---
+# Second PVC - uses target2 secret
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.28.0/_definitions.json#/definitions/io.k8s.api.core.v1.PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-target2
+  annotations:
+    rclone.csi.veloxpack.io/secret-name: target2
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: rclone-csi-dynamic
+
+---
+# Test pod that mounts BOTH volumes
+# BUG: Both /data/target1 and /data/target2 will show the same content (from target1)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: multi-mount-test
+  namespace: default
+spec:
+  containers:
+  - name: test
+    image: busybox
+    command:
+    - sh
+    - -c
+    - |
+      echo "=== Testing multiple mounts ==="
+      echo "Creating test files in each mount..."
+
+      # Create distinctive files in each mount
+      echo "This is TARGET1" > /data/target1/test-file-1.txt
+      echo "This is TARGET2" > /data/target2/test-file-2.txt
+
+      echo ""
+      echo "=== Contents of /data/target1 ==="
+      ls -la /data/target1/
+      cat /data/target1/* 2>/dev/null || true
+
+      echo ""
+      echo "=== Contents of /data/target2 ==="
+      ls -la /data/target2/
+      cat /data/target2/* 2>/dev/null || true
+
+      # Keep container running for manual inspection
+      sleep 3600
+    volumeMounts:
+    - name: volume1
+      mountPath: /data/target1
+    - name: volume2
+      mountPath: /data/target2
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+  volumes:
+  - name: volume1
+    persistentVolumeClaim:
+      claimName: pvc-target1
+  - name: volume2
+    persistentVolumeClaim:
+      claimName: pvc-target2
