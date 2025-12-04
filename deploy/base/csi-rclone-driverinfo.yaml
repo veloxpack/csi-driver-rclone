@@ -7,4 +7,6 @@ spec:
   attachRequired: false
   volumeLifecycleModes:
     - Persistent
+    - Ephemeral  # Enable inline/ephemeral volumes
   podInfoOnMount: true
+  fsGroupPolicy: File  # Enable FSGroupPolicy to allow mounting volumes with specific FSGroup

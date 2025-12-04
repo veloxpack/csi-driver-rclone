@@ -5,25 +5,25 @@ fullnameOverride: ""
 
 customLabels: {}
 image:
-    rclone:
-        repository: ghcr.io/veloxpack/csi-driver-rclone
-        # To use a specific Rclone version, use the corresponding image tag
-        # Tag defaults to v{{ .Chart.AppVersion }} if not specified
-        # Override with: --set image.rclone.tag=v0.1.0
-        # tag: ""  # Uncomment and set to override Chart.AppVersion
-        pullPolicy: IfNotPresent
-    csiProvisioner:
-        repository: registry.k8s.io/sig-storage/csi-provisioner
-        tag: v6.0.0
-        pullPolicy: IfNotPresent
-    livenessProbe:
-        repository: registry.k8s.io/sig-storage/livenessprobe
-        tag: v2.17.0
-        pullPolicy: IfNotPresent
-    nodeDriverRegistrar:
-        repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
-        tag: v2.15.0
-        pullPolicy: IfNotPresent
+  rclone:
+    repository: ghcr.io/veloxpack/csi-driver-rclone
+    # To use a specific Rclone version, use the corresponding image tag
+    # Tag defaults to v{{ .Chart.AppVersion }} if not specified
+    # Override with: --set image.rclone.tag=v0.1.0
+    # tag: ""  # Uncomment and set to override Chart.AppVersion
+    pullPolicy: IfNotPresent
+  csiProvisioner:
+    repository: registry.k8s.io/sig-storage/csi-provisioner
+    tag: v6.0.0
+    pullPolicy: IfNotPresent
+  livenessProbe:
+    repository: registry.k8s.io/sig-storage/livenessprobe
+    tag: v2.17.0
+    pullPolicy: IfNotPresent
+  nodeDriverRegistrar:
+    repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
+    tag: v2.15.0
+    pullPolicy: IfNotPresent
 
 serviceAccount:
   create: true # When true, service accounts will be created for you. Set to false if you want to use your own.
@@ -39,8 +39,13 @@ driver:
   mountPermissions: 0
 
 feature:
+  # Enable inline/ephemeral volumes (allows volumes defined directly in Pod specs)
+  # See: https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/
   enableInlineVolume: false
+  # Propagate mount options from the host
   propagateHostMountOptions: false
+  # Enable FSGroupPolicy to allow mounting volumes with specific FSGroup
+  enableFSGroupPolicy: true
 
 kubeletDir: /var/lib/kubelet
 

@@ -1,0 +1,61 @@
+---
+# Example: Deployment using inline CSI volume with Minio S3 backend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-inline-s3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deployment-inline-s3
+  template:
+    metadata:
+      labels:
+        app: deployment-inline-s3
+    spec:
+      containers:
+        - name: app
+          image: busybox:1.28
+          volumeMounts:
+          - mountPath: "/data"
+            name: s3-data
+          command: ["sleep", "1000000"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+      volumes:
+        - name: s3-data
+          csi:
+            driver: rclone.csi.veloxpack.io
+            volumeAttributes:
+              remote: "minio-sample"
+              remotePath: "mybucket"
+              # VFS caching for better performance
+              vfs-cache-mode: "full"
+              vfs-cache-max-size: "10G"
+              vfs-cache-max-age: "1h"
+              dir-cache-time: "5m"
+              # Mount options
+              allow-other: "true"
+            nodePublishSecretRef:
+              name: s3-credentials
+---
+# Secret containing Minio S3 credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: s3-credentials
+type: Opaque
+stringData:
+  configData: |
+    [minio-sample]
+    type = s3
+    provider = Minio
+    endpoint = http://minio.default.svc.cluster.local:9000
+    access_key_id = admin
+    secret_access_key = password
