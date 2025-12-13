@@ -874,7 +874,7 @@ github.com/prometheus/procfs/internal/util
 # github.com/putdotio/go-putio/putio v0.0.0-20200123120452-16d982cac2b8
 ## explicit; go 1.13
 github.com/putdotio/go-putio/putio
-# github.com/rclone/rclone v1.72.0
+# github.com/rclone/rclone v1.72.1
 ## explicit; go 1.24.4
 github.com/rclone/rclone/backend/alias
 github.com/rclone/rclone/backend/all
