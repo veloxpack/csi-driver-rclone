@@ -427,6 +427,7 @@ func (ns *NodeServer) createAndMountFilesystem(
 	// This context will live for the entire duration of the mount, not just the RPC call.
 	// This is critical for OAuth token refresh which needs a valid context to make
 	// HTTP requests to the token endpoint throughout the mount's lifetime.
+	// Fixes: https://github.com/veloxpack/csi-driver-rclone/issues/54
 	mountCtx, cancel := context.WithCancel(context.TODO())
 
 	// Create per-mount context with isolated config
