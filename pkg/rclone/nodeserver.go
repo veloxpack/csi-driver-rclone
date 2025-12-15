@@ -419,21 +419,28 @@ func (ns *NodeServer) cleanupConfigRemotes(remotes []string) {
 
 // createAndMountFilesystem initializes and mounts the rclone filesystem
 func (ns *NodeServer) createAndMountFilesystem(
-	ctx context.Context,
 	fsPath, targetPath string,
 	mountOptions []string,
 	params map[string]string,
 ) (*mountlib.MountPoint, context.Context, context.CancelFunc, error) {
+	// Create a long-lived context for this mount with cancellation for cleanup
+	// This context will live for the entire duration of the mount, not just the RPC call.
+	// This is critical for OAuth token refresh which needs a valid context to make
+	// HTTP requests to the token endpoint throughout the mount's lifetime.
+	// Fixes: https://github.com/veloxpack/csi-driver-rclone/issues/54
+	mountCtx, cancel := context.WithCancel(context.TODO())
+
 	// Create per-mount context with isolated config
-	ctx, ci := fs.AddConfig(ctx)
+	mountCtx, ci := fs.AddConfig(mountCtx)
 
 	// TODO: REVISIT - Per-mount accounting.Start(ctx) - Is this needed or is global accounting sufficient?
 	// Start accounting (bandwidth limiting, stats, TPS limiting)
-	// accounting.Start(ctx)
+	// accounting.Start(mountCtx)
 
 	// Extract volume mount options
 	volumeMountOpts, err := extractVolumeMountOptions(mountOptions)
 	if err != nil {
+		cancel()
 		return nil, nil, nil, status.Errorf(codes.Internal, "failed to parse volume mount options: %v", err)
 	}
 
@@ -441,25 +448,28 @@ func (ns *NodeServer) createAndMountFilesystem(
 	opts := mergeCopy(params, volumeMountOpts)
 
 	// Set rclone configuration flags
-	if err := setRcloneConfigFlags(ctx, ci, opts); err != nil {
+	if err := setRcloneConfigFlags(mountCtx, ci, opts); err != nil {
+		cancel()
 		return nil, nil, nil, err
 	}
 
-	// Initialize filesystem
-	rcloneFs, err := fs.NewFs(ctx, fsPath)
+	rcloneFs, err := fs.NewFs(mountCtx, fsPath)
 	if err != nil {
+		cancel()
 		return nil, nil, nil, status.Errorf(codes.Internal, "failed to initialize filesystem: %v", err)
 	}
 
 	// Extract Rclone mount options
 	mountOpts, err := extractMountOptions(opts)
 	if err != nil {
+		cancel()
 		return nil, nil, nil, status.Errorf(codes.Internal, "failed to parse mount options: %v", err)
 	}
 
 	// Extract Rclone VFS options
 	vfsOpts, err := extractVFSOptions(opts)
 	if err != nil {
+		cancel()
 		return nil, nil, nil, status.Errorf(codes.Internal, "failed to parse VFS options: %v", err)
 	}
 
@@ -471,6 +481,7 @@ func (ns *NodeServer) createAndMountFilesystem(
 	// Get mount function with enhanced resolution
 	mountType, mountFn, err := resolveMountMethod(opts)
 	if err != nil {
+		cancel()
 		return nil, nil, nil, status.Errorf(codes.InvalidArgument, "mount method resolution failed: %v", err)
 	}
 
@@ -478,9 +489,6 @@ func (ns *NodeServer) createAndMountFilesystem(
 
 	// Create mount point
 	mountPoint := mountlib.NewMountPoint(mountFn, targetPath, rcloneFs, mountOpts, vfsOpts)
-
-	// Create context with cancellation for VFS goroutines
-	ctx, cancel := context.WithCancel(ctx)
 
 	// Mount the filesystem
 	mountDaemon, err := mountPoint.Mount()
@@ -491,10 +499,11 @@ func (ns *NodeServer) createAndMountFilesystem(
 
 	// Handle rclone daemon if needed
 	if err := handleRcloneDaemon(mountPoint, mountDaemon, mountOpts, cancel); err != nil {
+		cancel()
 		return nil, nil, nil, err
 	}
 
-	return mountPoint, ctx, cancel, nil
+	return mountPoint, mountCtx, cancel, nil
 }
 
 // handleRcloneDaemon manages rclone daemon lifecycle for mount operations.
@@ -882,7 +891,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}()
 
 	// Create and mount the filesystem
-	mountPoint, ctx, cancel, err := ns.createAndMountFilesystem(ctx, fsPath, targetPath, mountOptions, pvp.params)
+	mountPoint, ctx, cancel, err := ns.createAndMountFilesystem(fsPath, targetPath, mountOptions, pvp.params)
 	if err != nil {
 		return nil, err
 	}
