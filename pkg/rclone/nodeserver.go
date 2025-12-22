@@ -64,12 +64,10 @@ var reservedParams = map[string]bool{
 
 // mountContext stores context information for each mount with direct rclone objects
 type mountContext struct {
-	context.Context
 	mountPoint *mountlib.MountPoint // Direct access to rclone mount point
 	remoteName string               // Created remote name (for backwards compatibility)
 	remotes    []string             // Remotes loaded for nested remotes
 	cancel     context.CancelFunc   // Context cancellation for VFS goroutines
-	ctx        context.Context      // Context for mount goroutines
 }
 
 // NodeServer implements the CSI Node service
@@ -891,7 +889,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}()
 
 	// Create and mount the filesystem
-	mountPoint, ctx, cancel, err := ns.createAndMountFilesystem(fsPath, targetPath, mountOptions, pvp.params)
+	mountPoint, _, cancel, err := ns.createAndMountFilesystem(fsPath, targetPath, mountOptions, pvp.params)
 	if err != nil {
 		return nil, err
 	}
@@ -904,7 +902,6 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		remoteName: pvp.remoteName,
 		remotes:    remotes,
 		cancel:     cancel,
-		ctx:        ctx,
 	})
 
 	klog.V(2).Infof("Successfully mounted volume %s to %s (remote: %s)", volumeID, targetPath, pvp.remoteName)
