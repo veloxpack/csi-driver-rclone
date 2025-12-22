@@ -43,7 +43,7 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch"]
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["get"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
 ---
 
 kind: ClusterRoleBinding
