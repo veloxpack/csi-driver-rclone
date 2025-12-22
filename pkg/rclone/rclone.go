@@ -49,28 +49,40 @@ type DriverOptions struct {
 
 // Driver is the main driver structure
 type Driver struct {
-	name        string
-	nodeID      string
-	version     string
-	endpoint    string
-	ns          *NodeServer
-	cscap       []*csi.ControllerServiceCapability
-	nscap       []*csi.NodeServiceCapability
-	volumeLocks *VolumeLocks
+	name         string
+	nodeID       string
+	version      string
+	endpoint     string
+	ns           *NodeServer
+	cscap        []*csi.ControllerServiceCapability
+	nscap        []*csi.NodeServiceCapability
+	volumeLocks  *VolumeLocks
+	stateManager *MountStateManager
 }
 
 // NewDriver creates a new driver instance
 func NewDriver(options *DriverOptions) *Driver {
 	klog.V(2).Infof("Driver: %v version: %v", options.DriverName, driverVersion)
 
+	driverNamespace, err := GetCSIDriverNamespace()
+	if err != nil {
+		klog.Fatalf("Failed to get CSI driver namespace: %v", err)
+	}
+
+	stateManager, err := NewMountStateManager(driverNamespace)
+	if err != nil {
+		klog.Fatalf("Failed to initialize mount state manager: %v", err)
+	}
+
 	// Initialize rclone logging to redirect to klog
 	InitRcloneLogging()
 
 	d := &Driver{
-		name:     options.DriverName,
-		version:  driverVersion,
-		nodeID:   options.NodeID,
-		endpoint: options.Endpoint,
+		name:         options.DriverName,
+		version:      driverVersion,
+		nodeID:       options.NodeID,
+		endpoint:     options.Endpoint,
+		stateManager: stateManager,
 	}
 
 	d.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{
