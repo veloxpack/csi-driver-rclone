@@ -1,6 +1,8 @@
 package rclone
 
 import (
+	"os"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -42,4 +44,13 @@ func loadKubeConfig() (*rest.Config, error) {
 	}
 
 	return config, nil
+}
+
+// GetCSIDriverNamespace returns the namespace where the CSI driver is running
+func GetCSIDriverNamespace() (string, error) {
+	if ns := os.Getenv("CSI_NAMESPACE"); ns != "" {
+		return ns, nil
+	}
+
+	return "default", nil
 }
