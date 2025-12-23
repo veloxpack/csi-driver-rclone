@@ -104,9 +104,11 @@ type MountStateManager struct {
 
 // newMountStateManager creates a new MountStateManager instance.
 // It initializes the Kubernetes client and sets up the secret interface.
-func NewMountStateManager(namespace string) (*MountStateManager, error) {
-	if namespace == "" {
-		namespace = "default"
+func NewMountStateManager() (*MountStateManager, error) {
+	// Get CSI driver namespace
+	namespace, err := GetCSIDriverNamespace()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CSI driver namespace: %w", err)
 	}
 
 	clientset, err := getK8sClient()
@@ -256,16 +258,16 @@ func (sm *MountStateManager) buildSecret(state *MountState) (*v1.Secret, error) 
 			keyRemoteName:   state.RemoteName,
 			keyRemotePath:   state.RemotePath,
 			keyRemoteType:   state.RemoteType,
-			keyMountParams:  string(paramsJSON),
-			keyMountOptions: string(mountOptsJSON),
+			keyMountParams:  byteToString(paramsJSON),
+			keyMountOptions: byteToString(mountOptsJSON),
 			keyTimestamp:    timestamp.Format(time.RFC3339),
-			keyReadOnly:     fmt.Sprintf("%v", state.ReadOnly),
+			keyReadOnly:     strconv.FormatBool(state.ReadOnly),
 		},
 	}
 
 	// Add PID if set
 	if state.MountDaemonPID > 0 {
-		secret.StringData[keyPid] = fmt.Sprintf("%d", state.MountDaemonPID)
+		secret.StringData[keyPid] = strconv.Itoa(state.MountDaemonPID)
 	}
 
 	return secret, nil

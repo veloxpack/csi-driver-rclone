@@ -127,14 +127,8 @@ func (d *Driver) Run(testMode bool) {
 	var stateManager *MountStateManager
 
 	if d.mountExisting {
-		// Get CSI driver namespace
-		driverNamespace, err := GetCSIDriverNamespace()
-		if err != nil {
-			klog.Fatalf("Failed to get CSI driver namespace: %v", err)
-		}
-
 		// Initialize mount state manager
-		stateManager, err = NewMountStateManager(driverNamespace)
+		stateManager, err = NewMountStateManager()
 		if err != nil {
 			klog.Fatalf("Failed to initialize mount state manager: %v", err)
 		}
