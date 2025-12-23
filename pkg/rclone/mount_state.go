@@ -130,7 +130,7 @@ func (sm *MountStateManager) makeSecretName(volumeID string) string {
 }
 
 // deserializeSecret converts a Kubernetes Secret into a MountState struct.
-func (sm *MountStateManager) deserializeSecret(secret *v1.Secret) (*MountState, error) {
+func (sm *MountStateManager) deserializeSecret(secret *v1.Secret) *MountState {
 	state := &MountState{
 		VolumeID:   byteToString(secret.Data[keyVolumeID]),
 		TargetPath: byteToString(secret.Data[keyTargetPath]),
@@ -138,7 +138,7 @@ func (sm *MountStateManager) deserializeSecret(secret *v1.Secret) (*MountState, 
 		RemoteName: byteToString(secret.Data[keyRemoteName]),
 		RemotePath: byteToString(secret.Data[keyRemotePath]),
 		RemoteType: byteToString(secret.Data[keyRemoteType]),
-		ReadOnly:   byteToString(secret.Data[keyReadOnly]) == "true",
+		ReadOnly:   byteToString(secret.Data[keyReadOnly]) == trueValue,
 	}
 
 	// Parse timestamp
@@ -180,7 +180,7 @@ func (sm *MountStateManager) deserializeSecret(secret *v1.Secret) (*MountState, 
 		}
 	}
 
-	return state, nil
+	return state
 }
 
 // SaveState persists complete volume state as a Kubernetes Secret.
@@ -312,11 +312,7 @@ func (sm *MountStateManager) LoadState(ctx context.Context) ([]*MountState, erro
 
 	states := make([]*MountState, 0, len(secretList.Items))
 	for _, secret := range secretList.Items {
-		state, err := sm.deserializeSecret(&secret)
-		if err != nil {
-			klog.Warningf("Failed to deserialize secret %s: %v", secret.Name, err)
-			continue
-		}
+		state := sm.deserializeSecret(&secret)
 		states = append(states, state)
 	}
 

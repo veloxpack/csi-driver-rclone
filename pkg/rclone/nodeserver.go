@@ -417,11 +417,13 @@ func (ns *NodeServer) cleanupConfigRemotes(remotes []string) {
 }
 
 // createAndMountFilesystem initializes and mounts the rclone filesystem
+//
+//nolint:unparam // context.Context is kept for potential future use
 func (ns *NodeServer) createAndMountFilesystem(
 	fsPath, targetPath string,
 	mountOptions []string,
 	params map[string]string,
-) (*mountlib.MountPoint, context.Context, context.CancelFunc, int, error) {
+) (*mountlib.MountPoint, context.Context, context.CancelFunc, int, error) { //nolint:unparam
 	// Create a long-lived context for this mount with cancellation for cleanup
 	// This context will live for the entire duration of the mount, not just the RPC call.
 	// This is critical for OAuth token refresh which needs a valid context to make
@@ -1156,7 +1158,10 @@ func (ns *NodeServer) RemountState(ctx context.Context, state *MountState) error
 			if err == nil {
 				// Try to send interrupt signal to gracefully terminate
 				if err := process.Signal(os.Interrupt); err != nil {
-					klog.Warningf("Failed to send interrupt signal to daemon pid %d: %v, will try unmount anyway", state.MountDaemonPID, err)
+					klog.Warningf(
+						"Failed to send interrupt signal to daemon pid %d: %v, will try unmount anyway",
+						state.MountDaemonPID, err,
+					)
 				} else {
 					klog.V(2).Infof("Sent interrupt signal to daemon pid %d", state.MountDaemonPID)
 					// Give it a moment to terminate gracefully
@@ -1207,7 +1212,9 @@ func (ns *NodeServer) RemountState(ctx context.Context, state *MountState) error
 	fsPath := buildFsPath(pvp.remoteName, pvp.remotePath)
 
 	// Create and mount the filesystem
-	mountPoint, _, cancel, pid, err := ns.createAndMountFilesystem(fsPath, state.TargetPath, state.MountOptions, pvp.params)
+	mountPoint, _, cancel, pid, err := ns.createAndMountFilesystem(
+		fsPath, state.TargetPath, state.MountOptions, pvp.params,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to mount filesystem: %w", err)
 	}
