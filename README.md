@@ -130,6 +130,49 @@ helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclo
 
 </details>
 
+**With Mount Existing (Automatic Remount on Restart):**
+
+Enable automatic remounting of volumes after driver restart. This feature saves mount state to Kubernetes Secrets and automatically remounts volumes when the driver restarts, ensuring volumes remain accessible even after node reboots or driver crashes.
+
+**Use cases:**
+- **Node reboots**: Volumes are automatically remounted when the node comes back online
+- **Driver restarts**: Maintains volume accessibility during driver updates or crashes
+- **High availability**: Ensures persistent volumes remain mounted across driver lifecycle events
+
+**How it works:**
+1. Mount state (remote config, mount options) is saved to Kubernetes Secrets when volumes are mounted
+2. On driver startup, saved mount states are loaded and volumes are automatically remounted
+3. If a volume is already mounted, it will be unmounted and remounted to ensure consistency
+
+**Installation:**
+
+```bash
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
+  --namespace veloxpack --create-namespace \
+  --set node.extraArgs.mount-existing=true
+```
+
+<details>
+<summary>Advanced mount-existing configuration</summary>
+
+The mount state is stored in Kubernetes Secrets in the same namespace as the driver. You can customize the namespace if needed:
+
+```bash
+# The mount state manager automatically detects the driver namespace
+# Mount states are stored as Secrets with prefix: rclone-mount-state-<hash>
+# Each secret contains: volumeId, targetPath, configData, mountParams, etc.
+
+# View saved mount states
+kubectl get secrets -n veloxpack -l app.kubernetes.io/name=csi-driver-rclone,app.kubernetes.io/component=mount-state
+
+# Inspect a specific mount state
+kubectl get secret rclone-mount-state-<hash> -n veloxpack -o yaml
+```
+
+**Note:** When `mount-existing` is enabled, daemon mode is automatically enabled for all mounts to support proper cleanup and remounting.
+
+</details>
+
 **With Remote Control (RC) API:**
 
 Enable the rclone Remote Control API for programmatic control (e.g., VFS cache refresh, stats):

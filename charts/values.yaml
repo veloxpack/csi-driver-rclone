@@ -213,7 +213,9 @@ node:
 
   # Additional command-line arguments.
   # Example: helm template ./charts --set node.extraArgs.metrics-addr=":5572"
-  extraArgs: {}
+  extraArgs:
+    # Mount existing volume mount points on startup
+    mount-existing: false
 
   # Cache directory mount configuration
   # This allows mounting a host path for the rclone cache directory, useful for:

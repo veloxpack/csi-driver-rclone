@@ -72,11 +72,12 @@ type mountContext struct {
 
 // NodeServer implements the CSI Node service
 type NodeServer struct {
-	Driver       *Driver
-	mounter      mount.Interface
-	mountContext map[string]*mountContext
-	mu           sync.RWMutex
-	configMu     sync.Mutex // Protects concurrent config operations
+	Driver            *Driver
+	mounter           mount.Interface
+	mountStateManager *MountStateManager
+	mountContext      map[string]*mountContext
+	mu                sync.RWMutex
+	configMu          sync.Mutex // Protects concurrent config operations
 	csi.UnimplementedNodeServer
 }
 
@@ -420,7 +421,7 @@ func (ns *NodeServer) createAndMountFilesystem(
 	fsPath, targetPath string,
 	mountOptions []string,
 	params map[string]string,
-) (*mountlib.MountPoint, context.Context, context.CancelFunc, error) {
+) (*mountlib.MountPoint, context.Context, context.CancelFunc, int, error) {
 	// Create a long-lived context for this mount with cancellation for cleanup
 	// This context will live for the entire duration of the mount, not just the RPC call.
 	// This is critical for OAuth token refresh which needs a valid context to make
@@ -439,7 +440,7 @@ func (ns *NodeServer) createAndMountFilesystem(
 	volumeMountOpts, err := extractVolumeMountOptions(mountOptions)
 	if err != nil {
 		cancel()
-		return nil, nil, nil, status.Errorf(codes.Internal, "failed to parse volume mount options: %v", err)
+		return nil, nil, nil, 0, status.Errorf(codes.Internal, "failed to parse volume mount options: %v", err)
 	}
 
 	// Merge both params and mount options
@@ -448,27 +449,27 @@ func (ns *NodeServer) createAndMountFilesystem(
 	// Set rclone configuration flags
 	if err := setRcloneConfigFlags(mountCtx, ci, opts); err != nil {
 		cancel()
-		return nil, nil, nil, err
+		return nil, nil, nil, 0, err
 	}
 
 	rcloneFs, err := fs.NewFs(mountCtx, fsPath)
 	if err != nil {
 		cancel()
-		return nil, nil, nil, status.Errorf(codes.Internal, "failed to initialize filesystem: %v", err)
+		return nil, nil, nil, 0, status.Errorf(codes.Internal, "failed to initialize filesystem: %v", err)
 	}
 
 	// Extract Rclone mount options
 	mountOpts, err := extractMountOptions(opts)
 	if err != nil {
 		cancel()
-		return nil, nil, nil, status.Errorf(codes.Internal, "failed to parse mount options: %v", err)
+		return nil, nil, nil, 0, status.Errorf(codes.Internal, "failed to parse mount options: %v", err)
 	}
 
 	// Extract Rclone VFS options
 	vfsOpts, err := extractVFSOptions(opts)
 	if err != nil {
 		cancel()
-		return nil, nil, nil, status.Errorf(codes.Internal, "failed to parse VFS options: %v", err)
+		return nil, nil, nil, 0, status.Errorf(codes.Internal, "failed to parse VFS options: %v", err)
 	}
 
 	// Set device name if not already set
@@ -480,10 +481,13 @@ func (ns *NodeServer) createAndMountFilesystem(
 	mountType, mountFn, err := resolveMountMethod(opts)
 	if err != nil {
 		cancel()
-		return nil, nil, nil, status.Errorf(codes.InvalidArgument, "mount method resolution failed: %v", err)
+		return nil, nil, nil, 0, status.Errorf(codes.InvalidArgument, "mount method resolution failed: %v", err)
 	}
 
 	klog.V(4).Infof("Using mount method: %s", mountType)
+
+	// Determine if daemon mode is enabled
+	mountOpts.Daemon = mountOpts.Daemon || ns.mountStateManager != nil
 
 	// Create mount point
 	mountPoint := mountlib.NewMountPoint(mountFn, targetPath, rcloneFs, mountOpts, vfsOpts)
@@ -492,16 +496,22 @@ func (ns *NodeServer) createAndMountFilesystem(
 	mountDaemon, err := mountPoint.Mount()
 	if err != nil {
 		cancel()
-		return nil, nil, nil, status.Errorf(codes.Internal, "failed to mount: %v", err)
+		return nil, nil, nil, 0, status.Errorf(codes.Internal, "failed to mount: %v", err)
+	}
+
+	// Get PID from mount daemon if available
+	pid := 0
+	if mountDaemon != nil {
+		pid = mountDaemon.Pid
 	}
 
 	// Handle rclone daemon if needed
 	if err := handleRcloneDaemon(mountPoint, mountDaemon, mountOpts, cancel); err != nil {
 		cancel()
-		return nil, nil, nil, err
+		return nil, nil, nil, 0, err
 	}
 
-	return mountPoint, mountCtx, cancel, nil
+	return mountPoint, mountCtx, cancel, pid, nil
 }
 
 // handleRcloneDaemon manages rclone daemon lifecycle for mount operations.
@@ -889,7 +899,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}()
 
 	// Create and mount the filesystem
-	mountPoint, _, cancel, err := ns.createAndMountFilesystem(fsPath, targetPath, mountOptions, pvp.params)
+	mountPoint, _, cancel, pid, err := ns.createAndMountFilesystem(fsPath, targetPath, mountOptions, pvp.params)
 	if err != nil {
 		return nil, err
 	}
@@ -904,6 +914,31 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		cancel:     cancel,
 	})
 
+	// Save mount state for remounting on boot
+	if ns.mountStateManager != nil {
+		klog.V(2).Infof("Saving mount state for volume %s with PID %d", volumeID, pid)
+
+		state := &MountState{
+			VolumeID:       volumeID,
+			TargetPath:     targetPath,
+			Timestamp:      time.Now(),
+			ConfigData:     pvp.configData,
+			RemoteName:     pvp.remoteName,
+			RemotePath:     pvp.remotePath,
+			RemoteType:     pvp.remoteType,
+			MountParams:    pvp.params,
+			MountOptions:   mountOptions,
+			ReadOnly:       readOnly,
+			MountDaemonPID: pid,
+		}
+		if err := ns.mountStateManager.SaveState(ctx, state); err != nil {
+			klog.Warningf("Failed to save mount state for volume %s: %v", volumeID, err)
+			// Don't fail the mount if state save fails
+		} else {
+			klog.V(4).Infof("Saved mount state for volume %s", volumeID)
+		}
+	}
+
 	klog.V(2).Infof("Successfully mounted volume %s to %s (remote: %s)", volumeID, targetPath, pvp.remoteName)
 	return &csi.NodePublishVolumeResponse{}, nil
 }
@@ -911,7 +946,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 // NodeUnpublishVolume unmounts the rclone volume using direct stats access
 //
 //nolint:lll
-func (ns *NodeServer) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+func (ns *NodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	// Validate request
 	if err := validateUnpublishVolumeRequest(req); err != nil {
 		return nil, err
@@ -937,6 +972,16 @@ func (ns *NodeServer) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpubl
 
 	// Remove mount context
 	ns.deleteMountContext(targetPath)
+
+	// Delete mount state after successful unmount
+	if ns.mountStateManager != nil {
+		if err := ns.mountStateManager.DeleteState(ctx, volumeID, targetPath); err != nil {
+			klog.Warningf("Failed to delete mount state for volume %s: %v", volumeID, err)
+			// Don't fail the unmount if state delete fails
+		} else {
+			klog.V(4).Infof("Deleted mount state for volume %s", volumeID)
+		}
+	}
 
 	klog.V(2).Infof("Successfully unmounted volume %s from %s", volumeID, targetPath)
 	return &csi.NodeUnpublishVolumeResponse{}, nil
@@ -1077,4 +1122,156 @@ func (ns *NodeServer) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVo
 //nolint:lll
 func (ns *NodeServer) NodeExpandVolume(_ context.Context, _ *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
+}
+
+// RemountState remounts a volume from a saved MountState.
+// This is used for recovery scenarios where the driver needs to remount volumes after a restart.
+func (ns *NodeServer) RemountState(ctx context.Context, state *MountState) error {
+	if err := state.Validate(); err != nil {
+		return fmt.Errorf("invalid mount state: %w", err)
+	}
+
+	klog.V(2).Infof("Remounting volume %s to %s (remote: %s)", state.VolumeID, state.TargetPath, state.RemoteName)
+
+	// Check if already mounted
+	notMnt, err := ns.mounter.IsLikelyNotMountPoint(state.TargetPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Directory doesn't exist, create it
+			if err := os.MkdirAll(state.TargetPath, 0755); err != nil {
+				return fmt.Errorf("failed to create target directory: %w", err)
+			}
+			notMnt = true
+		} else {
+			return fmt.Errorf("failed to check mount point: %w", err)
+		}
+	}
+
+	if !notMnt {
+		klog.V(2).Infof("Volume %s already mounted at %s, unmounting and remounting", state.VolumeID, state.TargetPath)
+
+		// Kill old daemon process if PID is saved in state
+		if state.MountDaemonPID > 0 {
+			process, err := os.FindProcess(state.MountDaemonPID)
+			if err == nil {
+				// Try to send interrupt signal to gracefully terminate
+				if err := process.Signal(os.Interrupt); err != nil {
+					klog.Warningf("Failed to send interrupt signal to daemon pid %d: %v, will try unmount anyway", state.MountDaemonPID, err)
+				} else {
+					klog.V(2).Infof("Sent interrupt signal to daemon pid %d", state.MountDaemonPID)
+					// Give it a moment to terminate gracefully
+					time.Sleep(500 * time.Millisecond)
+				}
+			} else {
+				klog.V(4).Infof("Process with pid %d not found (may have already terminated): %v", state.MountDaemonPID, err)
+			}
+		}
+
+		// Get mount context and unmount
+		if mc := ns.getMountContext(state.TargetPath); mc != nil {
+			if err := ns.unmountVolume(mc, state.TargetPath); err != nil {
+				klog.Warningf("Failed to unmount existing mount at %s: %v, will attempt remount anyway", state.TargetPath, err)
+			} else {
+				klog.V(2).Infof("Successfully unmounted existing mount at %s", state.TargetPath)
+			}
+
+			// Remove mount context
+			ns.deleteMountContext(state.TargetPath)
+		}
+	}
+
+	// Build publish volume params from state
+	pvp := &publishVolumeParams{
+		remoteName: state.RemoteName,
+		remotePath: state.RemotePath,
+		configData: state.ConfigData,
+		remoteType: state.RemoteType,
+		params:     state.MountParams,
+	}
+
+	// Load rclone config
+	remotes, err := ns.loadRcloneConfig(ctx, pvp)
+	if err != nil {
+		return fmt.Errorf("failed to load rclone config: %w", err)
+	}
+
+	// Ensure cleanup on failure
+	var mountSuccess bool
+	defer func() {
+		if !mountSuccess {
+			ns.cleanupConfigRemotes(remotes)
+		}
+	}()
+
+	// Build filesystem path
+	fsPath := buildFsPath(pvp.remoteName, pvp.remotePath)
+
+	// Create and mount the filesystem
+	mountPoint, _, cancel, pid, err := ns.createAndMountFilesystem(fsPath, state.TargetPath, state.MountOptions, pvp.params)
+	if err != nil {
+		return fmt.Errorf("failed to mount filesystem: %w", err)
+	}
+
+	mountSuccess = true
+
+	// Store mount context
+	ns.setMountContext(state.TargetPath, &mountContext{
+		mountPoint: mountPoint,
+		remoteName: pvp.remoteName,
+		remotes:    remotes,
+		cancel:     cancel,
+	})
+
+	// Update timestamp and PID in saved state
+	if ns.mountStateManager != nil {
+		state.Timestamp = time.Now()
+		state.MountDaemonPID = pid
+		if err := ns.mountStateManager.SaveState(ctx, state); err != nil {
+			klog.Warningf("Failed to update mount state timestamp for volume %s: %v", state.VolumeID, err)
+		}
+	}
+
+	klog.V(2).Infof("Successfully remounted volume %s to %s", state.VolumeID, state.TargetPath)
+	return nil
+}
+
+// RemountAllStates loads all saved mount states and remounts them.
+// This is typically called during driver initialization to restore mounts after a restart.
+func (ns *NodeServer) RemountAllStates(ctx context.Context) error {
+	if ns.mountStateManager == nil {
+		klog.V(2).Info("State manager not initialized, skipping remount")
+		return nil
+	}
+
+	states, err := ns.mountStateManager.LoadState(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load mount states: %w", err)
+	}
+
+	if len(states) == 0 {
+		klog.V(2).Info("No mount states found to remount")
+		return nil
+	}
+
+	klog.V(2).Infof("Found %d mount states to remount", len(states))
+
+	successCount := 0
+	errorCount := 0
+
+	for _, state := range states {
+		if err := ns.RemountState(ctx, state); err != nil {
+			klog.Errorf("Failed to remount volume %s: %v", state.VolumeID, err)
+			errorCount++
+			continue
+		}
+		successCount++
+	}
+
+	klog.V(2).Infof("Remount complete: %d successful, %d failed", successCount, errorCount)
+
+	if errorCount > 0 {
+		return fmt.Errorf("failed to remount %d out of %d volumes", errorCount, len(states))
+	}
+
+	return nil
 }

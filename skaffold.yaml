@@ -66,6 +66,13 @@ profiles:
         paths:
           - deploy/overlays/metrics
 
+  # Mount existing volume mount points on startup
+  - name: mount-existing
+    manifests:
+      kustomize:
+        paths:
+          - deploy/overlays/mount-existing
+
   # Metrics with Service — adds Kubernetes Service for metrics endpoint
   # Useful for annotation-based Prometheus scraping or service discovery
   - name: metrics-service

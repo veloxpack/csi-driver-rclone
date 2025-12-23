@@ -58,3 +58,16 @@ roleRef:
   kind: ClusterRole
   name: rclone-external-provisioner-role
   apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: rclone-csi-node-binding
+subjects:
+  - kind: ServiceAccount
+    name: csi-rclone-node-sa
+    namespace: system
+roleRef:
+  kind: ClusterRole
+  name: rclone-external-provisioner-role
+  apiGroup: rbac.authorization.k8s.io

@@ -42,47 +42,38 @@ const (
 
 // DriverOptions defines driver parameters specified in driver deployment
 type DriverOptions struct {
-	NodeID     string
-	DriverName string
-	Endpoint   string
+	NodeID        string
+	DriverName    string
+	Endpoint      string
+	MountExisting bool
 }
 
 // Driver is the main driver structure
 type Driver struct {
-	name         string
-	nodeID       string
-	version      string
-	endpoint     string
-	ns           *NodeServer
-	cscap        []*csi.ControllerServiceCapability
-	nscap        []*csi.NodeServiceCapability
-	volumeLocks  *VolumeLocks
-	stateManager *MountStateManager
+	name          string
+	mountExisting bool
+	nodeID        string
+	version       string
+	endpoint      string
+	ns            *NodeServer
+	cscap         []*csi.ControllerServiceCapability
+	nscap         []*csi.NodeServiceCapability
+	volumeLocks   *VolumeLocks
 }
 
 // NewDriver creates a new driver instance
 func NewDriver(options *DriverOptions) *Driver {
 	klog.V(2).Infof("Driver: %v version: %v", options.DriverName, driverVersion)
 
-	driverNamespace, err := GetCSIDriverNamespace()
-	if err != nil {
-		klog.Fatalf("Failed to get CSI driver namespace: %v", err)
-	}
-
-	stateManager, err := NewMountStateManager(driverNamespace)
-	if err != nil {
-		klog.Fatalf("Failed to initialize mount state manager: %v", err)
-	}
-
 	// Initialize rclone logging to redirect to klog
 	InitRcloneLogging()
 
 	d := &Driver{
-		name:         options.DriverName,
-		version:      driverVersion,
-		nodeID:       options.NodeID,
-		endpoint:     options.Endpoint,
-		stateManager: stateManager,
+		name:          options.DriverName,
+		version:       driverVersion,
+		nodeID:        options.NodeID,
+		endpoint:      options.Endpoint,
+		mountExisting: options.MountExisting,
 	}
 
 	d.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{
@@ -102,10 +93,11 @@ func NewDriver(options *DriverOptions) *Driver {
 }
 
 // NewNodeServer creates a new node server
-func NewNodeServer(d *Driver, mounter mount.Interface) *NodeServer {
+func NewNodeServer(d *Driver, mounter mount.Interface, stateManager *MountStateManager) *NodeServer {
 	return &NodeServer{
-		Driver:  d,
-		mounter: mounter,
+		Driver:            d,
+		mounter:           mounter,
+		mountStateManager: stateManager,
 	}
 }
 
@@ -131,7 +123,33 @@ func (d *Driver) Run(testMode bool) {
 	klog.V(2).Info("Rclone core initialization complete")
 
 	mounter := mount.New("")
-	d.ns = NewNodeServer(d, mounter)
+
+	var stateManager *MountStateManager
+
+	if d.mountExisting {
+		// Get CSI driver namespace
+		driverNamespace, err := GetCSIDriverNamespace()
+		if err != nil {
+			klog.Fatalf("Failed to get CSI driver namespace: %v", err)
+		}
+
+		// Initialize mount state manager
+		stateManager, err = NewMountStateManager(driverNamespace)
+		if err != nil {
+			klog.Fatalf("Failed to initialize mount state manager: %v", err)
+		}
+	}
+
+	// Initialize node server
+	d.ns = NewNodeServer(d, mounter, stateManager)
+
+	// Remount all saved states on boot
+	if stateManager != nil {
+		if err := d.ns.RemountAllStates(ctx); err != nil {
+			klog.Warningf("Failed to remount all states on boot: %v", err)
+			// Don't fail driver startup if remount fails - mounts may have been cleaned up
+		}
+	}
 
 	// Initialize metrics collector with NodeServer reference
 	if err := initMetricsCollector(ctx, d.nodeID, d.name, d.endpoint, d.ns); err != nil {
