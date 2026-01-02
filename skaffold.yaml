@@ -14,6 +14,7 @@
 #   metrics-full       - Complete setup (Service + ServiceMonitor + Dashboard)
 #   rc-basic           - RC API endpoint only (requires csi-rclone-rc-auth secret)
 #   rc-service         - RC API + Service (requires csi-rclone-rc-auth secret)
+#   mount-existing     - Mount existing volume mount points on startup
 #
 # Port Forwards:
 #   metrics-service, metrics-prometheus, metrics-full:

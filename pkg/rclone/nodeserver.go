@@ -491,6 +491,11 @@ func (ns *NodeServer) createAndMountFilesystem(
 	// Determine if daemon mode is enabled
 	mountOpts.Daemon = mountOpts.Daemon || ns.mountStateManager != nil
 
+	// Set default daemon wait time if not configured
+	if mountOpts.Daemon && mountOpts.DaemonWait <= 0 {
+		mountOpts.DaemonWait = fs.Duration(5 * time.Second)
+	}
+
 	// Create mount point
 	mountPoint := mountlib.NewMountPoint(mountFn, targetPath, rcloneFs, mountOpts, vfsOpts)
 
@@ -812,7 +817,26 @@ func (ns *NodeServer) unmountVolume(mc *mountContext, targetPath string) error {
 		err = mount.CleanupMountPoint(targetPath, ns.mounter, extensiveMountPointCheck)
 	}
 
-	return err
+	// If cleanup failed because directory is not empty and not a mountpoint,
+	// treat it as success (mount is already gone, just leftover files)
+	if err != nil {
+		notMnt, checkErr := ns.mounter.IsLikelyNotMountPoint(targetPath)
+		if checkErr == nil && notMnt {
+			// Check if error is about directory not empty
+			if strings.Contains(err.Error(), "directory not empty") ||
+				strings.Contains(err.Error(), "not empty") {
+				klog.V(2).Infof(
+					"Mount point %s is not mounted and directory is not empty, "+
+						"treating as success (mount already removed)",
+					targetPath,
+				)
+				return nil
+			}
+		}
+		return err
+	}
+
+	return nil
 }
 
 // NodePublishVolume mounts the rclone volume using direct rclone library integration
