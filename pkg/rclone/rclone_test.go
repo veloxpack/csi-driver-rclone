@@ -133,7 +133,7 @@ func TestNewNodeServer(t *testing.T) {
 
 	mounter := mount.NewFakeMounter([]mount.MountPoint{})
 
-	ns := NewNodeServer(driver, mounter)
+	ns := NewNodeServer(driver, mounter, nil)
 	assert.NotNil(t, ns)
 	assert.Equal(t, driver, ns.Driver)
 	assert.Equal(t, mounter, ns.mounter)

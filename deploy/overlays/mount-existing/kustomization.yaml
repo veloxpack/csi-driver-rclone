@@ -1,0 +1,9 @@
+
+namespace: veloxpack
+
+resources:
+  - ../../base
+
+components:
+  - ../../components/mount-existing
+
