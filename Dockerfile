@@ -54,7 +54,7 @@ RUN RCLONE_VERSION=$(grep "github.com/rclone/rclone" go.mod | awk '{print $2}' |
     cmd/rcloneplugin/main.go
 
 # Use alpine as base image to package the rcloneplugin binary with rclone
-FROM alpine:3.23.2
+FROM alpine:3.23.3
 WORKDIR /
 
 # Install required dependencies
