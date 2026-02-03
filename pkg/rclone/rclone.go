@@ -42,23 +42,23 @@ const (
 
 // DriverOptions defines driver parameters specified in driver deployment
 type DriverOptions struct {
-	NodeID        string
-	DriverName    string
-	Endpoint      string
-	MountExisting bool
+	NodeID     string
+	DriverName string
+	Endpoint   string
+	Remount    bool
 }
 
 // Driver is the main driver structure
 type Driver struct {
-	name          string
-	mountExisting bool
-	nodeID        string
-	version       string
-	endpoint      string
-	ns            *NodeServer
-	cscap         []*csi.ControllerServiceCapability
-	nscap         []*csi.NodeServiceCapability
-	volumeLocks   *VolumeLocks
+	name        string
+	remount     bool
+	nodeID      string
+	version     string
+	endpoint    string
+	ns          *NodeServer
+	cscap       []*csi.ControllerServiceCapability
+	nscap       []*csi.NodeServiceCapability
+	volumeLocks *VolumeLocks
 }
 
 // NewDriver creates a new driver instance
@@ -69,11 +69,11 @@ func NewDriver(options *DriverOptions) *Driver {
 	InitRcloneLogging()
 
 	d := &Driver{
-		name:          options.DriverName,
-		version:       driverVersion,
-		nodeID:        options.NodeID,
-		endpoint:      options.Endpoint,
-		mountExisting: options.MountExisting,
+		name:     options.DriverName,
+		version:  driverVersion,
+		nodeID:   options.NodeID,
+		endpoint: options.Endpoint,
+		remount:  options.Remount,
 	}
 
 	d.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{
@@ -126,7 +126,7 @@ func (d *Driver) Run(testMode bool) {
 
 	var stateManager *MountStateManager
 
-	if d.mountExisting {
+	if d.remount {
 		// Initialize mount state manager
 		stateManager, err = NewMountStateManager()
 		if err != nil {

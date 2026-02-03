@@ -54,7 +54,6 @@ const (
 	keyMountParams  = "mountParams"
 	keyMountOptions = "mountOptions"
 	keyReadOnly     = "readonly"
-	keyPid          = "pid"
 )
 
 // MountState represents the complete state needed to remount a volume.
@@ -75,9 +74,6 @@ type MountState struct {
 	MountParams  map[string]string `json:"mountParams"`
 	MountOptions []string          `json:"mountOptions"`
 	ReadOnly     bool              `json:"readonly"`
-
-	// Daemon process ID (for remount cleanup)
-	MountDaemonPID int `json:"pid,omitempty"`
 }
 
 // Validate checks if the MountState contains required fields.
@@ -172,16 +168,6 @@ func (sm *MountStateManager) deserializeSecret(secret *v1.Secret) *MountState {
 		state.MountOptions = make([]string, 0)
 	}
 
-	// Parse PID if present
-	if pidStr := byteToString(secret.Data[keyPid]); pidStr != "" {
-		if pid, err := strconv.Atoi(pidStr); err != nil {
-			klog.Warningf("Failed to parse PID '%s': %v", pidStr, err)
-			state.MountDaemonPID = 0
-		} else {
-			state.MountDaemonPID = pid
-		}
-	}
-
 	return state
 }
 
@@ -263,11 +249,6 @@ func (sm *MountStateManager) buildSecret(state *MountState) (*v1.Secret, error) 
 			keyTimestamp:    timestamp.Format(time.RFC3339),
 			keyReadOnly:     strconv.FormatBool(state.ReadOnly),
 		},
-	}
-
-	// Add PID if set
-	if state.MountDaemonPID > 0 {
-		secret.StringData[keyPid] = strconv.Itoa(state.MountDaemonPID)
 	}
 
 	return secret, nil

@@ -159,11 +159,12 @@ helm-validate:
 
 .PHONY: minikube-start
 minikube-start:
-	minikube start \
-		--memory=4096 \
+	minikube start -p newprofile \
+		--driver=docker \
+		--memory=4600MB \
 		--cpus=2 \
-		--disk-size=20g \
-		--kubernetes-version=1.34.0
+		--bootstrapper=kubeadm \
+		--kubernetes-version=1.35.0
 
 .PHONY: minikube-stop
 minikube-stop:

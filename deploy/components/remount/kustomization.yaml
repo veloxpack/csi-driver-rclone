@@ -8,4 +8,4 @@ patches:
     patch: |-
       - op: add
         path: /spec/template/spec/containers/2/args/-
-        value: "--mount-existing"
+        value: "--remount"

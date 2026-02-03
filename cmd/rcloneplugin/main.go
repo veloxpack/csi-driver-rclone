@@ -29,10 +29,10 @@ import (
 )
 
 var (
-	endpoint      = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
-	nodeID        = flag.String("nodeid", "", "node id")
-	driverName    = flag.String("drivername", rclone.DefaultDriverName, "name of the driver")
-	mountExisting = flag.Bool("mount-existing", false, "mount existing volume mount points on startup")
+	endpoint   = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	nodeID     = flag.String("nodeid", "", "node id")
+	driverName = flag.String("drivername", rclone.DefaultDriverName, "name of the driver")
+	remount    = flag.Bool("remount", false, "remount existing volume mount points on startup")
 )
 
 func main() {
@@ -109,10 +109,10 @@ func main() {
 	}
 
 	driverOptions := rclone.DriverOptions{
-		NodeID:        *nodeID,
-		DriverName:    *driverName,
-		Endpoint:      *endpoint,
-		MountExisting: *mountExisting,
+		NodeID:     *nodeID,
+		DriverName: *driverName,
+		Endpoint:   *endpoint,
+		Remount:    *remount,
 	}
 
 	driver := rclone.NewDriver(&driverOptions)
