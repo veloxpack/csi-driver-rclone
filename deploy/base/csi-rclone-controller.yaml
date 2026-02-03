@@ -17,6 +17,7 @@ spec:
       hostNetwork: true  # controller also needs to mount rclone to create dir
       dnsPolicy: ClusterFirstWithHostNet  # available values: Default, ClusterFirstWithHostNet, ClusterFirst
       serviceAccountName: csi-rclone-controller-sa
+      terminationGracePeriodSeconds: 120  # Allow time for graceful unmount of volumes
       nodeSelector:
         kubernetes.io/os: linux  # add "kubernetes.io/role: master" to run controller on master node
       priorityClassName: system-cluster-critical

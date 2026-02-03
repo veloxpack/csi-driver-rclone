@@ -20,6 +20,9 @@ import (
 	"context"
 	"flag"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
 	metricsserver "github.com/veloxpack/csi-driver-rclone/internal/metrics"
@@ -73,38 +76,35 @@ func main() {
 
 	ctx := context.Background()
 
+	// Track servers for shutdown (using interface{} since they have different Shutdown signatures)
+	var metricsSrv interface {
+		Addr() string
+		Shutdown(context.Context) error
+	}
+	var rcSrv rcserver.Server
+
 	// Start metrics server if enabled
 	if metricsOpts.MetricsAddr != "" {
 		// Start metrics server
-		metricsSrv, err := metricsserver.Start(metricsOpts)
+		srv, err := metricsserver.Start(metricsOpts)
 		if err != nil {
 			klog.Fatalf("Failed to start metrics server: %v", err)
 		}
-		if metricsSrv != nil {
-			klog.Infof("Metrics server listening on http://%s%s", metricsSrv.Addr(), metricsOpts.MetricsPath)
-			defer func() {
-				shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-				defer cancel()
-				if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
-					klog.Errorf("Error shutting down metrics server: %v", err)
-				}
-			}()
+		if srv != nil {
+			metricsSrv = srv
+			klog.Infof("Metrics server listening on http://%s%s", srv.Addr(), metricsOpts.MetricsPath)
 		}
 	}
 
 	// Start RC server if enabled
 	if rcOpts.Enabled {
-		rcSrv, err := rcserver.Start(ctx, rcOpts)
+		srv, err := rcserver.Start(ctx, rcOpts)
 		if err != nil {
 			klog.Fatalf("Failed to start RC server: %v", err)
 		}
-		if rcSrv != nil {
+		if srv != nil {
+			rcSrv = srv
 			klog.Infof("RC server listening on %s", rcOpts.Address)
-			defer func() {
-				if err := rcSrv.Shutdown(); err != nil {
-					klog.Errorf("Error shutting down RC server: %v", err)
-				}
-			}()
 		}
 	}
 
@@ -116,6 +116,81 @@ func main() {
 	}
 
 	driver := rclone.NewDriver(&driverOptions)
-	driver.Run(false)
-	os.Exit(0)
+
+	// Setup signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan,
+		syscall.SIGTERM, // Kubernetes sends this for graceful shutdown
+		syscall.SIGINT,  // Ctrl+C for local testing
+		syscall.SIGUSR1, // Custom: dump mount info
+		syscall.SIGUSR2, // Custom: force cache sync
+	)
+
+	// Start driver in background
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		driver.Run(false)
+	}()
+
+	// Wait for signal
+	sig := <-sigChan
+	klog.Infof("Received signal: %v", sig)
+
+	// Handle different signals
+	switch sig {
+	case syscall.SIGTERM, syscall.SIGINT:
+		// Graceful shutdown
+		klog.Infof("Starting graceful shutdown...")
+
+		// Create shutdown context with timeout
+		shutdownCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+		defer cancel()
+
+		// Shutdown metrics server
+		if metricsSrv != nil {
+			klog.V(2).Info("Shutting down metrics server...")
+			metricsShutdownCtx, metricsCancel := context.WithTimeout(ctx, 5*time.Second)
+			defer metricsCancel()
+			if err := metricsSrv.Shutdown(metricsShutdownCtx); err != nil {
+				klog.Errorf("Error shutting down metrics server: %v", err)
+			}
+		}
+
+		// Shutdown RC server
+		if rcSrv != nil {
+			klog.V(2).Info("Shutting down RC server...")
+			if err := rcSrv.Shutdown(); err != nil {
+				klog.Errorf("Error shutting down RC server: %v", err)
+			}
+		}
+
+		// Perform driver shutdown
+		if err := driver.Shutdown(shutdownCtx); err != nil {
+			klog.Errorf("Error during driver shutdown: %v", err)
+			os.Exit(1)
+		}
+
+		klog.Info("Graceful shutdown completed")
+		os.Exit(0)
+
+	case syscall.SIGUSR1:
+		// Dump mount information (non-terminating)
+		klog.Info("=== MOUNT STATUS DUMP (SIGUSR1) ===")
+		driver.DumpMountInfo()
+		// Continue running after dump
+		wg.Wait()
+
+	case syscall.SIGUSR2:
+		// Force cache sync (non-terminating)
+		klog.Info("=== FORCING CACHE SYNC (SIGUSR2) ===")
+		if err := driver.ForceCacheSync(ctx); err != nil {
+			klog.Errorf("Cache sync failed: %v", err)
+		} else {
+			klog.Info("Cache sync completed successfully")
+		}
+		// Continue running after sync
+		wg.Wait()
+	}
 }

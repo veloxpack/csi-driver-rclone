@@ -1081,6 +1081,105 @@ func (ns *NodeServer) NodeExpandVolume(_ context.Context, _ *csi.NodeExpandVolum
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
+// UnmountAll unmounts all active volume mounts gracefully.
+// This is typically called during driver shutdown to ensure clean termination.
+func (ns *NodeServer) UnmountAll(ctx context.Context) error {
+	ns.mu.RLock()
+	mountContexts := make(map[string]*mountContext)
+	for targetPath, mc := range ns.mountContext {
+		mountContexts[targetPath] = mc
+	}
+	ns.mu.RUnlock()
+
+	if len(mountContexts) == 0 {
+		klog.Info("No active mounts to unmount")
+		return nil
+	}
+
+	klog.Infof("Unmounting %d active volumes", len(mountContexts))
+
+	var wg sync.WaitGroup
+	errorChan := make(chan error, len(mountContexts))
+
+	for targetPath, mc := range mountContexts {
+		wg.Add(1)
+		go func(path string, mctx *mountContext) {
+			defer wg.Done()
+
+			klog.V(2).Infof("Unmounting %s", path)
+			if err := ns.unmountVolume(mctx, path); err != nil {
+				klog.Errorf("Failed to unmount %s: %v", path, err)
+				errorChan <- fmt.Errorf("failed to unmount %s: %w", path, err)
+				return
+			}
+
+			ns.deleteMountContext(path)
+			klog.V(2).Infof("Successfully unmounted %s", path)
+		}(targetPath, mc)
+	}
+
+	// Wait with timeout
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+		close(errorChan)
+	}()
+
+	select {
+	case <-done:
+		// Check for errors
+		var errMsgs []string
+		for err := range errorChan {
+			errMsgs = append(errMsgs, err.Error())
+		}
+		if len(errMsgs) > 0 {
+			return fmt.Errorf("unmount errors: %s", strings.Join(errMsgs, "; "))
+		}
+		klog.Info("All volumes unmounted successfully")
+		return nil
+
+	case <-ctx.Done():
+		return fmt.Errorf("unmount timeout: %w", ctx.Err())
+	}
+}
+
+// CleanupAllMountStates removes all mount state secrets.
+// This is typically used when the pod is being deleted (not restarted).
+func (ns *NodeServer) CleanupAllMountStates(ctx context.Context) error {
+	if ns.mountStateManager == nil {
+		klog.V(2).Info("State manager not initialized, skipping cleanup")
+		return nil
+	}
+
+	states, err := ns.mountStateManager.LoadState(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load mount states: %w", err)
+	}
+
+	if len(states) == 0 {
+		klog.V(2).Info("No mount states to clean up")
+		return nil
+	}
+
+	klog.Infof("Cleaning up %d mount state secrets", len(states))
+
+	errorCount := 0
+	for _, state := range states {
+		if err := ns.mountStateManager.DeleteState(ctx, state.VolumeID, state.TargetPath); err != nil {
+			klog.Errorf("Failed to delete mount state for volume %s: %v", state.VolumeID, err)
+			errorCount++
+		}
+	}
+
+	if errorCount > 0 {
+		return fmt.Errorf("failed to cleanup %d out of %d mount states", errorCount, len(states))
+	}
+
+	klog.Infof("Successfully cleaned up %d mount state secrets", len(states))
+	return nil
+}
+
 // RemountState remounts a volume from a saved MountState.
 // This is used for recovery scenarios where the driver needs to remount volumes after a restart.
 func (ns *NodeServer) RemountState(ctx context.Context, state *MountState) error {

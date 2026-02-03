@@ -22,6 +22,7 @@ spec:
       hostNetwork: true
       dnsPolicy: {{ .Values.node.dnsPolicy }}
       serviceAccountName: {{ include "rclone.serviceAccountName.node" . }}
+      terminationGracePeriodSeconds: {{ .Values.node.terminationGracePeriodSeconds }}
       nodeSelector:
         kubernetes.io/os: linux
         {{- if .Values.node.nodeSelector }}

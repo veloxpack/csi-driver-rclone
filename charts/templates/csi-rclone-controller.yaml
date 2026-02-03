@@ -21,6 +21,7 @@ spec:
       hostNetwork: true  # controller also needs to mount rclone to create dir
       dnsPolicy: {{ .Values.controller.dnsPolicy }}
       serviceAccountName: {{ include "rclone.serviceAccountName.controller" . }}
+      terminationGracePeriodSeconds: {{ .Values.controller.terminationGracePeriodSeconds }}
       {{- if .Values.controller.runOnMaster }}
       nodeSelector:
         kubernetes.io/os: linux

@@ -21,6 +21,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet  # available values: Default, ClusterFirstWithHostNet, ClusterFirst
       serviceAccountName: csi-rclone-node-sa
       priorityClassName: system-node-critical
+      terminationGracePeriodSeconds: 120  # Allow time for graceful unmount of volumes
       securityContext:
         seccompProfile:
           type: RuntimeDefault

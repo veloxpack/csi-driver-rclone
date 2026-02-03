@@ -55,6 +55,8 @@ controller:
   strategyType: Recreate
   runOnMaster: false
   runOnControlPlane: false
+  # Termination grace period for graceful shutdown and volume unmount
+  terminationGracePeriodSeconds: 120
   livenessProbe:
     healthPort: 29652
   logLevel: 5
@@ -102,6 +104,9 @@ node:
   dnsPolicy: ClusterFirstWithHostNet  # available values: Default, ClusterFirstWithHostNet, ClusterFirst
   maxUnavailable: 1
   logLevel: 5
+  # Termination grace period for graceful shutdown and volume unmount
+  # Increase this value if you have many mounts or slow backends
+  terminationGracePeriodSeconds: 120
   livenessProbe:
     healthPort: 29653
   affinity: {}

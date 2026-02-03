@@ -18,7 +18,9 @@ package rclone
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/rclone/rclone/fs"
@@ -56,6 +58,7 @@ type Driver struct {
 	version     string
 	endpoint    string
 	ns          *NodeServer
+	server      NonBlockingGRPCServer
 	cscap       []*csi.ControllerServiceCapability
 	nscap       []*csi.NodeServiceCapability
 	volumeLocks *VolumeLocks
@@ -151,12 +154,128 @@ func (d *Driver) Run(testMode bool) {
 	}
 
 	s := NewNonBlockingGRPCServer()
+	d.server = s
 	s.Start(d.endpoint,
 		NewDefaultIdentityServer(d),
 		NewControllerServer(d),
 		d.ns,
 		testMode)
 	s.Wait()
+}
+
+// Shutdown performs graceful shutdown of the driver
+func (d *Driver) Shutdown(ctx context.Context) error {
+	klog.Info("Starting driver shutdown...")
+
+	// 1. Stop accepting new gRPC requests
+	if d.server != nil {
+		klog.Info("Stopping gRPC server...")
+		shutdownCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+
+		done := make(chan struct{})
+		go func() {
+			d.server.Stop()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			klog.Info("gRPC server stopped gracefully")
+		case <-shutdownCtx.Done():
+			klog.Warning("gRPC server shutdown timeout, forcing stop")
+			d.server.ForceStop()
+		}
+	}
+
+	// 2. Unmount all active mounts
+	if d.ns != nil {
+		klog.Info("Unmounting all volumes...")
+		if err := d.ns.UnmountAll(ctx); err != nil {
+			klog.Errorf("Failed to unmount all volumes: %v", err)
+			return fmt.Errorf("failed to unmount volumes: %w", err)
+		}
+		klog.Info("All volumes unmounted successfully")
+	}
+
+	klog.Info("Driver shutdown complete")
+	return nil
+}
+
+// DumpMountInfo logs information about all active mounts
+func (d *Driver) DumpMountInfo() {
+	if d.ns == nil {
+		klog.Warning("NodeServer not initialized")
+		return
+	}
+
+	d.ns.mu.RLock()
+	defer d.ns.mu.RUnlock()
+
+	if len(d.ns.mountContext) == 0 {
+		klog.Info("No active mounts")
+		return
+	}
+
+	klog.Infof("Active mounts: %d", len(d.ns.mountContext))
+	for targetPath, mc := range d.ns.mountContext {
+		healthy := "unknown"
+		vfsStats := "unavailable"
+
+		if mc.mountPoint != nil && mc.mountPoint.VFS != nil {
+			stats := mc.mountPoint.VFS.Stats()
+			if errors, ok := stats["errors"]; ok {
+				if errCount, ok := errors.(int); ok && errCount == 0 {
+					healthy = "healthy"
+				} else {
+					healthy = fmt.Sprintf("unhealthy (errors: %d)", errCount)
+				}
+			}
+
+			// Get cache stats if available
+			if diskCache, ok := stats["diskCache"].(map[string]interface{}); ok {
+				inProgress, _ := diskCache["uploadsInProgress"].(int)
+				queued, _ := diskCache["uploadsQueued"].(int)
+				vfsStats = fmt.Sprintf("uploads: %d in-progress, %d queued", inProgress, queued)
+			}
+		}
+
+		klog.Infof("  Mount: %s", targetPath)
+		klog.Infof("    Remote: %s", mc.remoteName)
+		klog.Infof("    Health: %s", healthy)
+		klog.Infof("    VFS: %s", vfsStats)
+		klog.Infof("    Loaded remotes: %d", len(mc.remotes))
+	}
+}
+
+// ForceCacheSync forces VFS cache sync on all active mounts
+func (d *Driver) ForceCacheSync(ctx context.Context) error {
+	if d.ns == nil {
+		return fmt.Errorf("NodeServer not initialized")
+	}
+
+	d.ns.mu.RLock()
+	mountContexts := make(map[string]*mountContext)
+	for targetPath, mc := range d.ns.mountContext {
+		mountContexts[targetPath] = mc
+	}
+	d.ns.mu.RUnlock()
+
+	if len(mountContexts) == 0 {
+		klog.Info("No active mounts to sync")
+		return nil
+	}
+
+	klog.Infof("Forcing cache sync on %d mounts...", len(mountContexts))
+
+	for targetPath, mc := range mountContexts {
+		klog.V(2).Infof("Syncing cache for %s", targetPath)
+		waitForVFSCacheSync(mc)
+		klog.V(2).Infof("Cache sync complete for %s", targetPath)
+	}
+
+	klog.Info("All cache syncs completed")
+	return nil
 }
 
 // AddControllerServiceCapabilities adds controller service capabilities
