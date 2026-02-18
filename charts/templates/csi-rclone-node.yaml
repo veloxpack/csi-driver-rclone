@@ -185,7 +185,7 @@ spec:
       volumes:
         - name: pods-mount-dir
           hostPath:
-            path: /var/lib/kubelet/pods
+            path: {{ .Values.kubeletDir }}/pods
             type: Directory
         - name: socket-dir
           emptyDir: {}
