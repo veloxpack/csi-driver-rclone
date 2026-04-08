@@ -7,7 +7,7 @@ import (
 // V3UploadDoneRequest represents the request structure for completing a file upload.
 type V3UploadDoneRequest struct {
 	V3UploadEmptyRequest
-	Chunks    int64    `json:"chunks"`
+	Chunks    int64  `json:"chunks"`
 	Rm        string `json:"rm"`
 	UploadKey string `json:"uploadKey"`
 }

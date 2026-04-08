@@ -11,11 +11,14 @@ import (
 	"time"
 
 	"github.com/internxt/rclone-adapter/config"
+	"github.com/internxt/rclone-adapter/consistency"
 	"github.com/internxt/rclone-adapter/errors"
 )
 
 // CreateFolder calls the folder creation endpoint with authorization.
 // It auto‑fills CreationTime/ModificationTime if empty, checks status, and returns the newly created Folder.
+// The folder UUID is tracked via the consistency package so that subsequent
+// operations on this folder automatically wait for eventual consistency.
 func CreateFolder(ctx context.Context, cfg *config.Config, reqBody CreateFolderRequest) (*Folder, error) {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	if reqBody.CreationTime == "" {
@@ -53,11 +56,17 @@ func CreateFolder(ctx context.Context, cfg *config.Config, reqBody CreateFolderR
 		return nil, fmt.Errorf("failed to decode create folder response: %w", err)
 	}
 
+	consistency.TrackFolder(folder.UUID)
+
 	return &folder, nil
 }
 
-// DeleteFolders deletes a folder by UUID
+// DeleteFolder deletes a folder by UUID.
 func DeleteFolder(ctx context.Context, cfg *config.Config, uuid string) error {
+	if err := consistency.AwaitFolder(ctx, uuid); err != nil {
+		return err
+	}
+
 	u, err := url.Parse(cfg.Endpoints.Drive().Folders().Delete(uuid))
 	if err != nil {
 		return fmt.Errorf("failed to parse delete folder URL: %w", err)
@@ -84,6 +93,10 @@ func DeleteFolder(ctx context.Context, cfg *config.Config, uuid string) error {
 // ListFolders lists child folders under the given parent UUID.
 // Returns a slice of folders or error otherwise
 func ListFolders(ctx context.Context, cfg *config.Config, parentUUID string, opts ListOptions) ([]Folder, error) {
+	if err := consistency.AwaitFolder(ctx, parentUUID); err != nil {
+		return nil, err
+	}
+
 	base := cfg.Endpoints.Drive().Folders().ContentFolders(parentUUID)
 	u, err := url.Parse(base)
 	if err != nil {
@@ -141,6 +154,10 @@ func ListFolders(ctx context.Context, cfg *config.Config, parentUUID string, opt
 // ListFiles lists files under the given parent folder UUID.
 // Returns a slice of files or error otherwise
 func ListFiles(ctx context.Context, cfg *config.Config, parentUUID string, opts ListOptions) ([]File, error) {
+	if err := consistency.AwaitFolder(ctx, parentUUID); err != nil {
+		return nil, err
+	}
+
 	base := cfg.Endpoints.Drive().Folders().ContentFiles(parentUUID)
 	u, err := url.Parse(base)
 	if err != nil {

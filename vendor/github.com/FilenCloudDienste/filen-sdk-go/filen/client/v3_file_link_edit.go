@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/hex"
+
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/types"
 	"github.com/google/uuid"

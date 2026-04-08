@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
 )
 

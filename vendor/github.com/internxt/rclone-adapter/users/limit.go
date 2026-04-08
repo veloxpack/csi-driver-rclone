@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/internxt/rclone-adapter/config"
+	sdkerrors "github.com/internxt/rclone-adapter/errors"
 )
 
 type LimitResponse struct {
@@ -30,8 +30,7 @@ func GetLimit(ctx context.Context, cfg *config.Config) (*LimitResponse, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("GET %s returned %d: %s", url, resp.StatusCode, string(body))
+		return nil, sdkerrors.NewHTTPError(resp, "get limit")
 	}
 
 	var limit LimitResponse

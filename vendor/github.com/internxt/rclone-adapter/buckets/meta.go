@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/internxt/rclone-adapter/config"
+	"github.com/internxt/rclone-adapter/consistency"
 	"github.com/internxt/rclone-adapter/errors"
 )
 
@@ -40,7 +41,12 @@ type CreateMetaResponse struct {
 	Created        string      `json:"created"`
 }
 
+// CreateMetaFile creates file metadata in Drive for a file in the given folder.
 func CreateMetaFile(ctx context.Context, cfg *config.Config, name, bucketID string, fileID *string, encryptVersion, folderUuid, plainName, fileType string, size int64, modTime time.Time) (*CreateMetaResponse, error) {
+	if err := consistency.AwaitFolder(ctx, folderUuid); err != nil {
+		return nil, err
+	}
+
 	url := cfg.Endpoints.Drive().Files().Create()
 	reqBody := CreateMetaRequest{
 		Name:             name,

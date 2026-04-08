@@ -5,11 +5,11 @@ import "context"
 // V3UserInfoResponse represents the response structure from the user info endpoint.
 // It contains account details, storage usage, and the base folder UUID.
 type V3UserInfoResponse struct {
-	ID          int    `json:"id"`
+	ID          int64  `json:"id"`
 	Email       string `json:"email"`
 	IsPremium   int    `json:"isPremium"`
-	MaxStorage  int    `json:"maxStorage"`
-	UsedStorage int    `json:"storageUsed"`
+	MaxStorage  int64  `json:"maxStorage"`
+	UsedStorage int64  `json:"storageUsed"`
 	AvatarURL   string `json:"avatarURL"`
 	BaseFolder  string `json:"baseFolderUUID"`
 }

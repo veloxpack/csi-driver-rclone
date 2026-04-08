@@ -4,6 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+	"path"
+	"strings"
+	"time"
+
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/client"
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/search"
@@ -12,11 +18,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/rclone/rclone/fs"
 	"golang.org/x/sync/errgroup"
-	"io"
-	"os"
-	"path"
-	"strings"
-	"time"
 )
 
 // FindItem finds a cloud item (file or directory) by its path and returns it.
@@ -311,7 +312,7 @@ func (api *Filen) CreateDirectoryWithParentUUID(ctx context.Context, parentUUID 
 	// encrypt metadata
 	metadata := types.DirectoryMetaData{
 		Name:     name,
-		Creation: int(creationTime.UnixMilli()),
+		Creation: creationTime.UnixMilli(),
 	}
 	metadataStr, err := json.Marshal(metadata)
 	if err != nil {

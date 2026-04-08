@@ -1,9 +1,10 @@
 package filen
 
 import (
-	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
 	"strconv"
 	"strings"
+
+	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
 )
 
 // HashFileName hashes a file name, this is used for file and directory names

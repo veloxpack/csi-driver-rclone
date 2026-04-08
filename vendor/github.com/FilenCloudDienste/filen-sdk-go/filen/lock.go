@@ -3,11 +3,12 @@ package filen
 import (
 	"context"
 	"errors"
+	"sync"
+	"time"
+
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/client"
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/types"
 	"github.com/google/uuid"
-	"sync"
-	"time"
 )
 
 // BackendLock is a lock to prevent time of check to time of use bugs

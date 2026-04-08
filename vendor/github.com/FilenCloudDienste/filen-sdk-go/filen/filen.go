@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"fmt"
+
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/client"
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/types"

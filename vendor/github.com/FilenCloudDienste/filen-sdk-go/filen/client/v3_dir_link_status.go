@@ -10,7 +10,7 @@ type V3DirLinkStatusResponse struct {
 	// we dream of sum types
 	UUID           string `json:"uuid"`
 	Key            string `json:"key"`
-	Expiration     int    `json:"expiration"`
+	Expiration     int64  `json:"expiration"`
 	ExpirationText string `json:"expirationText"`
 	DownloadBtn    int    `json:"downloadBtn"`
 	Password       string `json:"password"`

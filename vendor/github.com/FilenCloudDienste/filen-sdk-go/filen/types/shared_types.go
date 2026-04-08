@@ -7,15 +7,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
-	"github.com/FilenCloudDienste/filen-sdk-go/filen/io"
-	"github.com/google/uuid"
 	"mime"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
+	"github.com/FilenCloudDienste/filen-sdk-go/filen/io"
+	"github.com/google/uuid"
 )
 
 // IncompleteFile represents a file that has not been fully uploaded to Filen.
@@ -104,7 +105,7 @@ func (file *IncompleteFile) GetRawMeta(v crypto.FileEncryptionVersion) FileMetad
 		MimeType:     file.MimeType,
 		Key:          file.EncryptionKey.ToStringWithVersion(v),
 		LastModified: IntFromMaybeString(file.LastModified.UnixMilli()),
-		Created:      int(file.Created.UnixMilli()),
+		Created:      IntFromMaybeString(file.Created.UnixMilli()),
 		Hash:         "",
 	}
 }
@@ -118,28 +119,45 @@ func (file *IncompleteFile) SetMimeType(mimeType string) {
 	file.MimeType = mimeType
 }
 
-type IntFromMaybeString int
+type IntFromMaybeString int64
 
 func (i *IntFromMaybeString) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" || string(data) == "" {
-		*i = 0 // Default value
+		*i = 0
 		return nil
 	}
 
-	var value int
-	if err := json.Unmarshal(data, &value); err != nil {
-		var stringValue string
-		if err := json.Unmarshal(data, &stringValue); err != nil {
-			return err
-		} else {
-			value, err = strconv.Atoi(stringValue)
-			if err != nil {
-				return fmt.Errorf("couldn't unmarshal IntFromMaybeString: %w", err)
-			}
+	// Try int64 first
+	var intValue int64
+	if err := json.Unmarshal(data, &intValue); err == nil {
+		*i = IntFromMaybeString(intValue)
+		return nil
+	}
+
+	// Try float64 (in case the number is like 1234567890.0)
+	var floatValue float64
+	if err := json.Unmarshal(data, &floatValue); err == nil {
+		*i = IntFromMaybeString(int64(floatValue))
+		return nil
+	}
+
+	// Try string
+	var stringValue string
+	if err := json.Unmarshal(data, &stringValue); err == nil {
+		// string to int
+
+		if value, err := strconv.ParseInt(stringValue, 10, 64); err == nil {
+			*i = IntFromMaybeString(value)
+			return nil
+		}
+		// string to float
+		if value, err := strconv.ParseFloat(stringValue, 64); err == nil {
+			*i = IntFromMaybeString(int64(value))
+			return nil
 		}
 	}
-	*i = IntFromMaybeString(value)
-	return nil
+
+	return fmt.Errorf("couldn't unmarshal IntFromMaybeString from: %s", string(data))
 }
 
 // FileMetadata contains the metadata of a file in the Filen cloud.
@@ -151,7 +169,7 @@ type FileMetadata struct {
 	MimeType     string             `json:"mime"`         // The MIME type
 	Key          string             `json:"key"`          // The encryption key as a string
 	LastModified IntFromMaybeString `json:"lastModified"` // Last modification timestamp in milliseconds
-	Created      int                `json:"creation"`     // Creation timestamp in milliseconds
+	Created      IntFromMaybeString `json:"creation"`     // Creation timestamp in milliseconds
 	Hash         string             `json:"blake3"`       // The file's Blake3 hash
 }
 
@@ -188,7 +206,7 @@ const (
 // to ensure end-to-end encryption of directory details.
 type DirectoryMetaData struct {
 	Name     string `json:"name"`     // The directory name
-	Creation int    `json:"creation"` // Creation timestamp in seconds
+	Creation int64  `json:"creation"` // Creation timestamp in seconds
 }
 
 // Directory represents a directory in the Filen cloud storage.
@@ -298,7 +316,7 @@ func (dir Directory) IsRoot() bool {
 func (dir Directory) GetMeta(v crypto.FileEncryptionVersion) (string, error) {
 	meta := DirectoryMetaData{
 		Name:     dir.Name,
-		Creation: int(dir.Created.Unix()),
+		Creation: dir.Created.Unix(),
 	}
 	metaStr, err := json.Marshal(meta)
 	if err != nil {
@@ -362,10 +380,7 @@ func (m *CtxMutex) Lock(ctx context.Context) error {
 // This method will wait indefinitely until the mutex becomes available,
 // with no option for cancellation.
 func (m *CtxMutex) BlockUntilLock() {
-	select {
-	case m.channel <- struct{}{}:
-		return
-	}
+	m.channel <- struct{}{}
 }
 
 // MustLock attempts to lock the mutex without blocking.

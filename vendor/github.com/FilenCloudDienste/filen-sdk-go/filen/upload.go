@@ -5,11 +5,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/zeebo/blake3"
-	"golang.org/x/sync/errgroup"
 	"hash"
 	"io"
 	"strconv"
+
+	"github.com/zeebo/blake3"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/client"
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
@@ -38,7 +39,7 @@ func (api *Filen) NewFileUpload(file *types.IncompleteFile) *FileUpload {
 // UploadChunk encrypts and uploads a single chunk of a file.
 // This function handles the encryption of the chunk before sending it to the server.
 // It returns storage details (bucket and region) for the uploaded chunk.
-func (api *Filen) UploadChunk(ctx context.Context, fu *FileUpload, chunkIndex int, data []byte) (*client.V3UploadResponse, error) {
+func (api *Filen) UploadChunk(ctx context.Context, fu *FileUpload, chunkIndex int64, data []byte) (*client.V3UploadResponse, error) {
 	data = fu.EncryptionKey.EncryptData(data)
 	response, err := api.Client.PostV3Upload(ctx, fu.UUID, chunkIndex, fu.ParentUUID, fu.UploadKey, data)
 	if err != nil {
@@ -189,7 +190,7 @@ func (api *Filen) UploadFile(ctx context.Context, file *types.IncompleteFile, r 
 
 func (api *Filen) uploadFileChunks(ctx context.Context, fu *FileUpload, bucketAndRegion chan client.V3UploadResponse, file *types.IncompleteFile, r io.Reader) (int64, error) {
 	size := int64(0)
-	for i := 0; ; i++ {
+	for i := int64(0); ; i++ {
 		data := make([]byte, ChunkSize, ChunkSize+file.EncryptionKey.Cipher.Overhead())
 		lastChunk := false
 		for j := 0; j < ChunkSize; {

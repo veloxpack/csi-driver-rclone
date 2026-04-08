@@ -4,9 +4,9 @@ import "context"
 
 // V3DirSizeResponse represents the response structure from the directory size endpoint.
 type V3DirSizeResponse struct {
-	Size    int `json:"size"`
-	Folders int `json:"folders"`
-	Files   int `json:"files"`
+	Size    int64 `json:"size"`
+	Folders int64 `json:"folders"`
+	Files   int64 `json:"files"`
 }
 
 // v3dirSizeRequest represents the request structure for getting directory size information.
