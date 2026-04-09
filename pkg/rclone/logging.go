@@ -55,7 +55,7 @@ func (h *klogHandler) Handle(_ context.Context, record slog.Record) error {
 			}
 			sb.WriteString(attr.Key)
 			sb.WriteString("=")
-			sb.WriteString(fmt.Sprint(attr.Value.Any()))
+			fmt.Fprint(&sb, attr.Value.Any())
 		}
 
 		// Add record-level attributes
@@ -67,7 +67,7 @@ func (h *klogHandler) Handle(_ context.Context, record slog.Record) error {
 			first = false
 			sb.WriteString(attr.Key)
 			sb.WriteString("=")
-			sb.WriteString(fmt.Sprint(attr.Value.Any()))
+			fmt.Fprint(&sb, attr.Value.Any())
 			return true
 		})
 
