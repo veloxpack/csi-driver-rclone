@@ -54,7 +54,7 @@ HELM_CHARTS_PATH = charts
 # Output type of docker buildx build
 OUTPUT_TYPE ?= docker
 
-GOLANGCI_LINT_VERSION ?=  v2.5.0
+GOLANGCI_LINT_VERSION ?=  v2.11.4
 
 .EXPORT_ALL_VARIABLES:
 
