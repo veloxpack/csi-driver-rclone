@@ -60,7 +60,6 @@ spec:
             - "--leader-election"
             - "--leader-election-namespace=$(POD_NAMESPACE)"
             - "--extra-create-metadata=true"
-            - "--feature-gates=HonorPVReclaimPolicy=true"
             - "--timeout=1200s"
             - "--retry-interval-max=30m"
           env:
