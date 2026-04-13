@@ -5,10 +5,11 @@ import (
 	"crypto/x509"
 	"encoding/gob"
 	"fmt"
+	"io"
+
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/client"
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/types"
-	"io"
 )
 
 // serializableFilen is an internal structure used to serialize and deserialize

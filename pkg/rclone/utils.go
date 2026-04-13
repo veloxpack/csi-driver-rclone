@@ -338,14 +338,14 @@ func generateRecloneConfigFromParams(params rc.Params, remoteType, remoteName st
 	var sb strings.Builder
 
 	// Write section header
-	sb.WriteString(fmt.Sprintf("[%s]\n", remoteName))
+	fmt.Fprintf(&sb, "[%s]\n", remoteName)
 
 	// Add backend type
-	sb.WriteString(fmt.Sprintf("%s = %s\n", "type", remoteType))
+	fmt.Fprintf(&sb, "%s = %s\n", "type", remoteType)
 
 	// Write key-value pairs
 	for key, value := range params {
-		sb.WriteString(fmt.Sprintf("%s = %s\n", key, value))
+		fmt.Fprintf(&sb, "%s = %s\n", key, value)
 	}
 
 	return sb.String()

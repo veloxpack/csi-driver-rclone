@@ -1,15 +1,16 @@
 package search
 
 import (
+	"sort"
+	"strings"
+
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/client"
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
 	"golang.org/x/text/collate"
 	"golang.org/x/text/language"
-	"sort"
-	"strings"
 )
 
-func nameSplitter(input string, minLength int, maxLength int) []string {
+func NameSplitter(input string, minLength int, maxLength int) []string {
 	normalized := strings.ToLower(strings.TrimSpace(input))
 	if normalized == "" {
 		return []string{}
@@ -27,8 +28,8 @@ func nameSplitter(input string, minLength int, maxLength int) []string {
 	return processTokens(result)
 }
 
-func NameSplitter(input string) []string {
-	return nameSplitter(input, 2, 16)
+func NameSplitterDefault(input string) []string {
+	return NameSplitter(input, 2, 8)
 }
 
 func processTokens(result map[string]struct{}) []string {
@@ -57,7 +58,7 @@ func SortTokens(tokens []string) {
 }
 
 func generateSearchIndexHashes(input string, key crypto.HMACKey) []string {
-	names := NameSplitter(strings.ToLower(input))
+	names := NameSplitterDefault(strings.ToLower(input))
 	hashes := make([]string, 0, len(names))
 
 	for _, name := range names {

@@ -19,13 +19,14 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"slices"
+	"strings"
+
 	"github.com/dromara/dongle/md2"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/md4"
 	"golang.org/x/crypto/pbkdf2"
-	"slices"
-	"strings"
 )
 
 type AuthVersion int

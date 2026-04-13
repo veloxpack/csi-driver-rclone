@@ -9,7 +9,7 @@ type v3ItemSharedRequest struct {
 
 // V3ItemSharedUser represents a user with whom an item is shared.
 type V3ItemSharedUser struct {
-	ID        int    `json:"id"`
+	ID        int64  `json:"id"`
 	Email     string `json:"email"`
 	PublicKey string `json:"publicKey"`
 }

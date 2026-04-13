@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
 )
 
@@ -35,8 +36,8 @@ type V3DirDownloadResponse struct {
 		Name       string `json:"name"`
 		Size       string `json:"size"`
 		MimeType   string `json:"mime"`
-		ChunksSize int    `json:"chunksSize"` // no idea what this is
-		Timestamp  int    `json:"timestamp"`
+		ChunksSize int64  `json:"chunksSize"`
+		Timestamp  int64  `json:"timestamp"`
 		Favorited  bool   `json:"favorited"`
 	} `json:"files"`
 	Folders []struct {
@@ -45,7 +46,7 @@ type V3DirDownloadResponse struct {
 		Parent   string                 `json:"parent"`
 
 		// optional
-		Timestamp int    `json:"timestamp"`
+		Timestamp int64  `json:"timestamp"`
 		Color     string `json:"color"`
 		Favorited bool   `json:"favorited"`
 	} `json:"folders"`

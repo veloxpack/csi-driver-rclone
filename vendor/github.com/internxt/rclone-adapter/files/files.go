@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/internxt/rclone-adapter/config"
+	"github.com/internxt/rclone-adapter/consistency"
 	"github.com/internxt/rclone-adapter/errors"
 )
 
@@ -66,6 +67,10 @@ type CheckFilesExistenceResponse struct {
 
 // CheckFilesExistence checks if files exist in a folder (batch operation)
 func CheckFilesExistence(ctx context.Context, cfg *config.Config, folderUUID string, files []FileExistenceCheck) (*CheckFilesExistenceResponse, error) {
+	if err := consistency.AwaitFolder(ctx, folderUUID); err != nil {
+		return nil, err
+	}
+
 	endpoint := cfg.Endpoints.Drive().Folders().CheckFilesExistence(folderUUID)
 
 	reqBody := CheckFilesExistenceRequest{Files: files}

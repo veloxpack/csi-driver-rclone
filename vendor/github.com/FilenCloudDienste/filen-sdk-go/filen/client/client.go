@@ -7,12 +7,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"github.com/rclone/rclone/fs/fshttp"
 	"io"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/rclone/rclone/fs/fshttp"
 )
 
 // UnauthorizedClient represents a client without authorization
@@ -32,8 +33,15 @@ type Client struct {
 // The context is used to create the underlying HTTP client.
 func New(ctx context.Context) *UnauthorizedClient {
 	return &UnauthorizedClient{
-		httpClient: *fshttp.NewClient(ctx),
+		httpClient: *fshttp.NewClientCustom(ctx, customizeHTTPClient),
 	}
+}
+
+func customizeHTTPClient(transport *http.Transport) {
+	// 60 minutes is aggressive but sometimes the server can genuinely take a few minutes to do all the work it needs to
+	// for example, when uploading a large file, the server goes to check potentially milions of chunks,
+	// which can take a while, and we don't want the client to timeout in the middle of that. The client should be able to wait as long as it needs to.
+	transport.ResponseHeaderTimeout = 60 * time.Minute
 }
 
 // Authorize creates an authorized Client from an UnauthorizedClient
@@ -58,23 +66,17 @@ func NewWithAPIKey(ctx context.Context, apiKey string) *Client {
 // It implements the error interface and provides detailed information
 // about where and why the request failed.
 type RequestError struct {
-	Message         string    // description of where the error occurred
-	Method          string    // HTTP method of the request
-	URL             *FilenURL // URL path of the request
-	UnderlyingError error     // the underlying error
+	Message         string // description of where the error occurred
+	Method          string // HTTP method of the request
+	Url             string // URL path of the request
+	UnderlyingError error  // the underlying error
 }
 
 // Error returns a formatted error string for RequestError.
 // It includes the HTTP method, URL, error message, and underlying error if present.
 func (e *RequestError) Error() string {
 	var builder strings.Builder
-	builder.WriteString(e.Method)
-	builder.WriteRune(' ')
-	if e.URL.CachedUrl != "" {
-		builder.WriteString(fmt.Sprintf("cached: %s", e.URL.CachedUrl))
-	} else {
-		builder.WriteString(e.URL.Path)
-	}
+	builder.WriteString(e.Url)
 	builder.WriteString(fmt.Sprintf(": %s", e.Message))
 	if e.UnderlyingError != nil {
 		builder.WriteString(fmt.Sprintf(" (%s)", e.UnderlyingError))
@@ -84,19 +86,19 @@ func (e *RequestError) Error() string {
 
 // cannotSendError returns a RequestError from an error that occurred while sending an HTTP request.
 // It formats the error message to indicate a request sending failure.
-func cannotSendError(method string, url *FilenURL, err error) error {
+func cannotSendError(method string, url string, err error) error {
 	return &RequestError{
 		Message:         "Cannot send request",
 		Method:          method,
-		URL:             url,
+		Url:             url,
 		UnderlyingError: err,
 	}
 }
 
 // buildReaderRequest creates an HTTP request with the provided context, method, URL, and data.
 // It returns the request or an error if the request cannot be created.
-func (uc *UnauthorizedClient) buildReaderRequest(ctx context.Context, method string, url *FilenURL, data io.Reader) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, method, url.String(), data)
+func (uc *UnauthorizedClient) buildReaderRequest(ctx context.Context, method string, url string, data io.Reader) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, data)
 	if err != nil {
 		return nil, &RequestError{"Cannot build requestData", method, url, err}
 	}
@@ -105,7 +107,7 @@ func (uc *UnauthorizedClient) buildReaderRequest(ctx context.Context, method str
 
 // buildReaderRequest creates an HTTP request with the provided context, method, URL, and data.
 // It extends the unauthorized client method by adding the API key authorization header.
-func (c *Client) buildReaderRequest(ctx context.Context, method string, url *FilenURL, data io.Reader) (*http.Request, error) {
+func (c *Client) buildReaderRequest(ctx context.Context, method string, url string, data io.Reader) (*http.Request, error) {
 	var request, err = c.UnauthorizedClient.buildReaderRequest(ctx, method, url, data)
 	if err != nil {
 		return nil, err
@@ -116,7 +118,7 @@ func (c *Client) buildReaderRequest(ctx context.Context, method string, url *Fil
 
 // buildJSONRequest creates an HTTP request with JSON content type.
 // It marshals the requestData to JSON and calls buildReaderRequest.
-func (uc *UnauthorizedClient) buildJSONRequest(ctx context.Context, method string, url *FilenURL, requestData any) (*http.Request, error) {
+func (uc *UnauthorizedClient) buildJSONRequest(ctx context.Context, method string, url string, requestData any) (*http.Request, error) {
 	var marshalled []byte
 	if requestData != nil {
 		var err error
@@ -135,7 +137,7 @@ func (uc *UnauthorizedClient) buildJSONRequest(ctx context.Context, method strin
 
 // buildJSONRequest creates an HTTP request with JSON content type and API key authorization.
 // It extends the unauthorized client method by adding the authorization header.
-func (c *Client) buildJSONRequest(ctx context.Context, method string, url *FilenURL, requestData any) (*http.Request, error) {
+func (c *Client) buildJSONRequest(ctx context.Context, method string, url string, requestData any) (*http.Request, error) {
 	var request, err = c.UnauthorizedClient.buildJSONRequest(ctx, method, url, requestData)
 	if err != nil {
 		return nil, err
@@ -148,7 +150,7 @@ func (c *Client) buildJSONRequest(ctx context.Context, method string, url *Filen
 // It takes the HTTP method, path, and response as arguments.
 // If the response body cannot be read or unmarshalled, it returns a RequestError.
 // Otherwise, it returns the parsed aPIResponse.
-func parseResponse(method string, url *FilenURL, response *http.Response) (*aPIResponse, error) {
+func parseResponse(method string, url string, response *http.Response) (*aPIResponse, error) {
 	resBody, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, &RequestError{"Cannot read response body", method, url, err}
@@ -165,7 +167,7 @@ func parseResponse(method string, url *FilenURL, response *http.Response) (*aPIR
 // It takes a http.Request object, the associated http.Client, and the method and path
 // as parameters. It returns an aPIResponse containing the parsed response data, or a
 // RequestError if the request fails or the response cannot be parsed.
-func handleRequest(request *http.Request, httpClient *http.Client, method string, url *FilenURL) (*aPIResponse, error) {
+func handleRequest(request *http.Request, httpClient *http.Client, method string, url string) (*aPIResponse, error) {
 	//startTime := time.Now()
 	res, err := httpClient.Do(request)
 	if err != nil {
@@ -189,13 +191,13 @@ func handleRequest(request *http.Request, httpClient *http.Client, method string
 
 // convertIntoResponseData unmarshals the response data into the provided output data structure.
 // It returns a RequestError if the unmarshalling process fails.
-func convertIntoResponseData(method string, url *FilenURL, response *aPIResponse, outData any) error {
+func convertIntoResponseData(method string, url string, response *aPIResponse, outData any) error {
 	err := response.IntoData(outData)
 	if err != nil {
 		return &RequestError{
 			Message:         fmt.Sprintf("Cannot unmarshal response data %#v", response.Data),
 			Method:          method,
-			URL:             url,
+			Url:             url,
 			UnderlyingError: err,
 		}
 	}
@@ -205,7 +207,7 @@ func convertIntoResponseData(method string, url *FilenURL, response *aPIResponse
 // Request sends an HTTP request to the Filen API without authorization.
 // It takes the context, HTTP method, URL, and request data as parameters.
 // It returns the API response or an error if the request fails.
-func (uc *UnauthorizedClient) Request(ctx context.Context, method string, url *FilenURL, requestData any) (*aPIResponse, error) {
+func (uc *UnauthorizedClient) Request(ctx context.Context, method string, url string, requestData any) (*aPIResponse, error) {
 	request, err := uc.buildJSONRequest(ctx, method, url, requestData)
 	if err != nil {
 		return nil, err
@@ -217,7 +219,7 @@ func (uc *UnauthorizedClient) Request(ctx context.Context, method string, url *F
 // the response data into the provided output structure.
 // It takes the context, HTTP method, URL, request data, and output data structure as parameters.
 // It returns the API response or an error if the request fails or unmarshalling fails.
-func (uc *UnauthorizedClient) RequestData(ctx context.Context, method string, url *FilenURL, requestData any, outData any) (*aPIResponse, error) {
+func (uc *UnauthorizedClient) RequestData(ctx context.Context, method string, url string, requestData any, outData any) (*aPIResponse, error) {
 	response, err := uc.Request(ctx, method, url, requestData)
 	if err != nil {
 		return nil, err
@@ -232,7 +234,7 @@ func (uc *UnauthorizedClient) RequestData(ctx context.Context, method string, ur
 // Request sends an HTTP request to the Filen API with authorization.
 // It takes the context, HTTP method, URL, and request data as parameters.
 // It returns the API response or an error if the request fails.
-func (c *Client) Request(ctx context.Context, method string, url *FilenURL, requestData any) (*aPIResponse, error) {
+func (c *Client) Request(ctx context.Context, method string, url string, requestData any) (*aPIResponse, error) {
 	request, err := c.buildJSONRequest(ctx, method, url, requestData)
 	if err != nil {
 		return nil, err
@@ -244,7 +246,7 @@ func (c *Client) Request(ctx context.Context, method string, url *FilenURL, requ
 // the response data into the provided output structure.
 // It takes the context, HTTP method, URL, request data, and output data structure as parameters.
 // It returns the API response or an error if the request fails or unmarshalling fails.
-func (c *Client) RequestData(ctx context.Context, method string, url *FilenURL, requestData any, outData any) (*aPIResponse, error) {
+func (c *Client) RequestData(ctx context.Context, method string, url string, requestData any, outData any) (*aPIResponse, error) {
 	response, err := c.Request(ctx, method, url, requestData)
 	if err != nil {
 		return nil, err
@@ -288,7 +290,7 @@ func (res *aPIResponse) String() string {
 // If the unmarshalling process fails, the error is returned.
 func (res *aPIResponse) IntoData(data any) error {
 	if res.Data == nil {
-		return errors.New(fmt.Sprintf("No data in response %s", res))
+		return fmt.Errorf("No data in response %s", res)
 	}
 	err := json.Unmarshal(res.Data, data)
 	if err != nil {
@@ -303,10 +305,8 @@ func (res *aPIResponse) IntoData(data any) error {
 // It takes the context, file UUID, region, bucket, and chunk index as parameters.
 // It returns the chunk data or an error if the download fails.
 func (c *Client) DownloadFileChunk(ctx context.Context, uuid string, region string, bucket string, chunkIdx int64) ([]byte, error) {
-	url := &FilenURL{
-		Type: URLTypeEgest,
-		Path: fmt.Sprintf("/%s/%s/%s/%v", region, bucket, uuid, chunkIdx),
-	}
+
+	url := EgestURL(fmt.Sprintf("/%s/%s/%s/%v", region, bucket, uuid, chunkIdx))
 
 	// Can't use the standard Client.RequestData because the response body is raw bytes
 	request, err := c.buildJSONRequest(ctx, "GET", url, nil)

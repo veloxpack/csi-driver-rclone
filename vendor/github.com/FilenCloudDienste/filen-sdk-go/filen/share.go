@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"fmt"
+
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/client"
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/types"
@@ -13,7 +14,7 @@ import (
 
 // renameSharedItem updates the metadata of an item that is shared with another user.
 // It encrypts the metadata with the recipient's public key to maintain end-to-end encryption.
-func (api *Filen) renameSharedItem(ctx context.Context, item types.FileSystemObject, receiverId int, metadata string, key rsa.PublicKey) error {
+func (api *Filen) renameSharedItem(ctx context.Context, item types.FileSystemObject, receiverId int64, metadata string, key rsa.PublicKey) error {
 	encryptedMeta, err := crypto.PublicEncrypt(&key, metadata)
 	if err != nil {
 		return err

@@ -6,7 +6,7 @@ import "context"
 type V3FileLinkStatusResponse struct {
 	LinkUUID       string `json:"uuid"`
 	Enabled        bool   `json:"enabled"`
-	Expiration     int    `json:"expiration"`
+	Expiration     int64  `json:"expiration"`
 	ExpirationText string `json:"expirationText"`
 	DownloadBtn    int    `json:"downloadBtn"`
 	Password       string `json:"password"`

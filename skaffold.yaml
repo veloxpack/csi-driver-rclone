@@ -38,6 +38,8 @@ metadata:
   name: veloxpack
 
 build:
+  local:
+    push: false
   tagPolicy:
     customTemplate:
       template: "{{.IMAGE_NAME}}:latest"

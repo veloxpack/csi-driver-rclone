@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"hash"
+	"io"
+
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/crypto"
 	"github.com/FilenCloudDienste/filen-sdk-go/filen/types"
 	"github.com/zeebo/blake3"
-	"hash"
-	"io"
 )
 
 // fetchAndDecryptChunk downloads and decrypts a single chunk of a file.
