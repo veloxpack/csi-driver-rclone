@@ -41,8 +41,7 @@ build:
   local:
     push: false
   tagPolicy:
-    customTemplate:
-      template: "{{.IMAGE_NAME}}:latest"
+    sha256: {}
   artifacts:
     - image: ghcr.io/veloxpack/csi-driver-rclone
       docker:
