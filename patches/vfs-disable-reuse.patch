@@ -1,0 +1,27 @@
+--- vendor/github.com/rclone/rclone/vfs/vfs.go	2026-04-08 07:57:22
++++ vendor/github.com/rclone/rclone/vfs/vfs.go	2026-04-08 07:57:38
+@@ -215,18 +215,15 @@
+ 	// Fill out anything else
+ 	vfs.Opt.Init()
+ 
+-	// Find a VFS with the same name and options and return it if possible
++	// Do not reuse active VFS instances. In a CSI driver each mount has its
++	// own cancellable context whose lifetime is tied to the mount. Reusing a
++	// VFS binds newer mounts to older contexts; when the older mount is
++	// unpublished and its context cancelled, the shared VFS breaks (e.g.
++	// OAuth token refresh fails with "context canceled").
++	// See: https://github.com/veloxpack/csi-driver-rclone/issues/69
+ 	activeMu.Lock()
+ 	defer activeMu.Unlock()
+ 	configName := fs.ConfigString(f)
+-	for _, activeVFS := range active[configName] {
+-		if vfs.Opt == activeVFS.Opt {
+-			fs.Debugf(f, "Reusing VFS from active cache")
+-			activeVFS.inUse.Add(1)
+-			return activeVFS
+-		}
+-	}
+-	// Put the VFS into the active cache
+ 	active[configName] = append(active[configName], vfs)
+ 
+ 	// Create root directory
