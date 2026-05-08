@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Build the manager binary
-FROM golang:1.26.2 AS builder
+FROM golang:1.26.3 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG RCLONE_BACKEND_MODE=all
