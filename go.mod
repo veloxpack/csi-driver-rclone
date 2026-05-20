@@ -11,9 +11,9 @@ require (
 	github.com/unknwon/goconfig v1.0.0
 	golang.org/x/sys v0.41.0
 	google.golang.org/grpc v1.79.3
-	google.golang.org/protobuf v1.36.10
-	k8s.io/apimachinery v0.34.1
-	k8s.io/klog/v2 v2.130.1
+	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
+	k8s.io/apimachinery v0.36.1
+	k8s.io/klog/v2 v2.140.0
 	k8s.io/mount-utils v0.34.1
 	sigs.k8s.io/yaml v1.6.0
 )
@@ -229,7 +229,7 @@ require (
 	gopkg.in/validator.v2 v2.0.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397 // indirect
+	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 // indirect
 	moul.io/http2curl/v2 v2.3.0 // indirect
 	storj.io/common v0.0.0-20251107171817-6221ae45072c // indirect
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55 // indirect
