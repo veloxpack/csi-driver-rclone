@@ -1,6 +1,6 @@
 module github.com/veloxpack/csi-driver-rclone
 
-go 1.26.2
+go 1.26.5
 
 require (
 	github.com/container-storage-interface/spec v1.12.0
@@ -9,8 +9,8 @@ require (
 	github.com/rclone/rclone v1.74.4
 	github.com/stretchr/testify v1.11.1
 	github.com/unknwon/goconfig v1.0.0
-	golang.org/x/sys v0.45.0
-	google.golang.org/grpc v1.80.0
+	golang.org/x/sys v0.46.0
+	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.11
 	k8s.io/apimachinery v0.34.1
 	k8s.io/klog/v2 v2.130.1
@@ -213,17 +213,17 @@ require (
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
-	golang.org/x/crypto v0.52.0 // indirect
+	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/image v0.43.0 // indirect
-	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/term v0.43.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/term v0.44.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/api v0.275.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/validator.v2 v2.0.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
