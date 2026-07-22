@@ -54,7 +54,7 @@ RUN RCLONE_VERSION=$(grep "github.com/rclone/rclone" go.mod | awk '{print $2}' |
     cmd/rcloneplugin/main.go
 
 # Use alpine as base image to package the rcloneplugin binary with rclone
-FROM registry.k8s.io/build-image/debian-base:bookworm-v1.0.7
+FROM registry.k8s.io/build-image/debian-base:bookworm-v1.0.8
 WORKDIR /
 
 # Install required dependencies
