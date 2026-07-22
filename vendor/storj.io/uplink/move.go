@@ -25,22 +25,22 @@ func (project *Project) MoveObject(ctx context.Context, oldbucket, oldkey, newbu
 
 	err = validateMoveCopyInput(oldbucket, oldkey, newbucket, newkey)
 	if err != nil {
-		return packageError.Wrap(err)
+		return convertKnownErrors(err, oldbucket, oldkey)
 	}
 
 	oldEncKey, err := encryptPath(project, oldbucket, oldkey)
 	if err != nil {
-		return packageError.Wrap(err)
+		return convertKnownErrors(err, oldbucket, oldkey)
 	}
 
 	newEncKey, err := encryptPath(project, newbucket, newkey)
 	if err != nil {
-		return packageError.Wrap(err)
+		return convertKnownErrors(err, newbucket, newkey)
 	}
 
 	metainfoClient, err := project.dialMetainfoClient(ctx)
 	if err != nil {
-		return packageError.Wrap(err)
+		return convertKnownErrors(err, oldbucket, oldkey)
 	}
 	defer func() { err = errs.Combine(err, metainfoClient.Close()) }()
 
@@ -56,22 +56,22 @@ func (project *Project) MoveObject(ctx context.Context, oldbucket, oldkey, newbu
 
 	oldDerivedKey, err := deriveContentKey(project, oldbucket, oldkey)
 	if err != nil {
-		return packageError.Wrap(err)
+		return convertKnownErrors(err, oldbucket, oldkey)
 	}
 
 	newDerivedKey, err := deriveContentKey(project, newbucket, newkey)
 	if err != nil {
-		return packageError.Wrap(err)
+		return convertKnownErrors(err, newbucket, newkey)
 	}
 
 	newMetadataEncryptedKey, newMetadataKeyNonce, err := project.reencryptMetadataKey(response.EncryptedMetadataKey, response.EncryptedMetadataKeyNonce, oldDerivedKey, newDerivedKey)
 	if err != nil {
-		return packageError.Wrap(err)
+		return convertKnownErrors(err, oldbucket, oldkey)
 	}
 
 	newKeys, err := project.reencryptKeys(response.SegmentKeys, oldDerivedKey, newDerivedKey)
 	if err != nil {
-		return packageError.Wrap(err)
+		return convertKnownErrors(err, oldbucket, oldkey)
 	}
 
 	err = metainfoClient.FinishMoveObject(ctx, metaclient.FinishMoveObjectParams{

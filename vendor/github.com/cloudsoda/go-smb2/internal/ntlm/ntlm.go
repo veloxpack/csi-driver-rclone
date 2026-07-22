@@ -8,7 +8,7 @@ import (
 	"hash"
 	"hash/crc32"
 
-	"golang.org/x/crypto/md4" //nolint:staticcheck // md4 may be deprecated, but SMB still uses it
+	"golang.org/x/crypto/md4" //lint:ignore SA1019 md4 may be deprecated, but SMB still uses it
 )
 
 var zero [16]byte
@@ -77,21 +77,6 @@ const (
 	MsvAvTargetName
 	MsvAvChannelBindings
 )
-
-//nolint:unused
-type addr struct {
-	typ uint32
-	val []byte
-}
-
-// channelBindings represents gss_channel_bindings_struct
-//
-//nolint:unused
-type channelBindings struct {
-	InitiatorAddress addr
-	AcceptorAddress  addr
-	AppData          []byte
-}
 
 var signature = []byte("NTLMSSP\x00")
 

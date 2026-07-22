@@ -83,6 +83,12 @@ const (
 	// ActionGetBucketObjectLockConfiguration specifies an action related to retrieving
 	// Bucket Object Lock configuration.
 	ActionGetBucketObjectLockConfiguration ActionType = 13
+	// ActionPutBucketNotificationConfiguration specifies an action related to updating
+	// Bucket Notification configuration.
+	ActionPutBucketNotificationConfiguration ActionType = 14
+	// ActionGetBucketNotificationConfiguration specifies an action related to retrieving
+	// Bucket Notification configuration.
+	ActionGetBucketNotificationConfiguration ActionType = 15
 )
 
 // APIKeyVersion specifies the version of an API key.
@@ -101,6 +107,10 @@ const (
 	// APIKeyVersionAuditable is the API key version that introduces support
 	// for auditability.
 	APIKeyVersionAuditable APIKeyVersion = 1 << 1 // 0b010
+
+	// APIKeyVersionEventing is the API key version that introduces support
+	// for bucket eventing/notification actions.
+	APIKeyVersionEventing APIKeyVersion = 1 << 2 // 0b100
 )
 
 // SupportsObjectLock returns true if the API key version supports Object Lock actions.
@@ -111,6 +121,11 @@ func (v APIKeyVersion) SupportsObjectLock() bool {
 // SupportsAuditability returns true if the API key is auditable.
 func (v APIKeyVersion) SupportsAuditability() bool {
 	return v&APIKeyVersionAuditable != 0
+}
+
+// SupportsEventing returns true if the API key version supports eventing/notification actions.
+func (v APIKeyVersion) SupportsEventing() bool {
+	return v&APIKeyVersionEventing != 0
 }
 
 // Action specifies the specific operation being performed that the Macaroon will validate.
@@ -202,6 +217,16 @@ func (a *APIKey) Check(ctx context.Context, secret []byte, version APIKeyVersion
 			ActionPutBucketObjectLockConfiguration,
 			ActionGetBucketObjectLockConfiguration,
 			ActionLock:
+			return ErrUnauthorized.New("action disallowed")
+		}
+	}
+
+	if !version.SupportsEventing() {
+		// API keys created before the introduction of eventing/notification permissions
+		// should be denied the ability to perform eventing/notification actions.
+		switch action.Op {
+		case ActionPutBucketNotificationConfiguration,
+			ActionGetBucketNotificationConfiguration:
 			return ErrUnauthorized.New("action disallowed")
 		}
 	}
@@ -419,6 +444,14 @@ func (c *Caveat) Allows(action Action) bool {
 		}
 	case ActionGetBucketObjectLockConfiguration:
 		if c.DisallowGetBucketObjectLockConfiguration {
+			return false
+		}
+	case ActionPutBucketNotificationConfiguration:
+		if c.DisallowPutBucketNotificationConfiguration {
+			return false
+		}
+	case ActionGetBucketNotificationConfiguration:
+		if c.DisallowGetBucketNotificationConfiguration {
 			return false
 		}
 	default:

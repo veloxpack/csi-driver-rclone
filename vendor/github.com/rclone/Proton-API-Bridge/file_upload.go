@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/rclone/Proton-API-Bridge/utility"
 	"github.com/rclone/go-proton-api"
 )
 
@@ -479,12 +480,12 @@ func (protonDrive *ProtonDrive) UploadFileByReader(ctx context.Context, parentLi
 	return protonDrive.uploadFile(ctx, parentLink, filename, modTime, file, testParam)
 }
 
-func (protonDrive *ProtonDrive) UploadFileByPath(ctx context.Context, parentLink *proton.Link, filename string, filePath string, testParam int) (string, *proton.RevisionXAttrCommon, error) {
+func (protonDrive *ProtonDrive) UploadFileByPath(ctx context.Context, parentLink *proton.Link, filename string, filePath string, testParam int) (linkID string, revisionXAttrCommon *proton.RevisionXAttrCommon, err error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return "", nil, err
 	}
-	defer f.Close()
+	defer utility.CheckClose(f, &err)
 
 	info, err := os.Stat(filePath)
 	if err != nil {

@@ -16,6 +16,7 @@ type FormFieldSet struct {
 	SkipCompany *bool                    `json:"skip_company,omitempty" path:"skip_company,omitempty" url:"skip_company,omitempty"`
 	InUse       *bool                    `json:"in_use,omitempty" path:"in_use,omitempty" url:"in_use,omitempty"`
 	UserId      int64                    `json:"user_id,omitempty" path:"user_id,omitempty" url:"user_id,omitempty"`
+	WorkspaceId int64                    `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 }
 
 func (f FormFieldSet) Identifier() interface{} {
@@ -36,6 +37,7 @@ type FormFieldSetFindParams struct {
 type FormFieldSetCreateParams struct {
 	UserId      int64                    `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
 	Title       string                   `url:"title,omitempty" json:"title,omitempty" path:"title"`
+	WorkspaceId int64                    `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
 	SkipEmail   *bool                    `url:"skip_email,omitempty" json:"skip_email,omitempty" path:"skip_email"`
 	SkipName    *bool                    `url:"skip_name,omitempty" json:"skip_name,omitempty" path:"skip_name"`
 	SkipCompany *bool                    `url:"skip_company,omitempty" json:"skip_company,omitempty" path:"skip_company"`
@@ -45,6 +47,7 @@ type FormFieldSetCreateParams struct {
 type FormFieldSetUpdateParams struct {
 	Id          int64                    `url:"-,omitempty" json:"-,omitempty" path:"id"`
 	Title       string                   `url:"title,omitempty" json:"title,omitempty" path:"title"`
+	WorkspaceId int64                    `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
 	SkipEmail   *bool                    `url:"skip_email,omitempty" json:"skip_email,omitempty" path:"skip_email"`
 	SkipName    *bool                    `url:"skip_name,omitempty" json:"skip_name,omitempty" path:"skip_name"`
 	SkipCompany *bool                    `url:"skip_company,omitempty" json:"skip_company,omitempty" path:"skip_company"`

@@ -12,6 +12,7 @@ type Partner struct {
 	AllowProvidingGpgKeys     *bool   `json:"allow_providing_gpg_keys,omitempty" path:"allow_providing_gpg_keys,omitempty" url:"allow_providing_gpg_keys,omitempty"`
 	AllowUserCreation         *bool   `json:"allow_user_creation,omitempty" path:"allow_user_creation,omitempty" url:"allow_user_creation,omitempty"`
 	Id                        int64   `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	WorkspaceId               int64   `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 	Name                      string  `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
 	Notes                     string  `json:"notes,omitempty" path:"notes,omitempty" url:"notes,omitempty"`
 	PartnerAdminIds           []int64 `json:"partner_admin_ids,omitempty" path:"partner_admin_ids,omitempty" url:"partner_admin_ids,omitempty"`
@@ -27,7 +28,8 @@ func (p Partner) Identifier() interface{} {
 type PartnerCollection []Partner
 
 type PartnerListParams struct {
-	SortBy map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	SortBy interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Filter interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
 	ListParams
 }
 
@@ -36,26 +38,27 @@ type PartnerFindParams struct {
 }
 
 type PartnerCreateParams struct {
-	Name                      string `url:"name,omitempty" json:"name,omitempty" path:"name"`
 	AllowBypassing2faPolicies *bool  `url:"allow_bypassing_2fa_policies,omitempty" json:"allow_bypassing_2fa_policies,omitempty" path:"allow_bypassing_2fa_policies"`
 	AllowCredentialChanges    *bool  `url:"allow_credential_changes,omitempty" json:"allow_credential_changes,omitempty" path:"allow_credential_changes"`
 	AllowProvidingGpgKeys     *bool  `url:"allow_providing_gpg_keys,omitempty" json:"allow_providing_gpg_keys,omitempty" path:"allow_providing_gpg_keys"`
 	AllowUserCreation         *bool  `url:"allow_user_creation,omitempty" json:"allow_user_creation,omitempty" path:"allow_user_creation"`
 	Notes                     string `url:"notes,omitempty" json:"notes,omitempty" path:"notes"`
-	RootFolder                string `url:"root_folder,omitempty" json:"root_folder,omitempty" path:"root_folder"`
 	Tags                      string `url:"tags,omitempty" json:"tags,omitempty" path:"tags"`
+	Name                      string `url:"name" json:"name" path:"name"`
+	RootFolder                string `url:"root_folder" json:"root_folder" path:"root_folder"`
+	WorkspaceId               int64  `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
 }
 
 type PartnerUpdateParams struct {
 	Id                        int64  `url:"-,omitempty" json:"-,omitempty" path:"id"`
-	Name                      string `url:"name,omitempty" json:"name,omitempty" path:"name"`
 	AllowBypassing2faPolicies *bool  `url:"allow_bypassing_2fa_policies,omitempty" json:"allow_bypassing_2fa_policies,omitempty" path:"allow_bypassing_2fa_policies"`
 	AllowCredentialChanges    *bool  `url:"allow_credential_changes,omitempty" json:"allow_credential_changes,omitempty" path:"allow_credential_changes"`
 	AllowProvidingGpgKeys     *bool  `url:"allow_providing_gpg_keys,omitempty" json:"allow_providing_gpg_keys,omitempty" path:"allow_providing_gpg_keys"`
 	AllowUserCreation         *bool  `url:"allow_user_creation,omitempty" json:"allow_user_creation,omitempty" path:"allow_user_creation"`
 	Notes                     string `url:"notes,omitempty" json:"notes,omitempty" path:"notes"`
-	RootFolder                string `url:"root_folder,omitempty" json:"root_folder,omitempty" path:"root_folder"`
 	Tags                      string `url:"tags,omitempty" json:"tags,omitempty" path:"tags"`
+	Name                      string `url:"name,omitempty" json:"name,omitempty" path:"name"`
+	RootFolder                string `url:"root_folder,omitempty" json:"root_folder,omitempty" path:"root_folder"`
 }
 
 type PartnerDeleteParams struct {

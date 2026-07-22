@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"log"
 	"os"
 
 	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/rclone/Proton-API-Bridge/utility"
 	"github.com/rclone/go-proton-api"
 )
 
@@ -18,25 +18,23 @@ type ProtonDriveCredential struct {
 	SaltedKeyPass string
 }
 
-func cacheCredentialToFile(config *Config) error {
-	if config.CredentialCacheFile != "" {
-		str, err := json.Marshal(config.ReusableCredential)
-		if err != nil {
-			return err
-		}
-
-		file, err := os.Create(config.CredentialCacheFile)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		_, err = file.WriteString(string(str))
-		if err != nil {
-			return err
-		}
+func cacheCredentialToFile(config *Config) (err error) {
+	if config.CredentialCacheFile == "" {
+		return nil
 	}
 
-	return nil
+	str, err := json.Marshal(config.ReusableCredential)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Create(config.CredentialCacheFile)
+	if err != nil {
+		return err
+	}
+	defer utility.CheckClose(file, &err)
+	_, err = file.WriteString(string(str))
+	return err
 }
 
 /*
@@ -55,7 +53,7 @@ func Login(ctx context.Context, config *Config, authHandler proton.AuthHandler, 
 	var addrs map[string]proton.Address
 
 	// get manager
-	m := getProtonManager(config.AppVersion, config.UserAgent)
+	m := getProtonManager(config)
 
 	if config.UseReusableLogin {
 		c = m.NewClient(config.ReusableCredential.UID, config.ReusableCredential.AccessToken, config.ReusableCredential.RefreshToken)
@@ -149,7 +147,7 @@ func Logout(ctx context.Context, config *Config, m *proton.Manager, c *proton.Cl
 	defer c.Close()
 
 	if config.CredentialCacheFile == "" {
-		log.Println("Logging out user")
+		config.GetLogger().Debugf("Logging out user")
 
 		// log out
 		err := c.AuthDelete(ctx)

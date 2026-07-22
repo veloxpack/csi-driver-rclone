@@ -1,4 +1,4 @@
-// Copyright (c) 2016, 2018, 2025, Oracle and/or its affiliates.  All rights reserved.
+// Copyright (c) 2016, 2018, 2026, Oracle and/or its affiliates.  All rights reserved.
 // This software is dual-licensed to you under the Universal Permissive License (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl or Apache License 2.0 as shown at http://www.apache.org/licenses/LICENSE-2.0. You may choose either license.
 
 package common
@@ -63,7 +63,7 @@ type CircuitBreakerSetting struct {
 	successStatCodeMap map[int]bool
 	// successStatErrCodeMap is the error(s) of StatusCode and ErrorCode returned from service, which should be considered
 	// as the success or failure accounted by circuit breaker
-	// the default value is {409, "IncorrectState"}
+	// the default value is {409, "IncorrectState"}, {409, "LockConflict"}
 	successStatErrCodeMap map[StatErrCode]bool
 	// serviceName is the name of the service which can be set using withServiceName option for NewCircuitBreaker.
 	// the default value is empty string
@@ -166,6 +166,7 @@ func NewGoCircuitBreaker(st gobreaker.Settings) *gobreaker.CircuitBreaker {
 func DefaultCircuitBreakerSetting() *CircuitBreakerSetting {
 	successStatErrCodeMap := map[StatErrCode]bool{
 		{409, "IncorrectState"}: false,
+		{409, "LockConflict"}:   false,
 	}
 	successStatCodeMap := map[int]bool{
 		429: false,
@@ -190,6 +191,7 @@ func DefaultCircuitBreakerSetting() *CircuitBreakerSetting {
 func DefaultCircuitBreakerSettingWithServiceName(servicename string) *CircuitBreakerSetting {
 	successStatErrCodeMap := map[StatErrCode]bool{
 		{409, "IncorrectState"}: false,
+		{409, "LockConflict"}:   false,
 	}
 	successStatCodeMap := map[int]bool{
 		429: false,

@@ -3,6 +3,7 @@ package smb2
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/cloudsoda/go-smb2/internal/erref"
 )
@@ -49,4 +50,13 @@ type ResponseError struct {
 
 func (err *ResponseError) Error() string {
 	return fmt.Sprintf("response error: %v", erref.NtStatus(err.Code))
+}
+
+// isFileDeleted reports whether err indicates a file was deleted or is pending
+// deletion. This is used to silently skip directory entries that vanish between
+// Readdir and a subsequent compound security query.
+func isFileDeleted(err error) bool {
+	var re *ResponseError
+	return errors.Is(err, os.ErrNotExist) ||
+		(errors.As(err, &re) && re.Code == uint32(erref.STATUS_DELETE_PENDING))
 }

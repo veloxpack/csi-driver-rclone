@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// ShareURLOptions contains options how to present the data data exposed through Linksharing.
+// ShareURLOptions contains options how to present the data exposed through Linksharing.
 type ShareURLOptions struct {
 	// If set it creates a link directly to the data instead of an to intermediate landing page.
 	// This URL can then be passed to a download command or embedded on a webpage.

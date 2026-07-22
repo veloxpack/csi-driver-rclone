@@ -19,6 +19,7 @@ type Group struct {
 	DavPermission     *bool  `json:"dav_permission,omitempty" path:"dav_permission,omitempty" url:"dav_permission,omitempty"`
 	RestapiPermission *bool  `json:"restapi_permission,omitempty" path:"restapi_permission,omitempty" url:"restapi_permission,omitempty"`
 	SiteId            int64  `json:"site_id,omitempty" path:"site_id,omitempty" url:"site_id,omitempty"`
+	WorkspaceId       int64  `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 }
 
 func (g Group) Identifier() interface{} {
@@ -28,11 +29,11 @@ func (g Group) Identifier() interface{} {
 type GroupCollection []Group
 
 type GroupListParams struct {
-	SortBy                  map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
-	Filter                  Group                  `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
-	FilterPrefix            map[string]interface{} `url:"filter_prefix,omitempty" json:"filter_prefix,omitempty" path:"filter_prefix"`
-	Ids                     string                 `url:"ids,omitempty" json:"ids,omitempty" path:"ids"`
-	IncludeParentSiteGroups *bool                  `url:"include_parent_site_groups,omitempty" json:"include_parent_site_groups,omitempty" path:"include_parent_site_groups"`
+	SortBy                  interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Filter                  interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
+	FilterPrefix            interface{} `url:"filter_prefix,omitempty" json:"filter_prefix,omitempty" path:"filter_prefix"`
+	Ids                     string      `url:"ids,omitempty" json:"ids,omitempty" path:"ids"`
+	IncludeParentSiteGroups *bool       `url:"include_parent_site_groups,omitempty" json:"include_parent_site_groups,omitempty" path:"include_parent_site_groups"`
 	ListParams
 }
 
@@ -50,6 +51,7 @@ type GroupCreateParams struct {
 	RestapiPermission *bool  `url:"restapi_permission,omitempty" json:"restapi_permission,omitempty" path:"restapi_permission"`
 	AllowedIps        string `url:"allowed_ips,omitempty" json:"allowed_ips,omitempty" path:"allowed_ips"`
 	Name              string `url:"name" json:"name" path:"name"`
+	WorkspaceId       int64  `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
 }
 
 type GroupUpdateParams struct {

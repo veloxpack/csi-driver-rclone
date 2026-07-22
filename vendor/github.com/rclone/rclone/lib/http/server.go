@@ -61,6 +61,12 @@ identically.
 
 ` + "`--{{ .Prefix }}disable-zip`" + ` may be set to disable the zipping download option.
 
+#### Protocol
+
+The server supports HTTP/1.1 and HTTP/2.  HTTP/2 is used automatically
+for TLS connections.  For non-TLS connections, HTTP/2 cleartext (h2c)
+is supported, allowing HTTP/2 without encryption.
+
 #### TLS (SSL)
 
 By default this will serve over http.  If you want you can serve over
@@ -273,19 +279,29 @@ func newInstance(ctx context.Context, s *Server, listener net.Listener, tlsCfg *
 		listener = tls.NewListener(listener, tlsCfg)
 	}
 
+	httpServer := &http.Server{
+		Handler:           s.mux,
+		ReadTimeout:       time.Duration(s.cfg.ServerReadTimeout),
+		WriteTimeout:      time.Duration(s.cfg.ServerWriteTimeout),
+		MaxHeaderBytes:    s.cfg.MaxHeaderBytes,
+		ReadHeaderTimeout: 10 * time.Second, // time to send the headers
+		IdleTimeout:       60 * time.Second, // time to keep idle connections open
+		TLSConfig:         tlsCfg,
+		BaseContext:       NewBaseContext(ctx, url),
+	}
+
+	// Enable h2c (HTTP/2 cleartext) for non-TLS listeners
+	if tlsCfg == nil {
+		protocols := new(http.Protocols)
+		protocols.SetHTTP1(true)
+		protocols.SetUnencryptedHTTP2(true)
+		httpServer.Protocols = protocols
+	}
+
 	return &instance{
-		url:      url,
-		listener: listener,
-		httpServer: &http.Server{
-			Handler:           s.mux,
-			ReadTimeout:       time.Duration(s.cfg.ServerReadTimeout),
-			WriteTimeout:      time.Duration(s.cfg.ServerWriteTimeout),
-			MaxHeaderBytes:    s.cfg.MaxHeaderBytes,
-			ReadHeaderTimeout: 10 * time.Second, // time to send the headers
-			IdleTimeout:       60 * time.Second, // time to keep idle connections open
-			TLSConfig:         tlsCfg,
-			BaseContext:       NewBaseContext(ctx, url),
-		},
+		url:        url,
+		listener:   listener,
+		httpServer: httpServer,
 	}
 }
 

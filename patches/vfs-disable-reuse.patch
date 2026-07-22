@@ -1,8 +1,8 @@
---- vendor/github.com/rclone/rclone/vfs/vfs.go	2026-04-08 07:57:22
-+++ vendor/github.com/rclone/rclone/vfs/vfs.go	2026-04-08 07:57:38
-@@ -215,18 +215,15 @@
+--- vendor/github.com/rclone/rclone/vfs/vfs.go
++++ vendor/github.com/rclone/rclone/vfs/vfs.go
+@@ -226,19 +226,15 @@
  	// Fill out anything else
- 	vfs.Opt.Init()
+ 	vfs.Opt.Init(ctx)
  
 -	// Find a VFS with the same name and options and return it if possible
 +	// Do not reuse active VFS instances. In a CSI driver each mount has its
@@ -18,6 +18,7 @@
 -		if vfs.Opt == activeVFS.Opt {
 -			fs.Debugf(f, "Reusing VFS from active cache")
 -			activeVFS.inUse.Add(1)
+-			cancel()
 -			return activeVFS
 -		}
 -	}

@@ -32,10 +32,10 @@ var (
 	ETEMPUNAVAIL        = errors.New("Resource temporarily not available, please try again later")
 	EMACMISMATCH        = errors.New("MAC verification failed")
 	EBADATTR            = errors.New("Bad node attribute")
-	ETOOMANYCONNECTIONS = errors.New("Too many connections on this resource.")
-	EWRITE              = errors.New("File could not be written to (or failed post-write integrity check).")
-	EREAD               = errors.New("File could not be read from (or changed unexpectedly during reading).")
-	EAPPKEY             = errors.New("Invalid or missing application key.")
+	ETOOMANYCONNECTIONS = errors.New("Too many connections on this resource")
+	EWRITE              = errors.New("File could not be written to (or failed post-write integrity check)")
+	EREAD               = errors.New("File could not be read from (or changed unexpectedly during reading)")
+	EAPPKEY             = errors.New("Invalid or missing application key")
 	ESSL                = errors.New("SSL verification failed")
 	EGOINGOVERQUOTA     = errors.New("Not enough quota")
 	EMFAREQUIRED        = errors.New("Multi-factor authentication required")
@@ -47,60 +47,60 @@ var (
 type ErrorMsg int
 
 func parseError(errno ErrorMsg) error {
-	switch {
-	case errno == 0:
+	switch errno {
+	case 0:
 		return nil
-	case errno == -1:
+	case -1:
 		return EINTERNAL
-	case errno == -2:
+	case -2:
 		return EARGS
-	case errno == -3:
+	case -3:
 		return EAGAIN
-	case errno == -4:
+	case -4:
 		return ERATELIMIT
-	case errno == -5:
+	case -5:
 		return EFAILED
-	case errno == -6:
+	case -6:
 		return ETOOMANY
-	case errno == -7:
+	case -7:
 		return ERANGE
-	case errno == -8:
+	case -8:
 		return EEXPIRED
-	case errno == -9:
+	case -9:
 		return ENOENT
-	case errno == -10:
+	case -10:
 		return ECIRCULAR
-	case errno == -11:
+	case -11:
 		return EACCESS
-	case errno == -12:
+	case -12:
 		return EEXIST
-	case errno == -13:
+	case -13:
 		return EINCOMPLETE
-	case errno == -14:
+	case -14:
 		return EKEY
-	case errno == -15:
+	case -15:
 		return ESID
-	case errno == -16:
+	case -16:
 		return EBLOCKED
-	case errno == -17:
+	case -17:
 		return EOVERQUOTA
-	case errno == -18:
+	case -18:
 		return ETEMPUNAVAIL
-	case errno == -19:
+	case -19:
 		return ETOOMANYCONNECTIONS
-	case errno == -20:
+	case -20:
 		return EWRITE
-	case errno == -21:
+	case -21:
 		return EREAD
-	case errno == -22:
+	case -22:
 		return EAPPKEY
-	case errno == -23:
+	case -23:
 		return ESSL
-	case errno == -24:
+	case -24:
 		return EGOINGOVERQUOTA
-	case errno == -26:
+	case -26:
 		return EMFAREQUIRED
+	default:
+		return fmt.Errorf("Unknown mega error %d", errno)
 	}
-
-	return fmt.Errorf("Unknown mega error %d", errno)
 }

@@ -11,6 +11,7 @@ type BundleDownload struct {
 	BundleRegistration BundleRegistration `json:"bundle_registration,omitempty" path:"bundle_registration,omitempty" url:"bundle_registration,omitempty"`
 	DownloadMethod     string             `json:"download_method,omitempty" path:"download_method,omitempty" url:"download_method,omitempty"`
 	Path               string             `json:"path,omitempty" path:"path,omitempty" url:"path,omitempty"`
+	WorkspaceId        int64              `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 	CreatedAt          *time.Time         `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
 }
 
@@ -21,14 +22,14 @@ func (b BundleDownload) Identifier() interface{} {
 type BundleDownloadCollection []BundleDownload
 
 type BundleDownloadListParams struct {
-	SortBy               map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
-	Filter               BundleDownload         `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
-	FilterGt             map[string]interface{} `url:"filter_gt,omitempty" json:"filter_gt,omitempty" path:"filter_gt"`
-	FilterGteq           map[string]interface{} `url:"filter_gteq,omitempty" json:"filter_gteq,omitempty" path:"filter_gteq"`
-	FilterLt             map[string]interface{} `url:"filter_lt,omitempty" json:"filter_lt,omitempty" path:"filter_lt"`
-	FilterLteq           map[string]interface{} `url:"filter_lteq,omitempty" json:"filter_lteq,omitempty" path:"filter_lteq"`
-	BundleId             int64                  `url:"bundle_id,omitempty" json:"bundle_id,omitempty" path:"bundle_id"`
-	BundleRegistrationId int64                  `url:"bundle_registration_id,omitempty" json:"bundle_registration_id,omitempty" path:"bundle_registration_id"`
+	SortBy               interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Filter               interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
+	FilterGt             interface{} `url:"filter_gt,omitempty" json:"filter_gt,omitempty" path:"filter_gt"`
+	FilterGteq           interface{} `url:"filter_gteq,omitempty" json:"filter_gteq,omitempty" path:"filter_gteq"`
+	FilterLt             interface{} `url:"filter_lt,omitempty" json:"filter_lt,omitempty" path:"filter_lt"`
+	FilterLteq           interface{} `url:"filter_lteq,omitempty" json:"filter_lteq,omitempty" path:"filter_lteq"`
+	BundleId             int64       `url:"bundle_id,omitempty" json:"bundle_id,omitempty" path:"bundle_id"`
+	BundleRegistrationId int64       `url:"bundle_registration_id,omitempty" json:"bundle_registration_id,omitempty" path:"bundle_registration_id"`
 	ListParams
 }
 

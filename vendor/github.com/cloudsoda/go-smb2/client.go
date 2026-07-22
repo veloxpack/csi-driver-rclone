@@ -2,8 +2,10 @@ package smb2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math/rand"
 	"net"
 	"os"
@@ -97,12 +99,12 @@ func (d *Dialer) DialConn(ctx context.Context, tcpConn net.Conn, address string)
 
 	a := openAccount(maxCreditBalance)
 
-	conn, err := d.Negotiator.negotiate(direct(tcpConn), a, ctx)
+	conn, err := d.Negotiator.negotiate(ctx, direct(tcpConn), a)
 	if err != nil {
 		return nil, err
 	}
 
-	s, err := sessionSetup(conn, d.Initiator, ctx)
+	s, err := sessionSetup(ctx, conn, d.Initiator)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +196,7 @@ func (c *Session) Mount(sharename string, opts ...MountOption) (*Share, error) {
 		opt(&options)
 	}
 
-	tc, err := treeConnect(c.s, sharename, 0, options.mapping, c.ctx)
+	tc, err := treeConnect(c.ctx, c.s, sharename, 0, options.mapping)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +220,7 @@ func (c *Session) ListSharenames() ([]string, error) {
 
 	fs = fs.WithContext(c.ctx)
 
-	f, err := fs.OpenFile("srvsvc", os.O_RDWR, 0666)
+	f, err := fs.OpenFile("srvsvc", os.O_RDWR, 0o666)
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +340,7 @@ func (fs *Share) Umount() error {
 }
 
 func (fs *Share) Create(name string) (*File, error) {
-	return fs.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	return fs.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
 }
 
 func (fs *Share) newFile(r smb2.CreateResponseDecoder, name string) *File {
@@ -407,7 +409,7 @@ func (fs *Share) OpenFile(name string, flag int, perm os.FileMode) (*File, error
 	}
 
 	var attrs uint32 = smb2.FILE_ATTRIBUTE_NORMAL
-	if perm&0200 == 0 {
+	if perm&0o200 == 0 {
 		attrs = smb2.FILE_ATTRIBUTE_READONLY
 	}
 
@@ -529,7 +531,7 @@ func (fs *Share) Readlink(name string) (string, error) {
 func (fs *Share) Remove(name string) error {
 	err := fs.remove(name)
 	if os.IsPermission(err) {
-		if e := fs.Chmod(name, 0666); e != nil {
+		if e := fs.Chmod(name, 0o666); e != nil {
 			return err
 		}
 		return fs.remove(name)
@@ -736,13 +738,12 @@ func (fs *Share) Lstat(name string) (os.FileInfo, error) {
 		return nil, &os.PathError{Op: "stat", Path: name, Err: err}
 	}
 
-	fi, err := f.fileStat, nil
-	if e := f.close(); err == nil {
-		err = e
-	}
-	if err != nil {
+	fi := f.fileStat
+
+	if err := f.close(); err != nil {
 		return nil, &os.PathError{Op: "stat", Path: name, Err: err}
 	}
+
 	return fi, nil
 }
 
@@ -771,13 +772,12 @@ func (fs *Share) Stat(name string) (os.FileInfo, error) {
 		return nil, &os.PathError{Op: "stat", Path: name, Err: err}
 	}
 
-	fi, err := f.fileStat, nil
-	if e := f.close(); err == nil {
-		err = e
-	}
-	if err != nil {
+	fi := f.fileStat
+
+	if err := f.close(); err != nil {
 		return nil, &os.PathError{Op: "stat", Path: name, Err: err}
 	}
+
 	return fi, nil
 }
 
@@ -916,6 +916,26 @@ func (fs *Share) ReadDir(dirname string) ([]os.FileInfo, error) {
 	return fis, nil
 }
 
+// ReadDirPlus returns all directory entries enriched with security descriptors,
+// sorted by name. For directories with many entries, prefer opening the
+// directory and calling File.ReaddirPlus incrementally.
+func (fs *Share) ReadDirPlus(dirname string, securityInfo SecurityInformationRequestFlags) ([]DirEntryPlus, error) {
+	f, err := fs.Open(dirname)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	entries, err := f.ReaddirPlus(-1, securityInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+
+	return entries, nil
+}
+
 const (
 	intSize = 32 << (^uint(0) >> 63) // 32 or 64
 	maxInt  = 1<<(intSize-1) - 1
@@ -933,15 +953,11 @@ func (fs *Share) ReadFile(filename string) ([]byte, error) {
 	var size int
 
 	if size64 <= maxInt {
-		size = int(size64)
-
 		// If a file claims a small size, read at least 512 bytes.
 		// In particular, files in Linux's /proc claim size 0 but
 		// then do not work right if read in small pieces,
 		// so an initial read of 1 byte would not work correctly.
-		if size < 512 {
-			size = 512
-		}
+		size = max(int(size64), 512)
 	} else {
 		size = maxInt
 	}
@@ -1163,7 +1179,7 @@ func (fs *Share) createFile(name string, req *smb2.CreateRequest, followSymlinks
 }
 
 func (fs *Share) createFileRec(name string, req *smb2.CreateRequest) (f *File, err error) {
-	for i := 0; i < clientMaxSymlinkDepth; i++ {
+	for range clientMaxSymlinkDepth {
 		req.CreditCharge, _, err = fs.loanCredit(0)
 		defer func() {
 			if err != nil {
@@ -1231,7 +1247,7 @@ func evalSymlinkError(name string, errData []byte, mc utf16le.MapChars) (string,
 }
 
 func (fs *Share) sendRecv(cmd uint16, req smb2.Packet) (res []byte, err error) {
-	rr, err := fs.send(req, fs.ctx)
+	rr, err := fs.send(fs.ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -1245,7 +1261,7 @@ func (fs *Share) sendRecv(cmd uint16, req smb2.Packet) (res []byte, err error) {
 }
 
 func (fs *Share) loanCredit(payloadSize int) (creditCharge uint16, grantedPayloadSize int, err error) {
-	return fs.session.conn.loanCredit(payloadSize, fs.ctx)
+	return fs.session.conn.loanCredit(fs.ctx, payloadSize)
 }
 
 type File struct {
@@ -1365,14 +1381,13 @@ func (f *File) ReadAt(b []byte, off int64) (n int, err error) {
 	return n, nil
 }
 
-const winMaxPayloadSize = 1024 * 1024 // windows system don't accept more than 1M bytes request even though they tell us maxXXXSize > 1M
-const singleCreditMaxPayloadSize = 64 * 1024
+const (
+	winMaxPayloadSize          = 1024 * 1024 // windows system don't accept more than 1M bytes request even though they tell us maxXXXSize > 1M
+	singleCreditMaxPayloadSize = 64 * 1024
+)
 
 func (f *File) maxReadSize() int {
-	size := int(f.fs.maxReadSize)
-	if size > winMaxPayloadSize {
-		size = winMaxPayloadSize
-	}
+	size := min(int(f.fs.maxReadSize), winMaxPayloadSize)
 	if f.fs.conn.capabilities&smb2.SMB2_GLOBAL_CAP_LARGE_MTU == 0 {
 		if size > singleCreditMaxPayloadSize {
 			size = singleCreditMaxPayloadSize
@@ -1382,10 +1397,7 @@ func (f *File) maxReadSize() int {
 }
 
 func (f *File) maxWriteSize() int {
-	size := int(f.fs.maxWriteSize)
-	if size > winMaxPayloadSize {
-		size = winMaxPayloadSize
-	}
+	size := min(int(f.fs.maxWriteSize), winMaxPayloadSize)
 	if f.fs.conn.capabilities&smb2.SMB2_GLOBAL_CAP_LARGE_MTU == 0 {
 		if size > singleCreditMaxPayloadSize {
 			size = singleCreditMaxPayloadSize
@@ -1395,10 +1407,7 @@ func (f *File) maxWriteSize() int {
 }
 
 func (f *File) maxTransactSize() int {
-	size := int(f.fs.maxTransactSize)
-	if size > winMaxPayloadSize {
-		size = winMaxPayloadSize
-	}
+	size := min(int(f.fs.maxTransactSize), winMaxPayloadSize)
 	if f.fs.conn.capabilities&smb2.SMB2_GLOBAL_CAP_LARGE_MTU == 0 {
 		if size > singleCreditMaxPayloadSize {
 			size = singleCreditMaxPayloadSize
@@ -1419,7 +1428,7 @@ func (f *File) readAt(b []byte, off int64) (n int, err error) {
 		case len(b)-n == 0:
 			return n, nil
 		case len(b)-n <= maxReadSize:
-			bs, isEOF, err := f.readAtChunk(len(b)-n, int64(n)+off)
+			bs, isEOF, rr, err := f.readAtChunk(len(b)-n, int64(n)+off)
 			if err != nil {
 				if err, ok := err.(*ResponseError); ok && erref.NtStatus(err.Code) == erref.STATUS_END_OF_FILE && n != 0 {
 					return n, nil
@@ -1428,12 +1437,13 @@ func (f *File) readAt(b []byte, off int64) (n int, err error) {
 			}
 
 			n += copy(b[n:], bs)
+			rr.freeRecvBuf()
 
 			if isEOF {
 				return n, nil
 			}
 		default:
-			bs, isEOF, err := f.readAtChunk(maxReadSize, int64(n)+off)
+			bs, isEOF, rr, err := f.readAtChunk(maxReadSize, int64(n)+off)
 			if err != nil {
 				if err, ok := err.(*ResponseError); ok && erref.NtStatus(err.Code) == erref.STATUS_END_OF_FILE && n != 0 {
 					return n, nil
@@ -1442,6 +1452,7 @@ func (f *File) readAt(b []byte, off int64) (n int, err error) {
 			}
 
 			n += copy(b[n:], bs)
+			rr.freeRecvBuf()
 
 			if isEOF {
 				return n, nil
@@ -1450,7 +1461,7 @@ func (f *File) readAt(b []byte, off int64) (n int, err error) {
 	}
 }
 
-func (f *File) readAtChunk(n int, off int64) (bs []byte, isEOF bool, err error) {
+func (f *File) readAtChunk(n int, off int64) (bs []byte, isEOF bool, rr *requestResponse, err error) {
 	creditCharge, m, err := f.fs.loanCredit(n)
 	defer func() {
 		if err != nil {
@@ -1458,7 +1469,7 @@ func (f *File) readAtChunk(n int, off int64) (bs []byte, isEOF bool, err error) 
 		}
 	}()
 	if err != nil {
-		return nil, false, err
+		return nil, false, nil, err
 	}
 
 	req := &smb2.ReadRequest{
@@ -1476,19 +1487,31 @@ func (f *File) readAtChunk(n int, off int64) (bs []byte, isEOF bool, err error) 
 
 	req.CreditCharge = creditCharge
 
-	res, err := f.sendRecv(smb2.SMB2_READ, req)
+	rr, err = f.fs.send(f.fs.ctx, req)
 	if err != nil {
-		return nil, false, err
+		return nil, false, nil, err
+	}
+
+	pkt, err := f.fs.recv(rr)
+	if err != nil {
+		return nil, false, nil, err
+	}
+
+	res, err := accept(smb2.SMB2_READ, pkt)
+	if err != nil {
+		rr.freeRecvBuf()
+		return nil, false, nil, err
 	}
 
 	r := smb2.ReadResponseDecoder(res)
 	if r.IsInvalid() {
-		return nil, false, &InvalidResponseError{"broken read response format"}
+		rr.freeRecvBuf()
+		return nil, false, nil, &InvalidResponseError{"broken read response format"}
 	}
 
 	bs = r.Data()
 
-	return bs, len(bs) < m, nil
+	return bs, len(bs) < m, rr, nil
 }
 
 func (f *File) Readdir(n int) (fi []os.FileInfo, err error) {
@@ -1534,6 +1557,71 @@ func (f *File) Readdir(n int) (fi []os.FileInfo, err error) {
 	f.dirents = []os.FileInfo{}
 
 	return fi, nil
+}
+
+// ReaddirPlus reads directory entries enriched with security descriptors.
+// Like Readdir(n), it is incremental — each call returns the next n entries
+// with their security descriptors. Returns io.EOF after the last entry.
+//
+// Security queries use SMB2 compound requests (CREATE+QUERY_INFO+CLOSE batched
+// into single round-trips), sub-batching internally to respect credit limits.
+func (f *File) ReaddirPlus(n int, securityInfo SecurityInformationRequestFlags) ([]DirEntryPlus, error) {
+	fi, err := f.Readdir(n)
+	if len(fi) == 0 {
+		return nil, err
+	}
+
+	// Build relative paths for the compound security query.
+	// File names from Readdir are bare names; prefix with the directory path.
+	dir := f.name
+	paths := make([]string, len(fi))
+	for i, info := range fi {
+		if dir == "" {
+			paths[i] = info.Name()
+		} else {
+			paths[i] = dir + `\` + info.Name()
+		}
+	}
+
+	tc := f.fs.treeConn
+	secResults, secErr := tc.compoundSecurityInfoBatch(
+		paths, uint32(securityInfo), f.mapping, f.fs.ctx,
+	)
+	if secErr != nil {
+		// If the compound batch itself failed, return entries without security info
+		// and propagate the batch error on the first entry.
+		entries := make([]DirEntryPlus, len(fi))
+		for i, info := range fi {
+			entries[i] = DirEntryPlus{FileInfo: info, Err: secErr}
+		}
+		return entries, errors.Join(err, secErr)
+	}
+
+	entries := make([]DirEntryPlus, 0, len(fi))
+	for i, info := range fi {
+		var sd *sddl.SecurityDescriptor
+		var err error
+		if secResults[i].err != nil {
+			if isFileDeleted(secResults[i].err) {
+				continue // file deleted between Readdir and security query
+			}
+			err = secResults[i].err
+		} else if secResults[i].data != nil {
+			var parseErr error
+			sd, parseErr = sddl.FromBinary(secResults[i].data)
+			if parseErr != nil {
+				sd = nil // belt-and-suspenders assignment
+				err = fmt.Errorf("parsing security descriptor for %s: %w", info.Name(), parseErr)
+			}
+		}
+		entries = append(entries, DirEntryPlus{
+			FileInfo:           info,
+			SecurityDescriptor: sd,
+			Err:                err,
+		})
+	}
+
+	return entries, err
 }
 
 func (f *File) Readdirnames(n int) (names []string, err error) {
@@ -1800,7 +1888,7 @@ func (f *File) chmod(mode os.FileMode) error {
 
 	attrs := base.FileAttributes()
 
-	if mode&0200 != 0 {
+	if mode&0o200 != 0 {
 		attrs &^= smb2.FILE_ATTRIBUTE_READONLY
 	} else {
 		attrs |= smb2.FILE_ATTRIBUTE_READONLY
@@ -2127,10 +2215,7 @@ func (f *File) encodeSize(e smb2.Encoder) int {
 }
 
 func (f *File) ioctl(req *smb2.IoctlRequest) (output []byte, err error) {
-	payloadSize := f.encodeSize(req.Input) + int(req.OutputCount)
-	if payloadSize < int(req.MaxOutputResponse+req.MaxInputResponse) {
-		payloadSize = int(req.MaxOutputResponse + req.MaxInputResponse)
-	}
+	payloadSize := max(f.encodeSize(req.Input)+int(req.OutputCount), int(req.MaxOutputResponse+req.MaxInputResponse))
 
 	if f.maxTransactSize() < payloadSize {
 		return nil, &InternalError{fmt.Sprintf("payload size %d exceeds max transact size %d", payloadSize, f.maxTransactSize())}
@@ -2230,16 +2315,16 @@ func (f *File) readdir(pattern string) (fi []os.FileInfo, err error) {
 		if next == 0 {
 			return fi, nil
 		}
+		if uint64(next) >= uint64(len(output)) {
+			return nil, &InvalidResponseError{"bad directory entry offset"}
+		}
 
 		output = output[next:]
 	}
 }
 
 func (f *File) queryInfo(req *smb2.QueryInfoRequest) (infoBytes []byte, err error) {
-	payloadSize := f.encodeSize(req.Input)
-	if payloadSize < int(req.OutputBufferLength) {
-		payloadSize = int(req.OutputBufferLength)
-	}
+	payloadSize := max(f.encodeSize(req.Input), int(req.OutputBufferLength))
 
 	if f.maxTransactSize() < payloadSize {
 		return nil, &InternalError{fmt.Sprintf("payload size %d exceeds max transact size %d", payloadSize, f.maxTransactSize())}
@@ -2396,13 +2481,13 @@ func (fs *FileStat) Mode() os.FileMode {
 	var m os.FileMode
 
 	if fs.FileAttributes&smb2.FILE_ATTRIBUTE_DIRECTORY != 0 {
-		m |= os.ModeDir | 0111
+		m |= os.ModeDir | 0o111
 	}
 
 	if fs.FileAttributes&smb2.FILE_ATTRIBUTE_READONLY != 0 {
-		m |= 0444
+		m |= 0o444
 	} else {
-		m |= 0666
+		m |= 0o666
 	}
 
 	if fs.FileAttributes&smb2.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
@@ -2420,6 +2505,21 @@ func (fs *FileStat) IsDir() bool {
 	return fs.Mode().IsDir()
 }
 
-func (fs *FileStat) Sys() interface{} {
+func (fs *FileStat) Sys() any {
 	return fs
 }
+
+// DirEntryPlus extends os.FileInfo with security metadata obtained via
+// compound requests. It implements fs.DirEntry.
+type DirEntryPlus struct {
+	os.FileInfo
+	SecurityDescriptor *sddl.SecurityDescriptor
+
+	Err error // non-nil if the security query failed for this entry
+}
+
+var _ fs.DirEntry = &DirEntryPlus{}
+
+func (d *DirEntryPlus) Type() os.FileMode          { return d.FileInfo.Mode().Type() }
+func (d *DirEntryPlus) Info() (os.FileInfo, error) { return d.FileInfo, nil }
+func (d *DirEntryPlus) Name() string               { return d.FileInfo.Name() }

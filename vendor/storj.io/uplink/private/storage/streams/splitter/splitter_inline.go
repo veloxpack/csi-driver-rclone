@@ -28,7 +28,7 @@ func (s *splitterInline) Begin() metaclient.BatchItem {
 		Encryption:          s.encryption,
 		EncryptedInlineData: s.encData,
 		PlainSize:           s.plainSize,
-		EncryptedTag:        nil, // set by the segment tracker
+		EncryptedETag:       nil, // set by the segment tracker
 	}
 }
 

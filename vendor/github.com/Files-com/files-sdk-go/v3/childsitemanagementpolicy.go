@@ -8,15 +8,15 @@ import (
 )
 
 type ChildSiteManagementPolicy struct {
-	Id                  int64                  `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
-	PolicyType          string                 `json:"policy_type,omitempty" path:"policy_type,omitempty" url:"policy_type,omitempty"`
-	Name                string                 `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
-	Description         string                 `json:"description,omitempty" path:"description,omitempty" url:"description,omitempty"`
-	Value               map[string]interface{} `json:"value,omitempty" path:"value,omitempty" url:"value,omitempty"`
-	AppliedChildSiteIds []int64                `json:"applied_child_site_ids,omitempty" path:"applied_child_site_ids,omitempty" url:"applied_child_site_ids,omitempty"`
-	SkipChildSiteIds    []int64                `json:"skip_child_site_ids,omitempty" path:"skip_child_site_ids,omitempty" url:"skip_child_site_ids,omitempty"`
-	CreatedAt           *time.Time             `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
-	UpdatedAt           *time.Time             `json:"updated_at,omitempty" path:"updated_at,omitempty" url:"updated_at,omitempty"`
+	Id                  int64       `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	PolicyType          string      `json:"policy_type,omitempty" path:"policy_type,omitempty" url:"policy_type,omitempty"`
+	Name                string      `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
+	Description         string      `json:"description,omitempty" path:"description,omitempty" url:"description,omitempty"`
+	Value               interface{} `json:"value,omitempty" path:"value,omitempty" url:"value,omitempty"`
+	AppliedChildSiteIds []int64     `json:"applied_child_site_ids,omitempty" path:"applied_child_site_ids,omitempty" url:"applied_child_site_ids,omitempty"`
+	SkipChildSiteIds    []int64     `json:"skip_child_site_ids,omitempty" path:"skip_child_site_ids,omitempty" url:"skip_child_site_ids,omitempty"`
+	CreatedAt           *time.Time  `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
+	UpdatedAt           *time.Time  `json:"updated_at,omitempty" path:"updated_at,omitempty" url:"updated_at,omitempty"`
 }
 
 func (c ChildSiteManagementPolicy) Identifier() interface{} {
@@ -46,7 +46,7 @@ type ChildSiteManagementPolicyFindParams struct {
 }
 
 type ChildSiteManagementPolicyCreateParams struct {
-	Value            string                                  `url:"value,omitempty" json:"value,omitempty" path:"value"`
+	Value            interface{}                             `url:"value,omitempty" json:"value,omitempty" path:"value"`
 	SkipChildSiteIds []int64                                 `url:"skip_child_site_ids,omitempty" json:"skip_child_site_ids,omitempty" path:"skip_child_site_ids"`
 	PolicyType       ChildSiteManagementPolicyPolicyTypeEnum `url:"policy_type" json:"policy_type" path:"policy_type"`
 	Name             string                                  `url:"name,omitempty" json:"name,omitempty" path:"name"`
@@ -55,7 +55,7 @@ type ChildSiteManagementPolicyCreateParams struct {
 
 type ChildSiteManagementPolicyUpdateParams struct {
 	Id               int64                                   `url:"-,omitempty" json:"-,omitempty" path:"id"`
-	Value            string                                  `url:"value,omitempty" json:"value,omitempty" path:"value"`
+	Value            interface{}                             `url:"value,omitempty" json:"value,omitempty" path:"value"`
 	SkipChildSiteIds []int64                                 `url:"skip_child_site_ids,omitempty" json:"skip_child_site_ids,omitempty" path:"skip_child_site_ids"`
 	PolicyType       ChildSiteManagementPolicyPolicyTypeEnum `url:"policy_type,omitempty" json:"policy_type,omitempty" path:"policy_type"`
 	Name             string                                  `url:"name,omitempty" json:"name,omitempty" path:"name"`

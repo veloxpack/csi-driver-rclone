@@ -9,6 +9,7 @@ import (
 
 type PublicKey struct {
 	Id                         int64      `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	WorkspaceId                int64      `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 	Title                      string     `json:"title,omitempty" path:"title,omitempty" url:"title,omitempty"`
 	CreatedAt                  *time.Time `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
 	Fingerprint                string     `json:"fingerprint,omitempty" path:"fingerprint,omitempty" url:"fingerprint,omitempty"`
@@ -33,13 +34,13 @@ func (p PublicKey) Identifier() interface{} {
 type PublicKeyCollection []PublicKey
 
 type PublicKeyListParams struct {
-	UserId     int64                  `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
-	SortBy     map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
-	Filter     PublicKey              `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
-	FilterGt   map[string]interface{} `url:"filter_gt,omitempty" json:"filter_gt,omitempty" path:"filter_gt"`
-	FilterGteq map[string]interface{} `url:"filter_gteq,omitempty" json:"filter_gteq,omitempty" path:"filter_gteq"`
-	FilterLt   map[string]interface{} `url:"filter_lt,omitempty" json:"filter_lt,omitempty" path:"filter_lt"`
-	FilterLteq map[string]interface{} `url:"filter_lteq,omitempty" json:"filter_lteq,omitempty" path:"filter_lteq"`
+	UserId     int64       `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
+	SortBy     interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Filter     interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
+	FilterGt   interface{} `url:"filter_gt,omitempty" json:"filter_gt,omitempty" path:"filter_gt"`
+	FilterGteq interface{} `url:"filter_gteq,omitempty" json:"filter_gteq,omitempty" path:"filter_gteq"`
+	FilterLt   interface{} `url:"filter_lt,omitempty" json:"filter_lt,omitempty" path:"filter_lt"`
+	FilterLteq interface{} `url:"filter_lteq,omitempty" json:"filter_lteq,omitempty" path:"filter_lteq"`
 	ListParams
 }
 

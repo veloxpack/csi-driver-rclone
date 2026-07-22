@@ -2,11 +2,7 @@ pipeline {
     agent none
 
     options {
-          timeout(time: 35, unit: 'MINUTES')
-    }
-    environment {
-        NPM_CONFIG_CACHE = '/tmp/npm/cache'
-        COCKROACH_MEMPROF_INTERVAL=0
+          timeout(time: 80, unit: 'MINUTES')
     }
     stages {
         stage('Build') {
@@ -15,8 +11,20 @@ pipeline {
                     label 'main'
                     image 'storjlabs/ci:latest'
                     alwaysPull true
-                    args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v /tmp/golangci-lint:/root/.cache/golangci-lint -v /tmp/gocache:/root/.cache/go-build'
+                    args '-u root:root --cap-add SYS_PTRACE' +
+                        ' -v "/cache/gomod":/go/pkg/mod' +
+                        ' -v /cache/golangci-lint:/root/.cache/golangci-lint' +
+                        ' -v /cache/gobuild:/root/.cache/go-build' +
+                        ' -v /cache/gobenchmarks:/root/.cache/go-build-benchmarks' +
+                        ' -v /cache/gomain:/root/.cache/go-build-main' +
+                        ' -v /cache/uplinkintegration:/root/.cache/go-build-integration' +
+                        ' -v "/cache/npm":/npm'
                 }
+            }
+            environment {
+                NPM_CONFIG_CACHE = '/tmp/npm/cache'
+                COCKROACH_MEMPROF_INTERVAL=0
+                COVERDIR = "${ env.BRANCH_NAME == 'main' ? env.WORKSPACE + '/.build/cover' : '' }"
             }
             stages {
                 stage('Preparation') {
@@ -24,20 +32,12 @@ pipeline {
                         stage('Checkout') {
                             steps {
                                 checkout scm
+                                sh 'git restore-mtime'
 
-                                sh 'mkdir -p .build'
+                                sh 'mkdir -p .build $COVERDIR'
                                 // make a backup of the mod file in case, for later linting
                                 sh 'cp go.mod .build/go.mod.orig'
                                 sh 'cp testsuite/go.mod .build/testsuite.go.mod.orig'
-                            }
-                        }
-                        stage('Start databases') {
-                            steps {
-                                sh 'service postgresql start'
-
-                                dir('.build') {
-                                    sh 'cockroach start-single-node --insecure --store=type=mem,size=4GiB --listen-addr=localhost:26257 --http-addr=localhost:8086 --cache 1024MiB --max-sql-memory 1024MiB --background'
-                                }
                             }
                         }
                     }
@@ -78,101 +78,95 @@ pipeline {
 
                         stage('Tests') {
                             environment {
-                                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=./...' : ''}"
+                                COVERFLAGS = "${ env.COVERDIR ? '-coverprofile=' + env.COVERDIR + '/tests.coverprofile -coverpkg=./...' : ''}"
                             }
                             steps {
                                 sh 'go vet ./...'
-                                sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... > .build/tests.json'
+                                sh 'go test -parallel 6 -p 12 -vet=off $COVERFLAGS -timeout 40m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
                             }
 
                             post {
                                 always {
-                                    sh script: 'cat .build/tests.json | xunit -out .build/tests.xml', returnStatus: true
                                     sh script: 'cat .build/tests.json | tparse -all -slow 100', returnStatus: true
                                     archiveArtifacts artifacts: '.build/tests.json'
                                     junit '.build/tests.xml'
-
-                                    script {
-                                        if(fileExists(".build/coverprofile")){
-                                            sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
-                                            sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
-                                            sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
-                                            cobertura coberturaReportFile: '.build/cobertura.xml'
-                                        }
-                                    }
                                 }
                             }
                         }
 
                         stage('Testsuite') {
                             environment {
-                                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26257/testcockroach?sslmode=disable'
-                                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
-                                STORJ_TEST_SPANNER = 'omit'
-                                STORJ_TEST_COCKROACH_NODROP = 'true'
+                                STORJ_TEST_COCKROACH = 'omit'
+                                STORJ_TEST_POSTGRES = 'omit'
                                 STORJ_TEST_LOG_LEVEL = 'info'
-                                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=../.build/testsuite_coverprofile -coverpkg=storj.io/uplink/...' : ''}"
+                                STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
+                                COVERFLAGS = "${ env.COVERDIR ? '-coverprofile=' + env.COVERDIR + '/testsuite.coverprofile -coverpkg=storj.io/uplink/...' : ''}"
+                                STORJ_TEST_SPANNER = 'run:/usr/local/bin/spanner_emulator --override_change_stream_partition_token_alive_seconds=1'
+                                SPANNER_DISABLE_BUILTIN_METRICS = 'true'
+                                GOOGLE_CLOUD_SPANNER_DISABLE_LOG_CLIENT_OPTIONS='true'
                             }
                             steps {
-                                sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
-                                sh 'psql -U postgres -c \'create database teststorj;\''
                                 dir('testsuite'){
                                     sh 'go vet ./...'
-                                    sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... > ../.build/testsuite.json'
+                                    sh 'go test -parallel 8 -p 12 -vet=off $COVERFLAGS -timeout 40m -json -race ./... 2>&1 | tee ../.build/testsuite.json | xunit -out ../.build/testsuite.xml'
                                 }
                             }
 
                             post {
                                 always {
-                                    dir('testsuite'){
-                                        sh script: 'cat ../.build/testsuite.json | xunit -out ../.build/testsuite.xml', returnStatus: true
-                                    }
                                     sh script: 'cat .build/testsuite.json | tparse -all -slow 100', returnStatus: true
                                     archiveArtifacts artifacts: '.build/testsuite.json'
                                     junit '.build/testsuite.xml'
-
-                                    script {
-                                        if(fileExists(".build/testsuite_coverprofile")){
-                                            sh script: 'filter-cover-profile < .build/testsuite_coverprofile > .build/clean.testsuite_coverprofile', returnStatus: true
-                                            sh script: 'gocov convert .build/clean.testsuite_coverprofile > .build/testsuite_cover.json', returnStatus: true
-                                            sh script: 'gocov-xml  < .build/testsuite_cover.json > .build/testsuite_cobertura.xml', returnStatus: true
-                                            cobertura coberturaReportFile: '.build/testsuite_cobertura.xml'
-                                        }
-                                    }
                                 }
                             }
                         }
 
-                        stage('Integration [storj/storj]') {
-                            environment {
-                                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
-                                STORJ_TEST_COCKROACH = 'omit'
-                                STORJ_TEST_SPANNER = 'omit'
-                                // TODO add 'omit' for metabase STORJ_TEST_DATABASES
-                                STORJ_TEST_DATABASES = 'pg|pgx|postgres://postgres@localhost/testmetabase?sslmode=disable'
-                            }
-                            steps {
-                                sh 'psql -U postgres -c \'create database teststorj2;\''
-                                sh 'psql -U postgres -c \'create database testmetabase;\''
-                                dir('testsuite'){
-                                    sh 'cp go.mod go-temp.mod'
-                                    sh 'go vet -modfile go-temp.mod -mod=mod storj.io/storj/...'
-                                    sh 'go test -modfile go-temp.mod -mod=mod -tags noembed -parallel 4 -p 6 -vet=off -timeout 20m -json storj.io/storj/... 2>&1 | tee ../.build/testsuite-storj.json | xunit -out ../.build/testsuite-storj.xml'
-                                }
-                            }
-
-                            post {
-                                always {
-                                    sh script: 'cat .build/testsuite-storj.json | tparse -all -slow 100', returnStatus: true
-                                    archiveArtifacts artifacts: '.build/testsuite-storj.json'
-                                    junit '.build/testsuite-storj.xml'
-                                }
-                            }
-                        }
                         stage('Go Compatibility') {
                             steps {
                                 sh 'check-cross-compile -compiler "go,go.min" storj.io/uplink/...'
                             }
+                        }
+                    }
+                }
+
+                stage('Coverage') {
+                    when { not { environment name: 'COVERDIR', value: '' } }
+                    steps {
+                        script {
+                            sh script: "filter-cover-profile < .build/cover/tests.coverprofile > .build/cover/tests.coverprofile.clean", returnStatus: true
+                            sh script: "filter-cover-profile < .build/cover/testsuite.coverprofile > .build/cover/testsuite.coverprofile.clean", returnStatus: true
+                            archiveArtifacts artifacts: '.build/cover/tests.coverprofile.clean'
+                            archiveArtifacts artifacts: '.build/cover/testsuite.coverprofile.clean'
+
+                            recordCoverage(
+                                tools: [[parser: 'GO_COV', pattern: '.build/cover/*.coverprofile.clean']],
+                                sourceCodeRetention: 'NEVER',
+                            )
+                        }
+                    }
+                }
+
+                stage('Integration storj/storj using Spanner') {
+                    environment {
+                        STORJ_TEST_POSTGRES = 'omit'
+                        STORJ_TEST_COCKROACH = 'omit'
+                        STORJ_TEST_SPANNER = 'run:/usr/local/bin/spanner_emulator --override_change_stream_partition_token_alive_seconds=1'
+                        GOCACHE = '/root/.cache/go-build-integration'
+                    }
+                    steps {
+                        dir('testsuite'){
+                            sh 'cp go.mod go-temp.mod'
+
+                            sh 'go vet -modfile go-temp.mod -mod=mod storj.io/storj/...'
+                            sh 'go test -modfile go-temp.mod -mod=mod -tags noembed -parallel 8 -p 12 -vet=off -timeout 80m -json $(go list storj.io/storj/... | grep -v /metabase | grep -v /satellitedb) 2>&1 | tee ../.build/testsuite-storj.json | xunit -out ../.build/testsuite-storj.xml'
+                        }
+                    }
+
+                    post {
+                        always {
+                            sh script: 'cat .build/testsuite-storj.json | tparse -all -slow 100', returnStatus: true
+                            archiveArtifacts artifacts: '.build/testsuite-storj.json'
+                            junit '.build/testsuite-storj.xml'
                         }
                     }
                 }

@@ -26,6 +26,8 @@ func (c *Client) Wait(fileAction files_sdk.FileAction, status func(files_sdk.Fil
 	var migration files_sdk.FileMigration
 	migration.Status = fileAction.Status
 	migration.Id = fileAction.FileMigrationId
+	ctx := files_sdk.ContextOption(opts)
+
 	if migration.Status == "completed" || migration.Status == "failed" || err != nil {
 		return migration, nil
 	}
@@ -37,7 +39,12 @@ func (c *Client) Wait(fileAction files_sdk.FileAction, status func(files_sdk.Fil
 		if migration.Status == "completed" || migration.Status == "failed" || err != nil {
 			return migration, err
 		}
-		time.Sleep(time.Second * 1)
+		select {
+		case <-ctx.Done():
+			return migration, ctx.Err()
+		case <-time.After(time.Second * 1):
+		default:
+		}
 	}
 }
 

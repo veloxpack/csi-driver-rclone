@@ -25,6 +25,15 @@ func finalizeTmpDownload(tmpName string, finalPath string) error {
 	return os.Remove(downloadPackage)
 }
 
+func existingTmpDownloadFile(originalPath, tmpPath string) string {
+	_, fileName := filepath.Split(originalPath)
+	filePath := filepath.Join(tmpPath, fileName)
+	if _, err := os.Stat(filePath); err == nil {
+		return filePath
+	}
+	return ""
+}
+
 func removeTmpDownload(tmpName string) error {
 	err := os.Remove(tmpName)
 	if err != nil {

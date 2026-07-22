@@ -12,18 +12,26 @@ type RemoteServer struct {
 	AuthenticationMethod                    string `json:"authentication_method,omitempty" path:"authentication_method,omitempty" url:"authentication_method,omitempty"`
 	Hostname                                string `json:"hostname,omitempty" path:"hostname,omitempty" url:"hostname,omitempty"`
 	RemoteHomePath                          string `json:"remote_home_path,omitempty" path:"remote_home_path,omitempty" url:"remote_home_path,omitempty"`
+	UploadStagingPath                       string `json:"upload_staging_path,omitempty" path:"upload_staging_path,omitempty" url:"upload_staging_path,omitempty"`
+	AllowRelativePaths                      *bool  `json:"allow_relative_paths,omitempty" path:"allow_relative_paths,omitempty" url:"allow_relative_paths,omitempty"`
 	Name                                    string `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
+	Description                             string `json:"description,omitempty" path:"description,omitempty" url:"description,omitempty"`
 	Port                                    int64  `json:"port,omitempty" path:"port,omitempty" url:"port,omitempty"`
-	BufferUploadsAlways                     *bool  `json:"buffer_uploads_always,omitempty" path:"buffer_uploads_always,omitempty" url:"buffer_uploads_always,omitempty"`
+	BufferUploads                           string `json:"buffer_uploads,omitempty" path:"buffer_uploads,omitempty" url:"buffer_uploads,omitempty"`
 	MaxConnections                          int64  `json:"max_connections,omitempty" path:"max_connections,omitempty" url:"max_connections,omitempty"`
 	PinToSiteRegion                         *bool  `json:"pin_to_site_region,omitempty" path:"pin_to_site_region,omitempty" url:"pin_to_site_region,omitempty"`
 	PinnedRegion                            string `json:"pinned_region,omitempty" path:"pinned_region,omitempty" url:"pinned_region,omitempty"`
+	RemoteServerCredentialId                int64  `json:"remote_server_credential_id,omitempty" path:"remote_server_credential_id,omitempty" url:"remote_server_credential_id,omitempty"`
 	S3Bucket                                string `json:"s3_bucket,omitempty" path:"s3_bucket,omitempty" url:"s3_bucket,omitempty"`
 	S3Region                                string `json:"s3_region,omitempty" path:"s3_region,omitempty" url:"s3_region,omitempty"`
 	AwsAccessKey                            string `json:"aws_access_key,omitempty" path:"aws_access_key,omitempty" url:"aws_access_key,omitempty"`
+	S3AssumeRoleArn                         string `json:"s3_assume_role_arn,omitempty" path:"s3_assume_role_arn,omitempty" url:"s3_assume_role_arn,omitempty"`
+	S3AssumeRoleDurationSeconds             int64  `json:"s3_assume_role_duration_seconds,omitempty" path:"s3_assume_role_duration_seconds,omitempty" url:"s3_assume_role_duration_seconds,omitempty"`
+	S3AssumeRoleExternalId                  string `json:"s3_assume_role_external_id,omitempty" path:"s3_assume_role_external_id,omitempty" url:"s3_assume_role_external_id,omitempty"`
 	ServerCertificate                       string `json:"server_certificate,omitempty" path:"server_certificate,omitempty" url:"server_certificate,omitempty"`
 	ServerHostKey                           string `json:"server_host_key,omitempty" path:"server_host_key,omitempty" url:"server_host_key,omitempty"`
 	ServerType                              string `json:"server_type,omitempty" path:"server_type,omitempty" url:"server_type,omitempty"`
+	WorkspaceId                             int64  `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 	Ssl                                     string `json:"ssl,omitempty" path:"ssl,omitempty" url:"ssl,omitempty"`
 	Username                                string `json:"username,omitempty" path:"username,omitempty" url:"username,omitempty"`
 	GoogleCloudStorageBucket                string `json:"google_cloud_storage_bucket,omitempty" path:"google_cloud_storage_bucket,omitempty" url:"google_cloud_storage_bucket,omitempty"`
@@ -53,6 +61,10 @@ type RemoteServer struct {
 	FilesAgentRoot                          string `json:"files_agent_root,omitempty" path:"files_agent_root,omitempty" url:"files_agent_root,omitempty"`
 	FilesAgentApiToken                      string `json:"files_agent_api_token,omitempty" path:"files_agent_api_token,omitempty" url:"files_agent_api_token,omitempty"`
 	FilesAgentVersion                       string `json:"files_agent_version,omitempty" path:"files_agent_version,omitempty" url:"files_agent_version,omitempty"`
+	FilesAgentUpToDate                      *bool  `json:"files_agent_up_to_date,omitempty" path:"files_agent_up_to_date,omitempty" url:"files_agent_up_to_date,omitempty"`
+	FilesAgentLatestVersion                 string `json:"files_agent_latest_version,omitempty" path:"files_agent_latest_version,omitempty" url:"files_agent_latest_version,omitempty"`
+	FilesAgentSupportsPushUpdates           *bool  `json:"files_agent_supports_push_updates,omitempty" path:"files_agent_supports_push_updates,omitempty" url:"files_agent_supports_push_updates,omitempty"`
+	OutboundAgentId                         int64  `json:"outbound_agent_id,omitempty" path:"outbound_agent_id,omitempty" url:"outbound_agent_id,omitempty"`
 	FilebaseBucket                          string `json:"filebase_bucket,omitempty" path:"filebase_bucket,omitempty" url:"filebase_bucket,omitempty"`
 	FilebaseAccessKey                       string `json:"filebase_access_key,omitempty" path:"filebase_access_key,omitempty" url:"filebase_access_key,omitempty"`
 	CloudflareBucket                        string `json:"cloudflare_bucket,omitempty" path:"cloudflare_bucket,omitempty" url:"cloudflare_bucket,omitempty"`
@@ -89,6 +101,20 @@ func (r RemoteServer) Identifier() interface{} {
 }
 
 type RemoteServerCollection []RemoteServer
+
+type RemoteServerBufferUploadsEnum string
+
+func (u RemoteServerBufferUploadsEnum) String() string {
+	return string(u)
+}
+
+func (u RemoteServerBufferUploadsEnum) Enum() map[string]RemoteServerBufferUploadsEnum {
+	return map[string]RemoteServerBufferUploadsEnum{
+		"auto":   RemoteServerBufferUploadsEnum("auto"),
+		"always": RemoteServerBufferUploadsEnum("always"),
+		"never":  RemoteServerBufferUploadsEnum("never"),
+	}
+}
 
 type RemoteServerFilesAgentPermissionSetEnum string
 
@@ -176,9 +202,9 @@ func (u RemoteServerSslEnum) Enum() map[string]RemoteServerSslEnum {
 }
 
 type RemoteServerListParams struct {
-	SortBy       map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
-	Filter       RemoteServer           `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
-	FilterPrefix map[string]interface{} `url:"filter_prefix,omitempty" json:"filter_prefix,omitempty" path:"filter_prefix"`
+	SortBy       interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Filter       interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
+	FilterPrefix interface{} `url:"filter_prefix,omitempty" json:"filter_prefix,omitempty" path:"filter_prefix"`
 	ListParams
 }
 
@@ -210,6 +236,7 @@ type RemoteServerCreateParams struct {
 	LinodeSecretKey                         string                                  `url:"linode_secret_key,omitempty" json:"linode_secret_key,omitempty" path:"linode_secret_key"`
 	S3CompatibleSecretKey                   string                                  `url:"s3_compatible_secret_key,omitempty" json:"s3_compatible_secret_key,omitempty" path:"s3_compatible_secret_key"`
 	WasabiSecretKey                         string                                  `url:"wasabi_secret_key,omitempty" json:"wasabi_secret_key,omitempty" path:"wasabi_secret_key"`
+	AllowRelativePaths                      *bool                                   `url:"allow_relative_paths,omitempty" json:"allow_relative_paths,omitempty" path:"allow_relative_paths"`
 	AwsAccessKey                            string                                  `url:"aws_access_key,omitempty" json:"aws_access_key,omitempty" path:"aws_access_key"`
 	AzureBlobStorageAccount                 string                                  `url:"azure_blob_storage_account,omitempty" json:"azure_blob_storage_account,omitempty" path:"azure_blob_storage_account"`
 	AzureBlobStorageContainer               string                                  `url:"azure_blob_storage_container,omitempty" json:"azure_blob_storage_container,omitempty" path:"azure_blob_storage_container"`
@@ -220,10 +247,11 @@ type RemoteServerCreateParams struct {
 	AzureFilesStorageShareName              string                                  `url:"azure_files_storage_share_name,omitempty" json:"azure_files_storage_share_name,omitempty" path:"azure_files_storage_share_name"`
 	BackblazeB2Bucket                       string                                  `url:"backblaze_b2_bucket,omitempty" json:"backblaze_b2_bucket,omitempty" path:"backblaze_b2_bucket"`
 	BackblazeB2S3Endpoint                   string                                  `url:"backblaze_b2_s3_endpoint,omitempty" json:"backblaze_b2_s3_endpoint,omitempty" path:"backblaze_b2_s3_endpoint"`
-	BufferUploadsAlways                     *bool                                   `url:"buffer_uploads_always,omitempty" json:"buffer_uploads_always,omitempty" path:"buffer_uploads_always"`
+	BufferUploads                           RemoteServerBufferUploadsEnum           `url:"buffer_uploads,omitempty" json:"buffer_uploads,omitempty" path:"buffer_uploads"`
 	CloudflareAccessKey                     string                                  `url:"cloudflare_access_key,omitempty" json:"cloudflare_access_key,omitempty" path:"cloudflare_access_key"`
 	CloudflareBucket                        string                                  `url:"cloudflare_bucket,omitempty" json:"cloudflare_bucket,omitempty" path:"cloudflare_bucket"`
 	CloudflareEndpoint                      string                                  `url:"cloudflare_endpoint,omitempty" json:"cloudflare_endpoint,omitempty" path:"cloudflare_endpoint"`
+	Description                             string                                  `url:"description,omitempty" json:"description,omitempty" path:"description"`
 	DropboxTeams                            *bool                                   `url:"dropbox_teams,omitempty" json:"dropbox_teams,omitempty" path:"dropbox_teams"`
 	EnableDedicatedIps                      *bool                                   `url:"enable_dedicated_ips,omitempty" json:"enable_dedicated_ips,omitempty" path:"enable_dedicated_ips"`
 	FilebaseAccessKey                       string                                  `url:"filebase_access_key,omitempty" json:"filebase_access_key,omitempty" path:"filebase_access_key"`
@@ -231,6 +259,7 @@ type RemoteServerCreateParams struct {
 	FilesAgentPermissionSet                 RemoteServerFilesAgentPermissionSetEnum `url:"files_agent_permission_set,omitempty" json:"files_agent_permission_set,omitempty" path:"files_agent_permission_set"`
 	FilesAgentRoot                          string                                  `url:"files_agent_root,omitempty" json:"files_agent_root,omitempty" path:"files_agent_root"`
 	FilesAgentVersion                       string                                  `url:"files_agent_version,omitempty" json:"files_agent_version,omitempty" path:"files_agent_version"`
+	OutboundAgentId                         int64                                   `url:"outbound_agent_id,omitempty" json:"outbound_agent_id,omitempty" path:"outbound_agent_id"`
 	GoogleCloudStorageBucket                string                                  `url:"google_cloud_storage_bucket,omitempty" json:"google_cloud_storage_bucket,omitempty" path:"google_cloud_storage_bucket"`
 	GoogleCloudStorageProjectId             string                                  `url:"google_cloud_storage_project_id,omitempty" json:"google_cloud_storage_project_id,omitempty" path:"google_cloud_storage_project_id"`
 	GoogleCloudStorageS3CompatibleAccessKey string                                  `url:"google_cloud_storage_s3_compatible_access_key,omitempty" json:"google_cloud_storage_s3_compatible_access_key,omitempty" path:"google_cloud_storage_s3_compatible_access_key"`
@@ -243,6 +272,10 @@ type RemoteServerCreateParams struct {
 	OneDriveAccountType                     RemoteServerOneDriveAccountTypeEnum     `url:"one_drive_account_type,omitempty" json:"one_drive_account_type,omitempty" path:"one_drive_account_type"`
 	PinToSiteRegion                         *bool                                   `url:"pin_to_site_region,omitempty" json:"pin_to_site_region,omitempty" path:"pin_to_site_region"`
 	Port                                    int64                                   `url:"port,omitempty" json:"port,omitempty" path:"port"`
+	UploadStagingPath                       string                                  `url:"upload_staging_path,omitempty" json:"upload_staging_path,omitempty" path:"upload_staging_path"`
+	RemoteServerCredentialId                int64                                   `url:"remote_server_credential_id,omitempty" json:"remote_server_credential_id,omitempty" path:"remote_server_credential_id"`
+	S3AssumeRoleArn                         string                                  `url:"s3_assume_role_arn,omitempty" json:"s3_assume_role_arn,omitempty" path:"s3_assume_role_arn"`
+	S3AssumeRoleDurationSeconds             int64                                   `url:"s3_assume_role_duration_seconds,omitempty" json:"s3_assume_role_duration_seconds,omitempty" path:"s3_assume_role_duration_seconds"`
 	S3Bucket                                string                                  `url:"s3_bucket,omitempty" json:"s3_bucket,omitempty" path:"s3_bucket"`
 	S3CompatibleAccessKey                   string                                  `url:"s3_compatible_access_key,omitempty" json:"s3_compatible_access_key,omitempty" path:"s3_compatible_access_key"`
 	S3CompatibleBucket                      string                                  `url:"s3_compatible_bucket,omitempty" json:"s3_compatible_bucket,omitempty" path:"s3_compatible_bucket"`
@@ -257,6 +290,12 @@ type RemoteServerCreateParams struct {
 	WasabiAccessKey                         string                                  `url:"wasabi_access_key,omitempty" json:"wasabi_access_key,omitempty" path:"wasabi_access_key"`
 	WasabiBucket                            string                                  `url:"wasabi_bucket,omitempty" json:"wasabi_bucket,omitempty" path:"wasabi_bucket"`
 	WasabiRegion                            string                                  `url:"wasabi_region,omitempty" json:"wasabi_region,omitempty" path:"wasabi_region"`
+	WorkspaceId                             int64                                   `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
+}
+
+// Push update to Files Agent
+type RemoteServerAgentPushUpdateParams struct {
+	Id int64 `url:"-,omitempty" json:"-,omitempty" path:"id"`
 }
 
 // Post local changes, check in, and download configuration file (used by some Remote Server integrations, such as the Files.com Agent)
@@ -296,6 +335,7 @@ type RemoteServerUpdateParams struct {
 	LinodeSecretKey                         string                                  `url:"linode_secret_key,omitempty" json:"linode_secret_key,omitempty" path:"linode_secret_key"`
 	S3CompatibleSecretKey                   string                                  `url:"s3_compatible_secret_key,omitempty" json:"s3_compatible_secret_key,omitempty" path:"s3_compatible_secret_key"`
 	WasabiSecretKey                         string                                  `url:"wasabi_secret_key,omitempty" json:"wasabi_secret_key,omitempty" path:"wasabi_secret_key"`
+	AllowRelativePaths                      *bool                                   `url:"allow_relative_paths,omitempty" json:"allow_relative_paths,omitempty" path:"allow_relative_paths"`
 	AwsAccessKey                            string                                  `url:"aws_access_key,omitempty" json:"aws_access_key,omitempty" path:"aws_access_key"`
 	AzureBlobStorageAccount                 string                                  `url:"azure_blob_storage_account,omitempty" json:"azure_blob_storage_account,omitempty" path:"azure_blob_storage_account"`
 	AzureBlobStorageContainer               string                                  `url:"azure_blob_storage_container,omitempty" json:"azure_blob_storage_container,omitempty" path:"azure_blob_storage_container"`
@@ -306,10 +346,11 @@ type RemoteServerUpdateParams struct {
 	AzureFilesStorageShareName              string                                  `url:"azure_files_storage_share_name,omitempty" json:"azure_files_storage_share_name,omitempty" path:"azure_files_storage_share_name"`
 	BackblazeB2Bucket                       string                                  `url:"backblaze_b2_bucket,omitempty" json:"backblaze_b2_bucket,omitempty" path:"backblaze_b2_bucket"`
 	BackblazeB2S3Endpoint                   string                                  `url:"backblaze_b2_s3_endpoint,omitempty" json:"backblaze_b2_s3_endpoint,omitempty" path:"backblaze_b2_s3_endpoint"`
-	BufferUploadsAlways                     *bool                                   `url:"buffer_uploads_always,omitempty" json:"buffer_uploads_always,omitempty" path:"buffer_uploads_always"`
+	BufferUploads                           RemoteServerBufferUploadsEnum           `url:"buffer_uploads,omitempty" json:"buffer_uploads,omitempty" path:"buffer_uploads"`
 	CloudflareAccessKey                     string                                  `url:"cloudflare_access_key,omitempty" json:"cloudflare_access_key,omitempty" path:"cloudflare_access_key"`
 	CloudflareBucket                        string                                  `url:"cloudflare_bucket,omitempty" json:"cloudflare_bucket,omitempty" path:"cloudflare_bucket"`
 	CloudflareEndpoint                      string                                  `url:"cloudflare_endpoint,omitempty" json:"cloudflare_endpoint,omitempty" path:"cloudflare_endpoint"`
+	Description                             string                                  `url:"description,omitempty" json:"description,omitempty" path:"description"`
 	DropboxTeams                            *bool                                   `url:"dropbox_teams,omitempty" json:"dropbox_teams,omitempty" path:"dropbox_teams"`
 	EnableDedicatedIps                      *bool                                   `url:"enable_dedicated_ips,omitempty" json:"enable_dedicated_ips,omitempty" path:"enable_dedicated_ips"`
 	FilebaseAccessKey                       string                                  `url:"filebase_access_key,omitempty" json:"filebase_access_key,omitempty" path:"filebase_access_key"`
@@ -317,6 +358,7 @@ type RemoteServerUpdateParams struct {
 	FilesAgentPermissionSet                 RemoteServerFilesAgentPermissionSetEnum `url:"files_agent_permission_set,omitempty" json:"files_agent_permission_set,omitempty" path:"files_agent_permission_set"`
 	FilesAgentRoot                          string                                  `url:"files_agent_root,omitempty" json:"files_agent_root,omitempty" path:"files_agent_root"`
 	FilesAgentVersion                       string                                  `url:"files_agent_version,omitempty" json:"files_agent_version,omitempty" path:"files_agent_version"`
+	OutboundAgentId                         int64                                   `url:"outbound_agent_id,omitempty" json:"outbound_agent_id,omitempty" path:"outbound_agent_id"`
 	GoogleCloudStorageBucket                string                                  `url:"google_cloud_storage_bucket,omitempty" json:"google_cloud_storage_bucket,omitempty" path:"google_cloud_storage_bucket"`
 	GoogleCloudStorageProjectId             string                                  `url:"google_cloud_storage_project_id,omitempty" json:"google_cloud_storage_project_id,omitempty" path:"google_cloud_storage_project_id"`
 	GoogleCloudStorageS3CompatibleAccessKey string                                  `url:"google_cloud_storage_s3_compatible_access_key,omitempty" json:"google_cloud_storage_s3_compatible_access_key,omitempty" path:"google_cloud_storage_s3_compatible_access_key"`
@@ -329,6 +371,10 @@ type RemoteServerUpdateParams struct {
 	OneDriveAccountType                     RemoteServerOneDriveAccountTypeEnum     `url:"one_drive_account_type,omitempty" json:"one_drive_account_type,omitempty" path:"one_drive_account_type"`
 	PinToSiteRegion                         *bool                                   `url:"pin_to_site_region,omitempty" json:"pin_to_site_region,omitempty" path:"pin_to_site_region"`
 	Port                                    int64                                   `url:"port,omitempty" json:"port,omitempty" path:"port"`
+	UploadStagingPath                       string                                  `url:"upload_staging_path,omitempty" json:"upload_staging_path,omitempty" path:"upload_staging_path"`
+	RemoteServerCredentialId                int64                                   `url:"remote_server_credential_id,omitempty" json:"remote_server_credential_id,omitempty" path:"remote_server_credential_id"`
+	S3AssumeRoleArn                         string                                  `url:"s3_assume_role_arn,omitempty" json:"s3_assume_role_arn,omitempty" path:"s3_assume_role_arn"`
+	S3AssumeRoleDurationSeconds             int64                                   `url:"s3_assume_role_duration_seconds,omitempty" json:"s3_assume_role_duration_seconds,omitempty" path:"s3_assume_role_duration_seconds"`
 	S3Bucket                                string                                  `url:"s3_bucket,omitempty" json:"s3_bucket,omitempty" path:"s3_bucket"`
 	S3CompatibleAccessKey                   string                                  `url:"s3_compatible_access_key,omitempty" json:"s3_compatible_access_key,omitempty" path:"s3_compatible_access_key"`
 	S3CompatibleBucket                      string                                  `url:"s3_compatible_bucket,omitempty" json:"s3_compatible_bucket,omitempty" path:"s3_compatible_bucket"`

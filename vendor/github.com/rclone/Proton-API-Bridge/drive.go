@@ -2,7 +2,6 @@ package proton_api_bridge
 
 import (
 	"context"
-	"log"
 
 	"github.com/rclone/Proton-API-Bridge/common"
 	"golang.org/x/sync/semaphore"
@@ -98,8 +97,9 @@ func NewProtonDrive(ctx context.Context, config *common.Config, authHandler prot
 		}
 
 		if !mainShareCheck {
-			log.Printf("mainShare %#v", mainShare)
-			log.Printf("shares %#v", shares)
+			logger := config.GetLogger()
+			logger.Errorf("mainShare %#v", mainShare)
+			logger.Errorf("shares %#v", shares)
 			return nil, nil, ErrMainSharePreconditionsFailed
 		}
 	}
@@ -146,7 +146,7 @@ func NewProtonDrive(ctx context.Context, config *common.Config, authHandler prot
 		addrData:         addrData,
 		signatureAddress: mainShare.Creator,
 
-		cache:                newCache(config.EnableCaching),
+		cache:                newCache(config.EnableCaching, config.GetLogger()),
 		blockUploadSemaphore: semaphore.NewWeighted(int64(config.ConcurrentBlockUploadCount)),
 		blockCryptoSemaphore: semaphore.NewWeighted(int64(config.ConcurrentFileCryptoCount)),
 	}, credentials, nil

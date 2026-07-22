@@ -1,4 +1,4 @@
-// Copyright (c) 2016, 2018, 2025, Oracle and/or its affiliates.  All rights reserved.
+// Copyright (c) 2016, 2018, 2026, Oracle and/or its affiliates.  All rights reserved.
 // This software is dual-licensed to you under the Universal Permissive License (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl or Apache License 2.0 as shown at http://www.apache.org/licenses/LICENSE-2.0. You may choose either license.
 
 package common
@@ -90,10 +90,12 @@ const (
 	RegionAPBatam1 Region = "ap-batam-1"
 	//RegionEUMadrid3 region Madrid
 	RegionEUMadrid3 Region = "eu-madrid-3"
-	//RegionAPChennai1 region Chennai
-	RegionAPChennai1 Region = "ap-chennai-1"
-	//RegionUSColumbus1 region Columbus
-	RegionUSColumbus1 Region = "us-columbus-1"
+	//RegionEUTurin1 region Turin
+	RegionEUTurin1 Region = "eu-turin-1"
+	//RegionAPKulai2 region Kulai
+	RegionAPKulai2 Region = "ap-kulai-2"
+	//RegionAFCasablanca1 region Casablanca
+	RegionAFCasablanca1 Region = "af-casablanca-1"
 	//RegionUSLangley1 region Langley
 	RegionUSLangley1 Region = "us-langley-1"
 	//RegionUSLuke1 region Luke
@@ -168,6 +170,8 @@ const (
 	RegionUSNewark1 Region = "us-newark-1"
 	//RegionEUBudapest1 region Budapest
 	RegionEUBudapest1 Region = "eu-budapest-1"
+	//RegionSARiodejaneiro1 region Riodejaneiro
+	RegionSARiodejaneiro1 Region = "sa-riodejaneiro-1"
 )
 
 var shortNameRegion = map[string]Region{
@@ -214,8 +218,9 @@ var shortNameRegion = map[string]Region{
 	"onm": RegionAPDelhi1,
 	"hsg": RegionAPBatam1,
 	"orf": RegionEUMadrid3,
-	"des": RegionAPChennai1,
-	"vkz": RegionUSColumbus1,
+	"nrq": RegionEUTurin1,
+	"jbp": RegionAPKulai2,
+	"lej": RegionAFCasablanca1,
 	"lfi": RegionUSLangley1,
 	"luf": RegionUSLuke1,
 	"ric": RegionUSGovAshburn1,
@@ -253,6 +258,7 @@ var shortNameRegion = map[string]Region{
 	"yxj": RegionUSAshburn2,
 	"pgc": RegionUSNewark1,
 	"jsk": RegionEUBudapest1,
+	"hnw": RegionSARiodejaneiro1,
 }
 
 var realm = map[string]string{
@@ -275,6 +281,7 @@ var realm = map[string]string{
 	"oc35": "oraclecloud35.com",
 	"oc42": "oraclecloud42.com",
 	"oc51": "oraclecloud51.com",
+	"oc52": "oraclecloud52.com",
 }
 
 var regionRealm = map[Region]string{
@@ -321,8 +328,9 @@ var regionRealm = map[Region]string{
 	RegionAPDelhi1:        "oc1",
 	RegionAPBatam1:        "oc1",
 	RegionEUMadrid3:       "oc1",
-	RegionAPChennai1:      "oc1",
-	RegionUSColumbus1:     "oc1",
+	RegionEUTurin1:        "oc1",
+	RegionAPKulai2:        "oc1",
+	RegionAFCasablanca1:   "oc1",
 
 	RegionUSLangley1: "oc2",
 	RegionUSLuke1:    "oc2",
@@ -378,4 +386,6 @@ var regionRealm = map[Region]string{
 	RegionUSNewark1:  "oc42",
 
 	RegionEUBudapest1: "oc51",
+
+	RegionSARiodejaneiro1: "oc52",
 }

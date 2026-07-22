@@ -44,7 +44,7 @@ func RequestHeadersOption(headers *http.Header) RequestResponseOption {
 func WithContext(ctx context.Context) RequestResponseOption {
 	return func(opt *requestResponseOption) error {
 		if opt.Request != nil && ctx != nil {
-			opt.Request.WithContext(ctx)
+			opt.Request = opt.Request.WithContext(ctx)
 		} else {
 			opt.Context = ctx
 		}
@@ -59,26 +59,19 @@ func ResponseBodyOption(opt func(io.ReadCloser) error) RequestResponseOption {
 }
 
 func WrapRequestOptions(config Config, request *http.Request, opts ...RequestResponseOption) (*http.Response, error) {
-	for _, opt := range opts {
-		err := opt(&requestResponseOption{Request: request})
-		if err != nil {
-			return &http.Response{}, err
-		}
-	}
-
-	resp, err := config.Do(request)
+	// Apply request options
+	modifiedRequest, err := BuildRequest(request, opts...)
 	if err != nil {
-		return resp, err
+		return &http.Response{}, err
 	}
 
-	for _, opt := range opts {
-		err := opt(&requestResponseOption{Response: resp})
-		if err != nil {
-			return resp, err
-		}
+	// Execute the request
+	response, err := config.Do(modifiedRequest)
+	if err != nil {
+		return response, err
 	}
 
-	return resp, nil
+	return BuildResponse(response, opts...)
 }
 
 func ContextOption(opts []RequestResponseOption) context.Context {
@@ -90,4 +83,32 @@ func ContextOption(opts []RequestResponseOption) context.Context {
 		params.Context = context.Background()
 	}
 	return params.Context
+}
+
+// BuildRequest applies request options to an HTTP request and returns the modified request.
+// This is useful for tests and code that need to build requests with options applied.
+func BuildRequest(request *http.Request, opts ...RequestResponseOption) (*http.Request, error) {
+	optionRequestResponse := &requestResponseOption{Request: request}
+
+	for _, opt := range opts {
+		if err := opt(optionRequestResponse); err != nil {
+			return nil, err
+		}
+	}
+
+	return optionRequestResponse.Request, nil
+}
+
+// BuildResponse applies response options to an HTTP response and returns the modified response.
+// This is useful for tests and code that need to process responses with options applied.
+func BuildResponse(response *http.Response, opts ...RequestResponseOption) (*http.Response, error) {
+	optionRequestResponse := &requestResponseOption{Response: response}
+
+	for _, opt := range opts {
+		if err := opt(optionRequestResponse); err != nil {
+			return nil, err
+		}
+	}
+
+	return optionRequestResponse.Response, nil
 }

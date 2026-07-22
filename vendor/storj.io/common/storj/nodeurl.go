@@ -191,7 +191,7 @@ func ParseNodeURLs(s string) (NodeURLs, error) {
 		return nil, nil
 	}
 
-	for _, s := range strings.Split(s, ",") {
+	for s := range strings.SplitSeq(s, ",") {
 		u, err := ParseNodeURL(s)
 		if err != nil {
 			return nil, ErrNodeURL.Wrap(err)

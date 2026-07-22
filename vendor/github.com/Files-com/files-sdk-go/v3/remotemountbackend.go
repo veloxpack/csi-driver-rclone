@@ -46,7 +46,7 @@ func (u RemoteMountBackendHealthCheckTypeEnum) Enum() map[string]RemoteMountBack
 }
 
 type RemoteMountBackendListParams struct {
-	Filter RemoteMountBackend `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
+	Filter interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
 	ListParams
 }
 
@@ -60,8 +60,8 @@ type RemoteMountBackendCreateParams struct {
 	HealthCheckEnabled  *bool                                 `url:"health_check_enabled,omitempty" json:"health_check_enabled,omitempty" path:"health_check_enabled"`
 	HealthCheckType     RemoteMountBackendHealthCheckTypeEnum `url:"health_check_type,omitempty" json:"health_check_type,omitempty" path:"health_check_type"`
 	Interval            int64                                 `url:"interval,omitempty" json:"interval,omitempty" path:"interval"`
-	MinFreeCpu          string                                `url:"min_free_cpu,omitempty" json:"min_free_cpu,omitempty" path:"min_free_cpu"`
-	MinFreeMem          string                                `url:"min_free_mem,omitempty" json:"min_free_mem,omitempty" path:"min_free_mem"`
+	MinFreeCpu          float64                               `url:"min_free_cpu,omitempty" json:"min_free_cpu,omitempty" path:"min_free_cpu"`
+	MinFreeMem          float64                               `url:"min_free_mem,omitempty" json:"min_free_mem,omitempty" path:"min_free_mem"`
 	Priority            int64                                 `url:"priority,omitempty" json:"priority,omitempty" path:"priority"`
 	RemotePath          string                                `url:"remote_path,omitempty" json:"remote_path,omitempty" path:"remote_path"`
 	Rise                int64                                 `url:"rise,omitempty" json:"rise,omitempty" path:"rise"`
@@ -82,8 +82,8 @@ type RemoteMountBackendUpdateParams struct {
 	HealthCheckEnabled *bool                                 `url:"health_check_enabled,omitempty" json:"health_check_enabled,omitempty" path:"health_check_enabled"`
 	HealthCheckType    RemoteMountBackendHealthCheckTypeEnum `url:"health_check_type,omitempty" json:"health_check_type,omitempty" path:"health_check_type"`
 	Interval           int64                                 `url:"interval,omitempty" json:"interval,omitempty" path:"interval"`
-	MinFreeCpu         string                                `url:"min_free_cpu,omitempty" json:"min_free_cpu,omitempty" path:"min_free_cpu"`
-	MinFreeMem         string                                `url:"min_free_mem,omitempty" json:"min_free_mem,omitempty" path:"min_free_mem"`
+	MinFreeCpu         float64                               `url:"min_free_cpu,omitempty" json:"min_free_cpu,omitempty" path:"min_free_cpu"`
+	MinFreeMem         float64                               `url:"min_free_mem,omitempty" json:"min_free_mem,omitempty" path:"min_free_mem"`
 	Priority           int64                                 `url:"priority,omitempty" json:"priority,omitempty" path:"priority"`
 	RemotePath         string                                `url:"remote_path,omitempty" json:"remote_path,omitempty" path:"remote_path"`
 	Rise               int64                                 `url:"rise,omitempty" json:"rise,omitempty" path:"rise"`

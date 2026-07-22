@@ -9,8 +9,8 @@ import (
 
 type RemoteBandwidthSnapshot struct {
 	Id                int64      `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
-	SyncBytesReceived string     `json:"sync_bytes_received,omitempty" path:"sync_bytes_received,omitempty" url:"sync_bytes_received,omitempty"`
-	SyncBytesSent     string     `json:"sync_bytes_sent,omitempty" path:"sync_bytes_sent,omitempty" url:"sync_bytes_sent,omitempty"`
+	SyncBytesReceived int64      `json:"sync_bytes_received,omitempty" path:"sync_bytes_received,omitempty" url:"sync_bytes_received,omitempty"`
+	SyncBytesSent     int64      `json:"sync_bytes_sent,omitempty" path:"sync_bytes_sent,omitempty" url:"sync_bytes_sent,omitempty"`
 	LoggedAt          *time.Time `json:"logged_at,omitempty" path:"logged_at,omitempty" url:"logged_at,omitempty"`
 	RemoteServerId    int64      `json:"remote_server_id,omitempty" path:"remote_server_id,omitempty" url:"remote_server_id,omitempty"`
 }
@@ -22,12 +22,12 @@ func (r RemoteBandwidthSnapshot) Identifier() interface{} {
 type RemoteBandwidthSnapshotCollection []RemoteBandwidthSnapshot
 
 type RemoteBandwidthSnapshotListParams struct {
-	SortBy     map[string]interface{}  `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
-	Filter     RemoteBandwidthSnapshot `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
-	FilterGt   map[string]interface{}  `url:"filter_gt,omitempty" json:"filter_gt,omitempty" path:"filter_gt"`
-	FilterGteq map[string]interface{}  `url:"filter_gteq,omitempty" json:"filter_gteq,omitempty" path:"filter_gteq"`
-	FilterLt   map[string]interface{}  `url:"filter_lt,omitempty" json:"filter_lt,omitempty" path:"filter_lt"`
-	FilterLteq map[string]interface{}  `url:"filter_lteq,omitempty" json:"filter_lteq,omitempty" path:"filter_lteq"`
+	SortBy     interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Filter     interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
+	FilterGt   interface{} `url:"filter_gt,omitempty" json:"filter_gt,omitempty" path:"filter_gt"`
+	FilterGteq interface{} `url:"filter_gteq,omitempty" json:"filter_gteq,omitempty" path:"filter_gteq"`
+	FilterLt   interface{} `url:"filter_lt,omitempty" json:"filter_lt,omitempty" path:"filter_lt"`
+	FilterLteq interface{} `url:"filter_lteq,omitempty" json:"filter_lteq,omitempty" path:"filter_lteq"`
 	ListParams
 }
 

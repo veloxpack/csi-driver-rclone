@@ -83,7 +83,7 @@ func (params EncryptionParameters) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner interface.
-func (params *EncryptionParameters) Scan(value interface{}) error {
+func (params *EncryptionParameters) Scan(value any) error {
 	switch value := value.(type) {
 	case int64:
 		var bytes [8]byte
@@ -97,12 +97,12 @@ func (params *EncryptionParameters) Scan(value interface{}) error {
 }
 
 // EncodeSpanner implements spanner.Encoder interface.
-func (params EncryptionParameters) EncodeSpanner() (interface{}, error) {
+func (params EncryptionParameters) EncodeSpanner() (any, error) {
 	return params.Value()
 }
 
 // DecodeSpanner implements spanner.Decoder interface.
-func (params *EncryptionParameters) DecodeSpanner(input interface{}) error {
+func (params *EncryptionParameters) DecodeSpanner(input any) error {
 	if value, ok := input.(string); ok {
 		iVal, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {

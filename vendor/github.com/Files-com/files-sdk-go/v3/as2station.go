@@ -8,6 +8,7 @@ import (
 
 type As2Station struct {
 	Id                         int64  `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	WorkspaceId                int64  `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 	Name                       string `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
 	Uri                        string `json:"uri,omitempty" path:"uri,omitempty" url:"uri,omitempty"`
 	Domain                     string `json:"domain,omitempty" path:"domain,omitempty" url:"domain,omitempty"`
@@ -32,7 +33,8 @@ func (a As2Station) Identifier() interface{} {
 type As2StationCollection []As2Station
 
 type As2StationListParams struct {
-	SortBy map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	SortBy interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Filter interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
 	ListParams
 }
 
@@ -42,6 +44,7 @@ type As2StationFindParams struct {
 
 type As2StationCreateParams struct {
 	Name               string `url:"name" json:"name" path:"name"`
+	WorkspaceId        int64  `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
 	PublicCertificate  string `url:"public_certificate" json:"public_certificate" path:"public_certificate"`
 	PrivateKey         string `url:"private_key" json:"private_key" path:"private_key"`
 	PrivateKeyPassword string `url:"private_key_password,omitempty" json:"private_key_password,omitempty" path:"private_key_password"`

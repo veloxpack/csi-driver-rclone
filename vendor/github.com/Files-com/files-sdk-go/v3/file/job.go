@@ -45,8 +45,12 @@ type IFile interface {
 	Job() *Job
 }
 
+type checkpointResumableProvider interface {
+	CheckpointResumable() UploadResumable
+}
+
 func ToStatusFile(f IFile) JobFile {
-	return JobFile{
+	jf := JobFile{
 		TransferBytes: f.TransferBytes(),
 		File:          f.File(),
 		LocalPath:     f.LocalPath(),
@@ -61,6 +65,13 @@ func ToStatusFile(f IFile) JobFile {
 		StatusName:    f.Status().Name,
 		Attempts:      f.StatusChanges().Count(status.Queued),
 	}
+	if cr, ok := f.(checkpointResumableProvider); ok {
+		jf.CheckpointResumable = cr.CheckpointResumable()
+	}
+	if ds, ok := f.(*DownloadStatus); ok {
+		jf.TmpPath = ds.TmpPath
+	}
+	return jf
 }
 
 type Subscriptions struct {
@@ -89,14 +100,15 @@ type Job struct {
 	EventsReporter
 	directory.Type
 	*manager.Manager
-	RetryPolicy interface{}
-	Ignore      *ignore.GitIgnore
-	Include     *ignore.GitIgnore
-	Started     *lib.Signal
-	Finished    *lib.Signal
-	Canceled    *lib.Signal
-	Scanning    *lib.Signal
-	EndScanning *lib.Signal
+	RetryPolicy    interface{}
+	Ignore         *ignore.GitIgnore
+	Include        *ignore.GitIgnore
+	CompletedPaths map[string]struct{}
+	Started        *lib.Signal
+	Finished       *lib.Signal
+	Canceled       *lib.Signal
+	Scanning       *lib.Signal
+	EndScanning    *lib.Signal
 	retryablehttp.Logger
 	RemoteFs fs.FS
 	*lib.Meter

@@ -1,4 +1,4 @@
-// Copyright (c) 2016, 2018, 2025, Oracle and/or its affiliates.  All rights reserved.
+// Copyright (c) 2016, 2018, 2026, Oracle and/or its affiliates.  All rights reserved.
 // This software is dual-licensed to you under the Universal Permissive License (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl or Apache License 2.0 as shown at http://www.apache.org/licenses/LICENSE-2.0. You may choose either license.
 
 // Package common provides supporting functions and structs used by service packages
@@ -197,6 +197,10 @@ type BaseClient struct {
 	BasePath string
 
 	Configuration CustomClientConfiguration
+
+	//Whether the OCI_INCLUDE_REQUEST_TELEMETRY_DATA environment variable was true at the time of client creation,
+	//indicating that x-oci-service-name and x-oci-operation-id headers should be sent.
+	ociIncludeRequestTelemetryDataEnabled bool
 }
 
 // SetCustomClientConfiguration sets client with retry and other custom configurations
@@ -288,11 +292,14 @@ func getNextSeed() int64 {
 func newBaseClient(signer HTTPRequestSigner, dispatcher HTTPRequestDispatcher) BaseClient {
 	rand.Seed(getNextSeed())
 
+	includeTelemetry := strings.EqualFold(os.Getenv("OCI_INCLUDE_REQUEST_TELEMETRY_DATA"), "true")
+
 	baseClient := BaseClient{
-		UserAgent:   defaultUserAgent(),
-		Interceptor: nil,
-		Signer:      signer,
-		HTTPClient:  dispatcher,
+		UserAgent:                             defaultUserAgent(),
+		Interceptor:                           nil,
+		Signer:                                signer,
+		HTTPClient:                            dispatcher,
+		ociIncludeRequestTelemetryDataEnabled: includeTelemetry,
 	}
 
 	// check the default retry environment variable setting
@@ -525,7 +532,7 @@ func (client *BaseClient) prepareRequest(request *http.Request) (err error) {
 	request.URL.Host = clientURL.Host
 	request.URL.Scheme = clientURL.Scheme
 	currentPath := request.URL.Path
-	if !strings.Contains(currentPath, fmt.Sprintf("/%s", client.BasePath)) {
+	if !strings.HasPrefix(currentPath, fmt.Sprintf("/%s", client.BasePath)) {
 		request.URL.Path = path.Clean(fmt.Sprintf("/%s/%s", client.BasePath, currentPath))
 		err := setRawPath(request.URL)
 		if err != nil {
@@ -700,23 +707,78 @@ type OCIOperation func(context.Context, OCIRequest, *OCIReadSeekCloser, map[stri
 
 // ClientCallDetails a set of settings used by the a single Call operation of the http Client
 type ClientCallDetails struct {
-	Signer HTTPRequestSigner
+	Signer        HTTPRequestSigner
+	ServiceName   string
+	OperationName string
 }
 
 // Call executes the http request with the given context
 func (client BaseClient) Call(ctx context.Context, request *http.Request) (response *http.Response, err error) {
+	details := ClientCallDetails{Signer: client.Signer}
 	if client.IsRefreshableAuthType() {
-		return client.RefreshableTokenWrappedCallWithDetails(ctx, request, ClientCallDetails{Signer: client.Signer})
+		return client.RefreshableTokenWrappedCallWithDetails(ctx, request, details)
 	}
-	return client.CallWithDetails(ctx, request, ClientCallDetails{Signer: client.Signer})
+	return client.CallWithDetails(ctx, request, details)
 }
 
-// RefreshableTokenWrappedCallWithDetails wraps the CallWithDetails with retry on 401 for Refreshable Toekn (Instance Principal, Resource Principal etc.)
-// This is to intimitate the race condition on refresh
+// CallWithServiceAndOperationName executes the http request with the given context and known service and operation name
+func (client BaseClient) CallWithServiceAndOperationName(ctx context.Context, request *http.Request, serviceName string, operationName string) (response *http.Response, err error) {
+	details := ClientCallDetails{Signer: client.Signer, ServiceName: serviceName, OperationName: operationName}
+	if client.IsRefreshableAuthType() {
+		return client.RefreshableTokenWrappedCallWithDetails(ctx, request, details)
+	}
+	return client.CallWithDetails(ctx, request, details)
+}
+
+// RefreshableTokenWrappedCallWithDetails wraps the CallWithDetails with retry on 401 for Refreshable Token (Instance Principal, Resource Principal, etc.)
+// This retry reduces transient 401s that can occur due to concurrent token refresh
 func (client BaseClient) RefreshableTokenWrappedCallWithDetails(ctx context.Context, request *http.Request, details ClientCallDetails) (response *http.Response, err error) {
-	for i := 0; i < maxAttemptsForRefreshableRetry; i++ {
+	var (
+		rsc         *OCIReadSeekCloser
+		isSeekable  bool
+		curPos      int64
+		initialSize int64
+	)
+
+	// Prepare request body for potential retries
+	if request != nil && request.Body != nil && request.Body != http.NoBody {
+		rsc = NewOCIReadSeekCloser(request.Body)
+		request.Body = rsc
+
+		if rsc.Seekable() {
+			isSeekable = true
+
+			// Capture current position and total size so we can restore Content-Length on retries
+			curPos, _ = rsc.Seek(0, io.SeekCurrent)
+			if end, seekErr := rsc.Seek(0, io.SeekEnd); seekErr == nil {
+				initialSize = end
+				_, _ = rsc.Seek(curPos, io.SeekStart)
+			}
+		}
+	}
+
+	for attempt := 0; attempt < maxAttemptsForRefreshableRetry; attempt++ {
+		// On retries, rewind request body and restore content length/header if seekable
+		if attempt > 0 && request != nil && request.Body != nil && request.Body != http.NoBody {
+			if !isSeekable {
+				return response, NonSeekableRequestRetryFailure{err}
+			}
+
+			rsc = NewOCIReadSeekCloser(rsc.rc)
+			_, _ = rsc.Seek(curPos, io.SeekStart)
+			request.Body = rsc
+
+			if initialSize > 0 {
+				request.ContentLength = initialSize - curPos
+				if request.Header == nil {
+					request.Header = make(http.Header)
+				}
+				request.Header.Set(requestHeaderContentLength, strconv.FormatInt(request.ContentLength, 10))
+			}
+		}
+
 		response, err = client.CallWithDetails(ctx, request, ClientCallDetails{Signer: client.Signer})
-		if response != nil && response.StatusCode != 401 {
+		if response != nil && response.StatusCode != http.StatusUnauthorized {
 			return response, err
 		}
 		time.Sleep(1 * time.Second)
@@ -729,6 +791,16 @@ func (client BaseClient) RefreshableTokenWrappedCallWithDetails(ctx context.Cont
 func (client BaseClient) CallWithDetails(ctx context.Context, request *http.Request, details ClientCallDetails) (response *http.Response, err error) {
 	Debugln("Attempting to call downstream service")
 	request = request.WithContext(ctx)
+
+	if client.ociIncludeRequestTelemetryDataEnabled {
+		if details.ServiceName != "" {
+			request.Header.Set("x-oci-service-name", details.ServiceName)
+		}
+		if details.ServiceName != "" {
+			request.Header.Set("x-oci-operation-id", details.OperationName)
+		}
+	}
+
 	err = client.prepareRequest(request)
 	if err != nil {
 		return

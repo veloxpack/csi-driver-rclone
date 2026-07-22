@@ -58,6 +58,46 @@ func (e *ExponentialBackoff) Maxed() bool {
 // enough times that the delay is maxed out and the function still returns an error, the error
 // is returned.
 func WithRetry(ctx context.Context, fn func(ctx context.Context) error) (err error) {
+	var (
+		stopTask func(*error)
+
+		// It isn't zero to not count a retry after only calling fn once and return because of context
+		// cancellation
+		retries = -1
+	)
+
+	defer func() {
+		// If it's less than 0 is because context were canceled before calling fn.
+		// We must set it to 0 for not subtracting to the Monkit meter.
+		if retries < 0 {
+			retries = 0
+		}
+
+		mon.Meter("uplink_retries").Mark(retries)
+
+		prefix := "uplink_error"
+		if retries > 0 {
+			prefix = "uplink_with_retries_error"
+		}
+
+		switch {
+		case err == nil:
+		case errors.Is(ctx.Err(), err):
+			// Canceled because of timeout or context cancellation
+			if errors.Is(err, context.DeadlineExceeded) {
+				mon.Event(prefix + "_context_deadline_exceeded")
+			} else {
+				mon.Event(prefix + "_context_canceled")
+			}
+		default:
+			mon.Event(prefix)
+		}
+
+		if stopTask != nil {
+			stopTask(&err)
+		}
+	}()
+
 	delay := ExponentialBackoff{
 		Min: 100 * time.Millisecond,
 		Max: 3 * time.Second,
@@ -66,6 +106,12 @@ func WithRetry(ctx context.Context, fn func(ctx context.Context) error) (err err
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
+		}
+
+		retries++
+		if retries == 1 {
+			// Only track WithRetry call if there is at least 1 retry.
+			stopTask = mon.Task()(&ctx)
 		}
 
 		err = fn(ctx)
@@ -79,6 +125,12 @@ func WithRetry(ctx context.Context, fn func(ctx context.Context) error) (err err
 		}
 		return err
 	}
+}
+
+// NoopWithRetry just calls fn and return its return value.
+// It's used for situations that WithRetry is conditionally needed.
+func NoopWithRetry(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
 }
 
 func needsRetry(err error) bool {

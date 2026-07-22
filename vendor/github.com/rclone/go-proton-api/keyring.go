@@ -152,7 +152,11 @@ func (keys Keys) Unlock(passphrase []byte, userKR *crypto.KeyRing) (*crypto.KeyR
 	for _, key := range xslices.Filter(keys, func(key Key) bool { return bool(key.Active) }) {
 		unlocked, err := key.Unlock(passphrase, userKR)
 		if err != nil {
-			logrus.WithField("KeyID", key.ID).WithError(err).Warning("Cannot unlock key")
+			if l := getPkgLogger(); l != nil {
+				l.Warnf("Cannot unlock key %s: %v", key.ID, err)
+			} else {
+				logrus.WithField("KeyID", key.ID).WithError(err).Warning("Cannot unlock key")
+			}
 			continue
 		}
 

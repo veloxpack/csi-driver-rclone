@@ -15,10 +15,8 @@ type Group struct {
 
 // Go calls the given function in a new goroutine.
 func (group *Group) Go(f func() error) {
-	group.wg.Add(1)
 
-	go func() {
-		defer group.wg.Done()
+	group.wg.Go(func() {
 
 		if err := f(); err != nil {
 			group.mu.Lock()
@@ -26,7 +24,7 @@ func (group *Group) Go(f func() error) {
 
 			group.errors = append(group.errors, err)
 		}
-	}()
+	})
 }
 
 // Wait blocks until all function calls from the Go method have returned, then

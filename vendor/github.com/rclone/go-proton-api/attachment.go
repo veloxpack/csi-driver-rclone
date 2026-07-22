@@ -79,7 +79,16 @@ func (c *Client) UploadAttachment(ctx context.Context, addrKR *crypto.KeyRing, r
 	return res.Attachment, nil
 }
 
-func (c *Client) getAttachment(ctx context.Context, attachmentID string, reader io.ReaderFrom) error {
+// checkClose is a utility function used to check the return from
+// Close in a defer statement.
+func checkClose(c io.Closer, err *error) {
+	cerr := c.Close()
+	if *err == nil {
+		*err = cerr
+	}
+}
+
+func (c *Client) getAttachment(ctx context.Context, attachmentID string, reader io.ReaderFrom) (err error) {
 	res, err := c.doRes(ctx, func(req *resty.Request) (*resty.Response, error) {
 		res, err := req.SetDoNotParseResponse(true).Get("/mail/v4/attachments/" + attachmentID)
 		return parseResponse(res, err)
@@ -87,7 +96,7 @@ func (c *Client) getAttachment(ctx context.Context, attachmentID string, reader 
 	if err != nil {
 		return fmt.Errorf("failed to request attachment: %w", err)
 	}
-	defer res.RawBody().Close()
+	defer checkClose(res.RawBody(), &err)
 
 	if _, err = reader.ReadFrom(res.RawBody()); err != nil {
 		return err

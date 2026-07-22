@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the GO_LICENSE file.
 
+
 // Based on the Linux Kernel with the following comment:
 // Algorithm based on https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=fb87127bcefc17efab757606e1b1e333fd614dd0
 // Originally written by Ard Biesheuvel <ard.biesheuvel@linaro.org>
@@ -38,12 +39,12 @@
 	VADD	i3.D2, i1.D2, i4.D2 \
 	SHA512H2	i0.D2, i1, i3
 
-// func blockAsm(dig *digest, p []byte)
-TEXT ·blockAsm(SB),NOSPLIT,$0
+// func blockSHA512(dig *digest, p []byte)
+TEXT ·blockSHA512(SB),NOSPLIT,$0
 	MOVD	dig+0(FP), R0
 	MOVD	p_base+8(FP), R1
 	MOVD	p_len+16(FP), R2
-	MOVD	·_K+0(SB), R3
+	MOVD	$·_K+0(SB), R3
 
 	// long enough to prefetch
 	PRFM	(R3), PLDL3KEEP

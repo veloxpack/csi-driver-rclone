@@ -204,6 +204,10 @@ type UploaderParams struct {
 	DryRun bool
 	// NoOverwrite do not overwrite existing files.
 	NoOverwrite bool
+	// PriorResumable restores mid-upload state so the upload continues from where it left off.
+	PriorResumable UploadResumable
+	// PriorJobCheckpoint restores folder-level upload state on resume.
+	PriorJobCheckpoint *JobUploadCheckpoint
 	// RetryPolicy config for retrying errored uploads.
 	RetryPolicy
 	// EventsReporter log file events

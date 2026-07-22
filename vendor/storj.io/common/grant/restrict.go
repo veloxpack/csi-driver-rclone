@@ -64,12 +64,18 @@ type Permission struct {
 	// AllowBypassGovernanceRetention gives permission for governance retention
 	// to be bypassed on objects.
 	AllowBypassGovernanceRetention bool
-	// AllowPutBucketObjectLockConfiguration gives permission for object lock configuration to be
-	// placed on buckets.
+	// AllowPutBucketObjectLockConfiguration gives permission for object lock
+	// configuration to be placed on buckets.
 	AllowPutBucketObjectLockConfiguration bool
-	// AllowGetBucketObjectLockConfiguration gives permission for object lock configuration to be
-	// retrieved from buckets.
+	// AllowGetBucketObjectLockConfiguration gives permission for object lock
+	// configuration to be retrieved from buckets.
 	AllowGetBucketObjectLockConfiguration bool
+	// AllowPutBucketNotificationConfiguration gives permission for
+	// notification configuration to be placed on buckets.
+	AllowPutBucketNotificationConfiguration bool
+	// AllowGetBucketNotificationConfiguration gives permission for
+	// notification configuration to be retrieved from buckets.
+	AllowGetBucketNotificationConfiguration bool
 	// NotBefore restricts when the resulting access grant is valid for.
 	// If set, the resulting access grant will not work if the Satellite
 	// believes the time is before NotBefore.
@@ -118,21 +124,23 @@ func (access *Access) Restrict(permission Permission, prefixes ...SharePrefix) (
 	}
 
 	caveat := macaroon.WithNonce(macaroon.Caveat{
-		DisallowReads:                            !permission.AllowDownload,
-		DisallowWrites:                           !permission.AllowUpload,
-		DisallowLists:                            !permission.AllowList,
-		DisallowDeletes:                          !permission.AllowDelete,
-		DisallowLocks:                            !permission.AllowLock,
-		DisallowPutRetention:                     !permission.AllowPutObjectRetention,
-		DisallowGetRetention:                     !permission.AllowGetObjectRetention,
-		DisallowPutLegalHold:                     !permission.AllowPutObjectLegalHold,
-		DisallowGetLegalHold:                     !permission.AllowGetObjectLegalHold,
-		DisallowBypassGovernanceRetention:        !permission.AllowBypassGovernanceRetention,
-		DisallowPutBucketObjectLockConfiguration: !permission.AllowPutBucketObjectLockConfiguration,
-		DisallowGetBucketObjectLockConfiguration: !permission.AllowGetBucketObjectLockConfiguration,
-		NotBefore:                                notBefore,
-		NotAfter:                                 notAfter,
-		MaxObjectTtl:                             permission.MaxObjectTTL,
+		DisallowReads:                              !permission.AllowDownload,
+		DisallowWrites:                             !permission.AllowUpload,
+		DisallowLists:                              !permission.AllowList,
+		DisallowDeletes:                            !permission.AllowDelete,
+		DisallowLocks:                              !permission.AllowLock,
+		DisallowPutRetention:                       !permission.AllowPutObjectRetention,
+		DisallowGetRetention:                       !permission.AllowGetObjectRetention,
+		DisallowPutLegalHold:                       !permission.AllowPutObjectLegalHold,
+		DisallowGetLegalHold:                       !permission.AllowGetObjectLegalHold,
+		DisallowBypassGovernanceRetention:          !permission.AllowBypassGovernanceRetention,
+		DisallowPutBucketObjectLockConfiguration:   !permission.AllowPutBucketObjectLockConfiguration,
+		DisallowGetBucketObjectLockConfiguration:   !permission.AllowGetBucketObjectLockConfiguration,
+		DisallowPutBucketNotificationConfiguration: !permission.AllowPutBucketNotificationConfiguration,
+		DisallowGetBucketNotificationConfiguration: !permission.AllowGetBucketNotificationConfiguration,
+		NotBefore:                                  notBefore,
+		NotAfter:                                   notAfter,
+		MaxObjectTtl:                               permission.MaxObjectTTL,
 	})
 
 	for _, prefix := range prefixes {

@@ -49,8 +49,10 @@ type DownloaderParams struct {
 	RetryPolicy
 	*manager.Manager
 	EventsReporter
-	config files_sdk.Config
-	DryRun bool
+	config             files_sdk.Config
+	DryRun             bool
+	PriorJobCheckpoint *JobDownloadCheckpoint
+	ResumeTmpPath      string // Full path to the temp file from a prior paused download session.
 }
 
 func (c *Client) Downloader(params DownloaderParams, opts ...files_sdk.RequestResponseOption) *Job {

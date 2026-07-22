@@ -5,14 +5,11 @@ package uplink
 
 import (
 	"context"
-	"io"
 	_ "unsafe" // for go:linkname
 
 	"storj.io/common/encryption"
 	"storj.io/common/paths"
-	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/metaclient"
 )
 
@@ -78,19 +75,6 @@ func deriveContentKey(project *Project, bucket, key string) (*storj.Key, error) 
 	encStore := project.access.encAccess.Store
 	derivedKey, err := encryption.DeriveContentKey(bucket, paths.NewUnencrypted(key), encStore)
 	return derivedKey, err
-}
-
-// ecPutSingleResult is exposing ec client PutSingleResult method.
-//
-// NB: this is used with linkname in private/multipart.
-// It needs to be updated when this is updated.
-//
-//lint:ignore U1000, used with linkname
-//nolint:deadcode,unused
-//go:linkname ecPutSingleResult
-func ecPutSingleResult(ctx context.Context, project *Project, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey,
-	rs eestream.RedundancyStrategy, data io.Reader) (results []*pb.SegmentPieceUploadResult, err error) {
-	return project.ec.PutSingleResult(ctx, limits, privateKey, rs, data)
 }
 
 // dialMetainfoDB is exposing project.dialMetainfoDB method.

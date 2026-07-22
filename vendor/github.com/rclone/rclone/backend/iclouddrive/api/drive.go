@@ -33,7 +33,7 @@ type DriveService struct {
 
 // NewDriveService creates a new DriveService instance.
 func NewDriveService(icloud *Client) (*DriveService, error) {
-	return &DriveService{icloud: icloud, RootID: "FOLDER::com.apple.CloudDocs::root", endpoint: icloud.Session.AccountInfo.Webservices["drivews"].URL, docsEndpoint: icloud.Session.AccountInfo.Webservices["docws"].URL}, nil
+	return &DriveService{icloud: icloud, RootID: "FOLDER::com.apple.CloudDocs::root", endpoint: icloud.Session.AccountInfo.Webservices[WsDrive].URL, docsEndpoint: icloud.Session.AccountInfo.Webservices[WsDocs].URL}, nil
 }
 
 // GetItemByDriveID retrieves a DriveItem by its Drive ID.
@@ -599,7 +599,7 @@ type UpdateFileInfo struct {
 		Signature          string `json:"signature,omitempty"`
 		Size               int64  `json:"size,omitempty"`
 		WrappingKey        string `json:"wrapping_key,omitempty"`
-	} `json:"data,omitempty"`
+	} `json:"data"`
 	DocumentID string    `json:"document_id"`
 	FileFlags  FileFlags `json:"file_flags"`
 	Mtime      int64     `json:"mtime"`
@@ -849,10 +849,10 @@ type DriveItem struct {
 	NumberOfItems       int64        `json:"numberOfItems"`
 	Status              string       `json:"status"`
 	Extension           string       `json:"extension,omitempty"`
-	DateModified        time.Time    `json:"dateModified,omitempty"`
-	DateChanged         time.Time    `json:"dateChanged,omitempty"`
+	DateModified        time.Time    `json:"dateModified"`
+	DateChanged         time.Time    `json:"dateChanged"`
 	Size                int64        `json:"size,omitempty"`
-	LastOpenTime        time.Time    `json:"lastOpenTime,omitempty"`
+	LastOpenTime        time.Time    `json:"lastOpenTime"`
 	Urls                struct {
 		URLDownload string `json:"url_download"`
 	} `json:"urls"`

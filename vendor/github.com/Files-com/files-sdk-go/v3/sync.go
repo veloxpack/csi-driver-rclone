@@ -12,11 +12,14 @@ type Sync struct {
 	Name                string     `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
 	Description         string     `json:"description,omitempty" path:"description,omitempty" url:"description,omitempty"`
 	SiteId              int64      `json:"site_id,omitempty" path:"site_id,omitempty" url:"site_id,omitempty"`
+	WorkspaceId         int64      `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 	UserId              int64      `json:"user_id,omitempty" path:"user_id,omitempty" url:"user_id,omitempty"`
 	SrcPath             string     `json:"src_path,omitempty" path:"src_path,omitempty" url:"src_path,omitempty"`
 	DestPath            string     `json:"dest_path,omitempty" path:"dest_path,omitempty" url:"dest_path,omitempty"`
 	SrcRemoteServerId   int64      `json:"src_remote_server_id,omitempty" path:"src_remote_server_id,omitempty" url:"src_remote_server_id,omitempty"`
 	DestRemoteServerId  int64      `json:"dest_remote_server_id,omitempty" path:"dest_remote_server_id,omitempty" url:"dest_remote_server_id,omitempty"`
+	SrcSiteId           int64      `json:"src_site_id,omitempty" path:"src_site_id,omitempty" url:"src_site_id,omitempty"`
+	DestSiteId          int64      `json:"dest_site_id,omitempty" path:"dest_site_id,omitempty" url:"dest_site_id,omitempty"`
 	TwoWay              *bool      `json:"two_way,omitempty" path:"two_way,omitempty" url:"two_way,omitempty"`
 	KeepAfterCopy       *bool      `json:"keep_after_copy,omitempty" path:"keep_after_copy,omitempty" url:"keep_after_copy,omitempty"`
 	DeleteEmptyFolders  *bool      `json:"delete_empty_folders,omitempty" path:"delete_empty_folders,omitempty" url:"delete_empty_folders,omitempty"`
@@ -43,7 +46,23 @@ func (s Sync) Identifier() interface{} {
 
 type SyncCollection []Sync
 
+type SyncTriggerEnum string
+
+func (u SyncTriggerEnum) String() string {
+	return string(u)
+}
+
+func (u SyncTriggerEnum) Enum() map[string]SyncTriggerEnum {
+	return map[string]SyncTriggerEnum{
+		"daily":           SyncTriggerEnum("daily"),
+		"custom_schedule": SyncTriggerEnum("custom_schedule"),
+		"manual":          SyncTriggerEnum("manual"),
+	}
+}
+
 type SyncListParams struct {
+	SortBy interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Filter interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
 	ListParams
 }
 
@@ -52,24 +71,27 @@ type SyncFindParams struct {
 }
 
 type SyncCreateParams struct {
-	Name                string   `url:"name,omitempty" json:"name,omitempty" path:"name"`
-	Description         string   `url:"description,omitempty" json:"description,omitempty" path:"description"`
-	SrcPath             string   `url:"src_path,omitempty" json:"src_path,omitempty" path:"src_path"`
-	DestPath            string   `url:"dest_path,omitempty" json:"dest_path,omitempty" path:"dest_path"`
-	SrcRemoteServerId   int64    `url:"src_remote_server_id,omitempty" json:"src_remote_server_id,omitempty" path:"src_remote_server_id"`
-	DestRemoteServerId  int64    `url:"dest_remote_server_id,omitempty" json:"dest_remote_server_id,omitempty" path:"dest_remote_server_id"`
-	KeepAfterCopy       *bool    `url:"keep_after_copy,omitempty" json:"keep_after_copy,omitempty" path:"keep_after_copy"`
-	DeleteEmptyFolders  *bool    `url:"delete_empty_folders,omitempty" json:"delete_empty_folders,omitempty" path:"delete_empty_folders"`
-	Disabled            *bool    `url:"disabled,omitempty" json:"disabled,omitempty" path:"disabled"`
-	Interval            string   `url:"interval,omitempty" json:"interval,omitempty" path:"interval"`
-	Trigger             string   `url:"trigger,omitempty" json:"trigger,omitempty" path:"trigger"`
-	TriggerFile         string   `url:"trigger_file,omitempty" json:"trigger_file,omitempty" path:"trigger_file"`
-	HolidayRegion       string   `url:"holiday_region,omitempty" json:"holiday_region,omitempty" path:"holiday_region"`
-	SyncIntervalMinutes int64    `url:"sync_interval_minutes,omitempty" json:"sync_interval_minutes,omitempty" path:"sync_interval_minutes"`
-	RecurringDay        int64    `url:"recurring_day,omitempty" json:"recurring_day,omitempty" path:"recurring_day"`
-	ScheduleTimeZone    string   `url:"schedule_time_zone,omitempty" json:"schedule_time_zone,omitempty" path:"schedule_time_zone"`
-	ScheduleDaysOfWeek  []int64  `url:"schedule_days_of_week,omitempty" json:"schedule_days_of_week,omitempty" path:"schedule_days_of_week"`
-	ScheduleTimesOfDay  []string `url:"schedule_times_of_day,omitempty" json:"schedule_times_of_day,omitempty" path:"schedule_times_of_day"`
+	DeleteEmptyFolders  *bool           `url:"delete_empty_folders,omitempty" json:"delete_empty_folders,omitempty" path:"delete_empty_folders"`
+	Description         string          `url:"description,omitempty" json:"description,omitempty" path:"description"`
+	DestPath            string          `url:"dest_path,omitempty" json:"dest_path,omitempty" path:"dest_path"`
+	DestRemoteServerId  int64           `url:"dest_remote_server_id,omitempty" json:"dest_remote_server_id,omitempty" path:"dest_remote_server_id"`
+	Disabled            *bool           `url:"disabled,omitempty" json:"disabled,omitempty" path:"disabled"`
+	ExcludePatterns     []string        `url:"exclude_patterns,omitempty" json:"exclude_patterns,omitempty" path:"exclude_patterns"`
+	HolidayRegion       string          `url:"holiday_region,omitempty" json:"holiday_region,omitempty" path:"holiday_region"`
+	IncludePatterns     []string        `url:"include_patterns,omitempty" json:"include_patterns,omitempty" path:"include_patterns"`
+	Interval            string          `url:"interval,omitempty" json:"interval,omitempty" path:"interval"`
+	KeepAfterCopy       *bool           `url:"keep_after_copy,omitempty" json:"keep_after_copy,omitempty" path:"keep_after_copy"`
+	Name                string          `url:"name,omitempty" json:"name,omitempty" path:"name"`
+	RecurringDay        int64           `url:"recurring_day,omitempty" json:"recurring_day,omitempty" path:"recurring_day"`
+	ScheduleDaysOfWeek  []int64         `url:"schedule_days_of_week,omitempty" json:"schedule_days_of_week,omitempty" path:"schedule_days_of_week"`
+	ScheduleTimeZone    string          `url:"schedule_time_zone,omitempty" json:"schedule_time_zone,omitempty" path:"schedule_time_zone"`
+	ScheduleTimesOfDay  []string        `url:"schedule_times_of_day,omitempty" json:"schedule_times_of_day,omitempty" path:"schedule_times_of_day"`
+	SrcPath             string          `url:"src_path,omitempty" json:"src_path,omitempty" path:"src_path"`
+	SrcRemoteServerId   int64           `url:"src_remote_server_id,omitempty" json:"src_remote_server_id,omitempty" path:"src_remote_server_id"`
+	SyncIntervalMinutes int64           `url:"sync_interval_minutes,omitempty" json:"sync_interval_minutes,omitempty" path:"sync_interval_minutes"`
+	Trigger             SyncTriggerEnum `url:"trigger,omitempty" json:"trigger,omitempty" path:"trigger"`
+	TriggerFile         string          `url:"trigger_file,omitempty" json:"trigger_file,omitempty" path:"trigger_file"`
+	WorkspaceId         int64           `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
 }
 
 // Dry Run Sync
@@ -83,25 +105,27 @@ type SyncManualRunParams struct {
 }
 
 type SyncUpdateParams struct {
-	Id                  int64    `url:"-,omitempty" json:"-,omitempty" path:"id"`
-	Name                string   `url:"name,omitempty" json:"name,omitempty" path:"name"`
-	Description         string   `url:"description,omitempty" json:"description,omitempty" path:"description"`
-	SrcPath             string   `url:"src_path,omitempty" json:"src_path,omitempty" path:"src_path"`
-	DestPath            string   `url:"dest_path,omitempty" json:"dest_path,omitempty" path:"dest_path"`
-	SrcRemoteServerId   int64    `url:"src_remote_server_id,omitempty" json:"src_remote_server_id,omitempty" path:"src_remote_server_id"`
-	DestRemoteServerId  int64    `url:"dest_remote_server_id,omitempty" json:"dest_remote_server_id,omitempty" path:"dest_remote_server_id"`
-	KeepAfterCopy       *bool    `url:"keep_after_copy,omitempty" json:"keep_after_copy,omitempty" path:"keep_after_copy"`
-	DeleteEmptyFolders  *bool    `url:"delete_empty_folders,omitempty" json:"delete_empty_folders,omitempty" path:"delete_empty_folders"`
-	Disabled            *bool    `url:"disabled,omitempty" json:"disabled,omitempty" path:"disabled"`
-	Interval            string   `url:"interval,omitempty" json:"interval,omitempty" path:"interval"`
-	Trigger             string   `url:"trigger,omitempty" json:"trigger,omitempty" path:"trigger"`
-	TriggerFile         string   `url:"trigger_file,omitempty" json:"trigger_file,omitempty" path:"trigger_file"`
-	HolidayRegion       string   `url:"holiday_region,omitempty" json:"holiday_region,omitempty" path:"holiday_region"`
-	SyncIntervalMinutes int64    `url:"sync_interval_minutes,omitempty" json:"sync_interval_minutes,omitempty" path:"sync_interval_minutes"`
-	RecurringDay        int64    `url:"recurring_day,omitempty" json:"recurring_day,omitempty" path:"recurring_day"`
-	ScheduleTimeZone    string   `url:"schedule_time_zone,omitempty" json:"schedule_time_zone,omitempty" path:"schedule_time_zone"`
-	ScheduleDaysOfWeek  []int64  `url:"schedule_days_of_week,omitempty" json:"schedule_days_of_week,omitempty" path:"schedule_days_of_week"`
-	ScheduleTimesOfDay  []string `url:"schedule_times_of_day,omitempty" json:"schedule_times_of_day,omitempty" path:"schedule_times_of_day"`
+	Id                  int64           `url:"-,omitempty" json:"-,omitempty" path:"id"`
+	DeleteEmptyFolders  *bool           `url:"delete_empty_folders,omitempty" json:"delete_empty_folders,omitempty" path:"delete_empty_folders"`
+	Description         string          `url:"description,omitempty" json:"description,omitempty" path:"description"`
+	DestPath            string          `url:"dest_path,omitempty" json:"dest_path,omitempty" path:"dest_path"`
+	DestRemoteServerId  int64           `url:"dest_remote_server_id,omitempty" json:"dest_remote_server_id,omitempty" path:"dest_remote_server_id"`
+	Disabled            *bool           `url:"disabled,omitempty" json:"disabled,omitempty" path:"disabled"`
+	ExcludePatterns     []string        `url:"exclude_patterns,omitempty" json:"exclude_patterns,omitempty" path:"exclude_patterns"`
+	HolidayRegion       string          `url:"holiday_region,omitempty" json:"holiday_region,omitempty" path:"holiday_region"`
+	IncludePatterns     []string        `url:"include_patterns,omitempty" json:"include_patterns,omitempty" path:"include_patterns"`
+	Interval            string          `url:"interval,omitempty" json:"interval,omitempty" path:"interval"`
+	KeepAfterCopy       *bool           `url:"keep_after_copy,omitempty" json:"keep_after_copy,omitempty" path:"keep_after_copy"`
+	Name                string          `url:"name,omitempty" json:"name,omitempty" path:"name"`
+	RecurringDay        int64           `url:"recurring_day,omitempty" json:"recurring_day,omitempty" path:"recurring_day"`
+	ScheduleDaysOfWeek  []int64         `url:"schedule_days_of_week,omitempty" json:"schedule_days_of_week,omitempty" path:"schedule_days_of_week"`
+	ScheduleTimeZone    string          `url:"schedule_time_zone,omitempty" json:"schedule_time_zone,omitempty" path:"schedule_time_zone"`
+	ScheduleTimesOfDay  []string        `url:"schedule_times_of_day,omitempty" json:"schedule_times_of_day,omitempty" path:"schedule_times_of_day"`
+	SrcPath             string          `url:"src_path,omitempty" json:"src_path,omitempty" path:"src_path"`
+	SrcRemoteServerId   int64           `url:"src_remote_server_id,omitempty" json:"src_remote_server_id,omitempty" path:"src_remote_server_id"`
+	SyncIntervalMinutes int64           `url:"sync_interval_minutes,omitempty" json:"sync_interval_minutes,omitempty" path:"sync_interval_minutes"`
+	Trigger             SyncTriggerEnum `url:"trigger,omitempty" json:"trigger,omitempty" path:"trigger"`
+	TriggerFile         string          `url:"trigger_file,omitempty" json:"trigger_file,omitempty" path:"trigger_file"`
 }
 
 type SyncDeleteParams struct {

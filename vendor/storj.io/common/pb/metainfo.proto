@@ -34,6 +34,8 @@ service Metainfo {
     rpc SetBucketVersioning(SetBucketVersioningRequest) returns (SetBucketVersioningResponse);
     rpc GetBucketObjectLockConfiguration(GetBucketObjectLockConfigurationRequest) returns (GetBucketObjectLockConfigurationResponse);
     rpc SetBucketObjectLockConfiguration(SetBucketObjectLockConfigurationRequest) returns (SetBucketObjectLockConfigurationResponse);
+    rpc GetBucketNotificationConfiguration(GetBucketNotificationConfigurationRequest) returns (GetBucketNotificationConfigurationResponse);
+    rpc SetBucketNotificationConfiguration(SetBucketNotificationConfigurationRequest) returns (SetBucketNotificationConfigurationResponse);
     rpc DeleteBucket(DeleteBucketRequest) returns (DeleteBucketResponse);
     rpc ListBuckets(ListBucketsRequest) returns (ListBucketsResponse);
 
@@ -70,6 +72,7 @@ service Metainfo {
 
     rpc ProjectInfo(ProjectInfoRequest) returns (ProjectInfoResponse);
     rpc RevokeAPIKey(RevokeAPIKeyRequest) returns (RevokeAPIKeyResponse);
+    rpc AccountLicenses(AccountLicensesRequest) returns (AccountLicensesResponse);
 
     // Server side move.
     rpc BeginMoveObject(BeginMoveObjectRequest) returns (BeginMoveObjectResponse);
@@ -223,6 +226,36 @@ message GetBucketObjectLockConfigurationRequest {
 
 message GetBucketObjectLockConfigurationResponse {
     ObjectLockConfiguration configuration = 1;
+}
+
+message FilterRule {
+    string prefix = 1;
+    string suffix = 2;
+}
+
+message NotificationConfiguration {
+    string id = 1;
+    string topic_name = 2;
+    repeated string events = 3;
+    FilterRule filter = 4;
+}
+
+message SetBucketNotificationConfigurationRequest {
+    RequestHeader header = 1;
+    bytes name = 2;
+    NotificationConfiguration configuration = 3;
+}
+
+message SetBucketNotificationConfigurationResponse {
+}
+
+message GetBucketNotificationConfigurationRequest {
+    RequestHeader header = 1;
+    bytes name = 2;
+}
+
+message GetBucketNotificationConfigurationResponse {
+    NotificationConfiguration configuration = 1;
 }
 
 message DeleteBucketRequest {
@@ -1017,17 +1050,19 @@ message BatchRequest {
 
 message BatchRequestItem {
     oneof Request {
-        CreateBucketRequest                      bucket_create = 1;
-        GetBucketRequest                         bucket_get = 2;
-        GetBucketLocationRequest                 bucket_get_location = 30;
-        GetBucketTaggingRequest                  bucket_get_tagging = 41;
-        SetBucketTaggingRequest                  bucket_set_tagging = 42;
-        GetBucketVersioningRequest               bucket_get_versioning = 31;
-        SetBucketVersioningRequest               bucket_set_versioning = 32;
-        GetBucketObjectLockConfigurationRequest  bucket_get_object_lock_configuration = 33;
-        SetBucketObjectLockConfigurationRequest  bucket_set_object_lock_configuration = 38;
-        DeleteBucketRequest                      bucket_delete = 3;
-        ListBucketsRequest                       bucket_list = 4;
+        CreateBucketRequest                       bucket_create = 1;
+        GetBucketRequest                          bucket_get = 2;
+        GetBucketLocationRequest                  bucket_get_location = 30;
+        GetBucketTaggingRequest                   bucket_get_tagging = 41;
+        SetBucketTaggingRequest                   bucket_set_tagging = 42;
+        GetBucketVersioningRequest                bucket_get_versioning = 31;
+        SetBucketVersioningRequest                bucket_set_versioning = 32;
+        GetBucketObjectLockConfigurationRequest   bucket_get_object_lock_configuration = 33;
+        SetBucketObjectLockConfigurationRequest   bucket_set_object_lock_configuration = 38;
+        GetBucketNotificationConfigurationRequest bucket_get_notification_configuration = 43;
+        SetBucketNotificationConfigurationRequest bucket_set_notification_configuration = 44;
+        DeleteBucketRequest                       bucket_delete = 3;
+        ListBucketsRequest                        bucket_list = 4;
 
         BeginObjectRequest              object_begin = 6;
         CommitObjectRequest             object_commit = 7;
@@ -1077,17 +1112,19 @@ message BatchResponse {
 
 message BatchResponseItem {
     oneof Response {
-        CreateBucketResponse                     bucket_create = 1;
-        GetBucketResponse                        bucket_get = 2;
-        GetBucketLocationResponse                bucket_get_location = 30;
-        GetBucketTaggingResponse                 bucket_get_tagging = 41;
-        SetBucketTaggingResponse                 bucket_set_tagging = 42;
-        GetBucketVersioningResponse              bucket_get_versioning = 31;
-        SetBucketVersioningResponse              bucket_set_versioning = 32;
-        GetBucketObjectLockConfigurationResponse bucket_get_object_lock_configuration = 33;
-        SetBucketObjectLockConfigurationResponse bucket_set_object_lock_configuration = 38;
-        DeleteBucketResponse                     bucket_delete = 3;
-        ListBucketsResponse                      bucket_list = 4;
+        CreateBucketResponse                       bucket_create = 1;
+        GetBucketResponse                          bucket_get = 2;
+        GetBucketLocationResponse                  bucket_get_location = 30;
+        GetBucketTaggingResponse                   bucket_get_tagging = 41;
+        SetBucketTaggingResponse                   bucket_set_tagging = 42;
+        GetBucketVersioningResponse                bucket_get_versioning = 31;
+        SetBucketVersioningResponse                bucket_set_versioning = 32;
+        GetBucketObjectLockConfigurationResponse   bucket_get_object_lock_configuration = 33;
+        SetBucketObjectLockConfigurationResponse   bucket_set_object_lock_configuration = 38;
+        GetBucketNotificationConfigurationResponse bucket_get_notification_configuration = 43;
+        SetBucketNotificationConfigurationResponse bucket_set_notification_configuration = 44;
+        DeleteBucketResponse                       bucket_delete = 3;
+        ListBucketsResponse                        bucket_list = 4;
 
         BeginObjectResponse              object_begin = 6;
         CommitObjectResponse             object_commit = 7;
@@ -1230,4 +1267,21 @@ message EncryptedKeyAndNonce {
     SegmentPosition position = 1;
     bytes encrypted_key_nonce = 2 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
     bytes encrypted_key = 3;
+}
+
+message AccountLicensesRequest {
+    RequestHeader header = 15;
+
+    string type = 1; // optional
+    string bucket_name = 2; // optional
+}
+
+message AccountLicense {
+    string type = 1;
+    google.protobuf.Timestamp expires_at = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    bytes key = 3;
+}
+
+message AccountLicensesResponse {
+    repeated AccountLicense licenses = 1;
 }

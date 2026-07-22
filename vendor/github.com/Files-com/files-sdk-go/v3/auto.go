@@ -7,7 +7,7 @@ import (
 )
 
 type Auto struct {
-	Dynamic map[string]interface{} `json:"dynamic,omitempty" path:"dynamic,omitempty" url:"dynamic,omitempty"`
+	Dynamic interface{} `json:"dynamic,omitempty" path:"dynamic,omitempty" url:"dynamic,omitempty"`
 }
 
 // Identifier no path or id

@@ -365,8 +365,7 @@ func (n *NodeIDList) Set(s string) error {
 		return nil
 	}
 
-	idsStrings := strings.Split(s, ",")
-	for _, idString := range idsStrings {
+	for idString := range strings.SplitSeq(s, ",") {
 		id, err := NodeIDFromString(idString)
 		if err != nil {
 			return err

@@ -11,18 +11,19 @@ import (
 	"strings"
 	"sync"
 	"time"
+	_ "unsafe" // for go:linkname
 
 	"github.com/zeebo/errs"
 
 	"storj.io/common/base58"
+	"storj.io/common/errs2"
 	"storj.io/common/leak"
 	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/eventkit"
 	"storj.io/uplink/private/eestream/scheduler"
 	"storj.io/uplink/private/metaclient"
-	"storj.io/uplink/private/storage/streams"
-	"storj.io/uplink/private/stream"
 	"storj.io/uplink/private/testuplink"
 )
 
@@ -105,10 +106,19 @@ func (project *Project) BeginUpload(ctx context.Context, bucket, key string, opt
 func (project *Project) CommitUpload(ctx context.Context, bucket, key, uploadID string, opts *CommitUploadOptions) (object *Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO add completedPart to options when we will have implementation for that
+	metaOpts := &metaclient.CommitUploadOptions{}
+	if opts != nil {
+		metaOpts.CustomMetadata = opts.CustomMetadata
+	}
+	return project.commitUpload(ctx, bucket, key, uploadID, metaOpts)
+}
 
+func (project *Project) commitUpload(ctx context.Context, bucket, key string, uploadID string, opts *metaclient.CommitUploadOptions) (object *Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO add completedPart to options when we will have implementation for that
 	if opts == nil {
-		opts = &CommitUploadOptions{}
+		opts = &metaclient.CommitUploadOptions{}
 	}
 
 	metainfoDB, err := project.dialMetainfoDB(ctx)
@@ -117,7 +127,7 @@ func (project *Project) CommitUpload(ctx context.Context, bucket, key, uploadID 
 	}
 	defer func() { err = errs.Combine(err, metainfoDB.Close()) }()
 
-	mObject, err := metainfoDB.CommitObject(ctx, bucket, key, uploadID, opts.CustomMetadata, project.encryptionParameters)
+	mObject, err := metainfoDB.CommitObject(ctx, bucket, key, uploadID, opts.CustomMetadata, opts.ETag, project.encryptionParameters, opts.IfNoneMatch)
 	if err != nil {
 		return nil, convertKnownErrors(err, bucket, key)
 	}
@@ -175,18 +185,13 @@ func (project *Project) UploadPart(ctx context.Context, bucket, key, uploadID st
 	if err != nil {
 		return nil, convertKnownErrors(err, bucket, key)
 	}
-	upload.streams = streams
 
-	if project.concurrentSegmentUploadConfig == nil {
-		upload.upload = stream.NewUploadPart(ctx, bucket, key, decodedStreamID, partNumber, upload.eTagCh, streams)
-	} else {
-		sched := scheduler.New(project.concurrentSegmentUploadConfig.SchedulerOptions)
-		u, err := streams.UploadPart(ctx, bucket, key, decodedStreamID, int32(partNumber), upload.eTagCh, sched)
-		if err != nil {
-			return nil, convertKnownErrors(err, bucket, key)
-		}
-		upload.upload = u
+	sched := scheduler.New(project.concurrentSegmentUploadConfig.SchedulerOptions)
+	u, err := streams.UploadPart(ctx, bucket, key, decodedStreamID, int32(partNumber), upload.eTagCh, sched)
+	if err != nil {
+		return nil, convertKnownErrors(err, bucket, key)
 	}
+	upload.upload = u
 
 	upload.tracker = project.tracker.Child("upload-part", 1)
 	return upload, nil
@@ -293,6 +298,7 @@ func (project *Project) ListUploads(ctx context.Context, bucket string, options 
 	opts := metaclient.ListOptions{
 		Direction: metaclient.After,
 		Status:    int32(pb.Object_UPLOADING), // TODO: define object status constants in storj package?
+		Delimiter: "/",
 	}
 
 	if options != nil {
@@ -301,6 +307,7 @@ func (project *Project) ListUploads(ctx context.Context, bucket string, options 
 		opts.Recursive = options.Recursive
 		opts.IncludeSystemMetadata = options.System
 		opts.IncludeCustomMetadata = options.Custom
+		opts.IncludeETag = false // TODO: ETag not in the public API
 	}
 
 	opts.Limit = testuplink.GetListLimit(ctx)
@@ -344,7 +351,6 @@ type PartUpload struct {
 	bucket  string
 	key     string
 	part    *Part
-	streams *streams.Store
 	eTagCh  chan []byte
 
 	stats operationStats
@@ -415,12 +421,15 @@ func (upload *PartUpload) Commit() error {
 
 	err := errs.Combine(
 		upload.upload.Commit(),
-		upload.streams.Close(),
 		upload.tracker.Close(),
 	)
 	upload.stats.flagFailure(err)
 	track()
 	upload.emitEvent(false)
+
+	if errs2.IsRPC(err, rpcstatus.NotFound) {
+		return packageError.Wrap(ErrUploadIDInvalid)
+	}
 
 	return convertKnownErrors(err, upload.bucket, upload.key)
 }
@@ -446,7 +455,6 @@ func (upload *PartUpload) Abort() error {
 
 	err := errs.Combine(
 		upload.upload.Abort(),
-		upload.streams.Close(),
 		upload.tracker.Close(),
 	)
 	upload.stats.flagFailure(err)
@@ -486,4 +494,16 @@ func (upload *PartUpload) emitEvent(aborted bool) {
 		// segment count
 		// ram available
 	)
+}
+
+// commitUpload exposes the private project.commitObject method.
+//
+// NB: this is used with linkname in private/object.
+// It needs to be updated when this is updated.
+//
+//lint:ignore U1000, used with linkname
+//nolint:deadcode,unused
+//go:linkname commitUpload
+func commitUpload(ctx context.Context, project *Project, bucket, key string, uploadID string, opts *metaclient.CommitUploadOptions) (object *Object, err error) {
+	return project.commitUpload(ctx, bucket, key, uploadID, opts)
 }

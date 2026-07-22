@@ -8,17 +8,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sort"
-	"strings"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
-	"golang.org/x/exp/slices"
+	"github.com/zeebo/errs"
 
-	"storj.io/common/rpc/rpctracing"
 	"storj.io/common/sync2"
+	"storj.io/common/tracing"
 	"storj.io/infectious"
 )
 
@@ -129,9 +128,7 @@ func (s *StripeReader) start() {
 		close(done)
 	}()
 
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
+	s.wg.Go(func() {
 
 		s1 := s.bundy.ProgressSnapshot(nil)
 		var s2 []int32
@@ -162,7 +159,7 @@ func (s *StripeReader) start() {
 				return
 			}
 		}
-	}()
+	})
 }
 
 // readShares is the method that does the actual work of reading an individual
@@ -259,15 +256,14 @@ func (s *StripeReader) CloseAndWait() error {
 }
 
 func (s *StripeReader) combineErrs() error {
-	var errstrings []string
+	var errsGroup errs.Group
 	for idx := range s.pieces {
 		if err := s.pieces[idx].buffer.Err(); err != nil && !errors.Is(err, io.EOF) {
-			errstrings = append(errstrings, fmt.Sprintf("\nerror retrieving piece %02d: %v", s.pieces[idx].shareNum, err))
+			errsGroup.Add(fmt.Errorf("error retrieving piece %02d: %w", s.pieces[idx].shareNum, err))
 		}
 	}
-	if len(errstrings) > 0 {
-		sort.Strings(errstrings)
-		return Error.New("failed to download segment: %s", strings.Join(errstrings, ""))
+	if len(errsGroup) > 0 {
+		return Error.Wrap(errsGroup.Err())
 	}
 	return Error.New("programmer error: no errors to combine")
 }
@@ -278,7 +274,7 @@ var monReadStripeTask = mon.Task()
 // ReadStripes returns 1 or more stripes. out is overwritten.
 func (s *StripeReader) ReadStripes(ctx context.Context, nextStripe int64, out []byte) (_ []byte, count int, err error) {
 	defer monReadStripeTask(&ctx)(&err)
-	ctx = rpctracing.WithoutDistributedTracing(ctx)
+	ctx = tracing.WithoutDistributedTracing(ctx)
 
 	if nextStripe != int64(s.returnedStripes) {
 		return nil, 0, Error.New("unexpected next stripe")

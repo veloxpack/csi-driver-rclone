@@ -2,10 +2,10 @@ package proton_api_bridge
 
 import (
 	"context"
-	"log"
 	"sync"
 
 	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/rclone/Proton-API-Bridge/common"
 	"github.com/rclone/go-proton-api"
 )
 
@@ -18,15 +18,17 @@ type cache struct {
 	data          map[string]*cacheEntry
 	children      map[string]map[string]interface{}
 	enableCaching bool
+	logger        common.Logger
 
 	sync.RWMutex
 }
 
-func newCache(enableCaching bool) *cache {
+func newCache(enableCaching bool, logger common.Logger) *cache {
 	return &cache{
 		data:          make(map[string]*cacheEntry),
 		children:      make(map[string]map[string]interface{}),
 		enableCaching: enableCaching,
+		logger:        logger,
 	}
 }
 
@@ -84,8 +86,10 @@ func (cache *cache) _insert(linkID string, link *proton.Link, kr *crypto.KeyRing
 
 		}
 	} else {
-		// TODO: we should never have missing link though
-		log.Fatalln("we should never have missing link though")
+		// Defensive guard: every caller of _insert passes a non-nil link,
+		// so this branch is unreachable in practice. Log a warning rather
+		// than crashing the process if the invariant is ever violated.
+		cache.logger.Errorf("cache._insert called with nil link for linkID %s", linkID)
 	}
 }
 
@@ -106,10 +110,10 @@ func (cache *cache) _remove_nolock(linkID string, includingChildren bool) {
 			delete(data, link.LinkID)
 			cache.children[link.ParentLinkID] = data
 		} else {
-			log.Fatalln("we have an issue for cache inconsistency where link is not found in the parent's map")
+			cache.logger.Errorf("cache inconsistency: link %s not found in parent %s's map", link.LinkID, link.ParentLinkID)
 		}
 	} else {
-		log.Fatalln("we have an issue for cache inconsistency where link's parent map is missing")
+		cache.logger.Errorf("cache inconsistency: parent map for %s is missing", link.ParentLinkID)
 	}
 
 	// we don't recursively go upward to clean up the parent's map

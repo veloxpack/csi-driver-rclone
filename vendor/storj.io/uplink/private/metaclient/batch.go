@@ -25,12 +25,13 @@ type Batcher interface {
 // BatchItem represents single request in batch.
 type BatchItem interface {
 	BatchItem() *pb.BatchRequestItem
+	IsRetriable() bool
 }
 
 // BatchResponse single response from batch call.
 type BatchResponse struct {
-	pbRequest  interface{}
-	pbResponse interface{}
+	pbRequest  any
+	pbResponse any
 }
 
 // MakeBatchResponse makes a batch response from the request and response
@@ -136,7 +137,12 @@ func (resp *BatchResponse) ListObjects() (ListObjectsResponse, error) {
 		return ListObjectsResponse{}, ErrInvalidType
 	}
 
-	return newListObjectsResponse(item.ObjectList, requestItem.ObjectList.EncryptedPrefix, requestItem.ObjectList.Recursive), nil
+	return newListObjectsResponse(
+		item.ObjectList,
+		requestItem.ObjectList.EncryptedPrefix,
+		requestItem.ObjectList.Delimiter,
+		requestItem.ObjectList.Recursive,
+	), nil
 }
 
 // BeginSegment returns response for BeginSegment request.

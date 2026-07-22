@@ -177,15 +177,14 @@ func (am MoveSource) Call(f JobFile, opts ...files_sdk.RequestResponseOption) (s
 			files_sdk.FileMoveParams{Path: f.RemotePath, Destination: lib.Path{Path: log.Path}.NormalizePathSystemForAPI().String()},
 			opts...,
 		)
-		rErr, ok := err.(files_sdk.ResponseError)
-		if ok && rErr.Type == "processing-failure/destination-parent-does-not-exist" {
+		if errors.Is(err, files_sdk.ErrDestinationParentDoesNotExist) {
 			err := (&FS{}).Init(am.Config, true).WithContext(files_sdk.ContextOption(opts)).(*FS).MkdirAll(filepath.Dir(log.Path), 0755)
 			if err != nil {
 				return log, err
 			}
 			return am.Call(f, opts...)
 		}
-		if ok && rErr.Type == "processing-failure/destination-exists" {
+		if errors.Is(err, files_sdk.ErrDestinationExists) {
 			err := client.Delete(files_sdk.FileDeleteParams{Path: lib.Path{Path: log.Path}.NormalizePathSystemForAPI().String()}, opts...)
 			if err != nil {
 				return log, err

@@ -8,11 +8,12 @@ import (
 )
 
 type Style struct {
-	Id        int64     `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
-	Path      string    `json:"path,omitempty" path:"path,omitempty" url:"path,omitempty"`
-	Logo      Image     `json:"logo,omitempty" path:"logo,omitempty" url:"logo,omitempty"`
-	Thumbnail Image     `json:"thumbnail,omitempty" path:"thumbnail,omitempty" url:"thumbnail,omitempty"`
-	File      io.Reader `json:"file,omitempty" path:"file,omitempty" url:"file,omitempty"`
+	Id            int64     `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	Path          string    `json:"path,omitempty" path:"path,omitempty" url:"path,omitempty"`
+	Logo          Image     `json:"logo,omitempty" path:"logo,omitempty" url:"logo,omitempty"`
+	LogoClickHref string    `json:"logo_click_href,omitempty" path:"logo_click_href,omitempty" url:"logo_click_href,omitempty"`
+	Thumbnail     Image     `json:"thumbnail,omitempty" path:"thumbnail,omitempty" url:"thumbnail,omitempty"`
+	File          io.Reader `json:"file,omitempty" path:"file,omitempty" url:"file,omitempty"`
 }
 
 func (s Style) Identifier() interface{} {
@@ -26,8 +27,9 @@ type StyleFindParams struct {
 }
 
 type StyleUpdateParams struct {
-	Path string    `url:"-,omitempty" json:"-,omitempty" path:"path"`
-	File io.Writer `url:"file" json:"file" path:"file"`
+	Path          string    `url:"-,omitempty" json:"-,omitempty" path:"path"`
+	File          io.Writer `url:"file,omitempty" json:"file,omitempty" path:"file"`
+	LogoClickHref string    `url:"logo_click_href,omitempty" json:"logo_click_href,omitempty" path:"logo_click_href"`
 }
 
 type StyleDeleteParams struct {

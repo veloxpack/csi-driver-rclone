@@ -9,6 +9,7 @@ import (
 
 type GpgKey struct {
 	Id                    int64      `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	WorkspaceId           int64      `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 	ExpiresAt             *time.Time `json:"expires_at,omitempty" path:"expires_at,omitempty" url:"expires_at,omitempty"`
 	Name                  string     `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
 	PartnerId             int64      `json:"partner_id,omitempty" path:"partner_id,omitempty" url:"partner_id,omitempty"`
@@ -35,8 +36,13 @@ func (g GpgKey) Identifier() interface{} {
 type GpgKeyCollection []GpgKey
 
 type GpgKeyListParams struct {
-	UserId int64                  `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
-	SortBy map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	UserId     int64       `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
+	SortBy     interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Filter     interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
+	FilterGt   interface{} `url:"filter_gt,omitempty" json:"filter_gt,omitempty" path:"filter_gt"`
+	FilterGteq interface{} `url:"filter_gteq,omitempty" json:"filter_gteq,omitempty" path:"filter_gteq"`
+	FilterLt   interface{} `url:"filter_lt,omitempty" json:"filter_lt,omitempty" path:"filter_lt"`
+	FilterLteq interface{} `url:"filter_lteq,omitempty" json:"filter_lteq,omitempty" path:"filter_lteq"`
 	ListParams
 }
 
@@ -51,6 +57,7 @@ type GpgKeyCreateParams struct {
 	PrivateKey         string     `url:"private_key,omitempty" json:"private_key,omitempty" path:"private_key"`
 	PrivateKeyPassword string     `url:"private_key_password,omitempty" json:"private_key_password,omitempty" path:"private_key_password"`
 	Name               string     `url:"name" json:"name" path:"name"`
+	WorkspaceId        int64      `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
 	GenerateExpiresAt  *time.Time `url:"generate_expires_at,omitempty" json:"generate_expires_at,omitempty" path:"generate_expires_at"`
 	GenerateKeypair    *bool      `url:"generate_keypair,omitempty" json:"generate_keypair,omitempty" path:"generate_keypair"`
 	GenerateFullName   string     `url:"generate_full_name,omitempty" json:"generate_full_name,omitempty" path:"generate_full_name"`

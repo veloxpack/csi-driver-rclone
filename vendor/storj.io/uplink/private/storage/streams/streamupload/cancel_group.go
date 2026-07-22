@@ -21,9 +21,7 @@ func newCancelGroup(ctx context.Context) (context.Context, *cancelGroup) {
 }
 
 func (c *cancelGroup) Go(f func() error) {
-	c.wg.Add(1)
-	go func() {
-		defer c.wg.Done()
+	c.wg.Go(func() {
 
 		if err := f(); err != nil {
 			c.mu.Lock()
@@ -34,7 +32,7 @@ func (c *cancelGroup) Go(f func() error) {
 				c.cancel()
 			}
 		}
-	}()
+	})
 }
 
 func (c *cancelGroup) Close() {

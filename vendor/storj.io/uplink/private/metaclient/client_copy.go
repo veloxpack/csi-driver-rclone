@@ -47,6 +47,9 @@ func (params *BeginCopyObjectParams) BatchItem() *pb.BatchRequestItem {
 	}
 }
 
+// IsRetriable returns true if the request can be retried when a kind of connection error happens, otherwise false.
+func (params *BeginCopyObjectParams) IsRetriable() bool { return false }
+
 func newBeginCopyObjectResponse(response *pb.ObjectBeginCopyResponse) BeginCopyObjectResponse {
 	keys := make([]EncryptedKeyAndNonce, len(response.SegmentKeys))
 	for i, key := range response.SegmentKeys {
@@ -86,13 +89,14 @@ func (client *Client) BeginCopyObject(ctx context.Context, params BeginCopyObjec
 
 // FinishCopyObjectParams parameters for FinishCopyObject method.
 type FinishCopyObjectParams struct {
-	StreamID                     storj.StreamID
-	NewBucket                    []byte
-	NewEncryptedObjectKey        []byte
-	NewEncryptedMetadataKeyNonce storj.Nonce
-	NewEncryptedMetadataKey      []byte
-	NewSegmentKeys               []EncryptedKeyAndNonce
-	Retention                    Retention
+	StreamID              storj.StreamID
+	NewBucket             []byte
+	NewEncryptedObjectKey []byte
+	NewEncryptedUserData  EncryptedUserData
+	NewSegmentKeys        []EncryptedKeyAndNonce
+	Retention             Retention
+	LegalHold             bool
+	IfNoneMatch           []string
 }
 
 func (params *FinishCopyObjectParams) toRequest(header *pb.RequestHeader) *pb.ObjectFinishCopyRequest {
@@ -112,9 +116,12 @@ func (params *FinishCopyObjectParams) toRequest(header *pb.RequestHeader) *pb.Ob
 		StreamId:                     params.StreamID,
 		NewBucket:                    params.NewBucket,
 		NewEncryptedObjectKey:        params.NewEncryptedObjectKey,
-		NewEncryptedMetadataKeyNonce: params.NewEncryptedMetadataKeyNonce,
-		NewEncryptedMetadataKey:      params.NewEncryptedMetadataKey,
+		NewEncryptedMetadata:         params.NewEncryptedUserData.EncryptedMetadata,
+		NewEncryptedMetadataKeyNonce: params.NewEncryptedUserData.EncryptedMetadataNonce,
+		NewEncryptedMetadataKey:      params.NewEncryptedUserData.EncryptedMetadataEncryptedKey,
 		NewSegmentKeys:               keys,
+		LegalHold:                    params.LegalHold,
+		IfNoneMatch:                  params.IfNoneMatch,
 	}
 	if params.Retention != (Retention{}) {
 		request.Retention = &pb.Retention{
@@ -133,6 +140,9 @@ func (params *FinishCopyObjectParams) BatchItem() *pb.BatchRequestItem {
 		},
 	}
 }
+
+// IsRetriable returns true if the request can be retried when a kind of connection error happens, otherwise false.
+func (params *FinishCopyObjectParams) IsRetriable() bool { return false }
 
 // FinishCopyObjectResponse response for FinishCopyObjectResponse request.
 type FinishCopyObjectResponse struct {

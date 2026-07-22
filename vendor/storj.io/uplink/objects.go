@@ -37,6 +37,7 @@ func (project *Project) ListObjects(ctx context.Context, bucket string, options 
 	b := metaclient.Bucket{Name: bucket}
 	opts := metaclient.ListOptions{
 		Direction: metaclient.After,
+		Delimiter: "/",
 	}
 
 	if options != nil {
@@ -45,6 +46,7 @@ func (project *Project) ListObjects(ctx context.Context, bucket string, options 
 		opts.Recursive = options.Recursive
 		opts.IncludeCustomMetadata = options.Custom
 		opts.IncludeSystemMetadata = options.System
+		opts.IncludeETag = false // TODO: ETag not in the public API
 	}
 
 	opts.Limit = testuplink.GetListLimit(ctx)

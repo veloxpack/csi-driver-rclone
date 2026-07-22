@@ -22,8 +22,6 @@ type listLimitKey struct{}
 
 type concurrentSegmentUploadsConfigKey struct{}
 
-type disableConcurrentSegmentUploadsKey struct{}
-
 type (
 	logWriterKey        struct{}
 	logWriterContextKey struct{}
@@ -76,12 +74,6 @@ type ConcurrentSegmentUploadsConfig struct {
 	// on the amount of concurrent piece limits per-upload, across all
 	// segments.
 	SchedulerOptions scheduler.Options
-
-	// LongTailMargin represents the maximum number of piece uploads beyond the
-	// optimal threshold that will be uploaded for a given segment. Once an
-	// upload has reached the optimal threshold, the remaining piece uploads
-	// are cancelled.
-	LongTailMargin int
 }
 
 // DefaultConcurrentSegmentUploadsConfig returns the default ConcurrentSegmentUploadsConfig.
@@ -91,7 +83,6 @@ func DefaultConcurrentSegmentUploadsConfig() ConcurrentSegmentUploadsConfig {
 			MaximumConcurrent:        300,
 			MaximumConcurrentHandles: 10,
 		},
-		LongTailMargin: 50,
 	}
 }
 
@@ -113,20 +104,11 @@ func WithConcurrentSegmentUploadsConfig(ctx context.Context, config ConcurrentSe
 	return context.WithValue(ctx, concurrentSegmentUploadsConfigKey{}, config)
 }
 
-// DisableConcurrentSegmentUploads creates a context that disables the new
-// concurrent segment upload codepath.
-func DisableConcurrentSegmentUploads(ctx context.Context) context.Context {
-	return context.WithValue(ctx, disableConcurrentSegmentUploadsKey{}, struct{}{})
-}
-
 // GetConcurrentSegmentUploadsConfig returns the scheduler options to
 // use with the new concurrent segment upload codepath, if no scheduler
 // options have been set it will return default configuration. Concurrent
 // segment upload code path can be disabled with DisableConcurrentSegmentUploads.
 func GetConcurrentSegmentUploadsConfig(ctx context.Context) *ConcurrentSegmentUploadsConfig {
-	if value := ctx.Value(disableConcurrentSegmentUploadsKey{}); value != nil {
-		return nil
-	}
 	if config, ok := ctx.Value(concurrentSegmentUploadsConfigKey{}).(ConcurrentSegmentUploadsConfig); ok {
 		return &config
 	}
@@ -177,7 +159,7 @@ var (
 )
 
 // Log writes to upload log file if exists.
-func Log(ctx context.Context, args ...interface{}) {
+func Log(ctx context.Context, args ...any) {
 	w := GetLogWriter(ctx)
 	if w == nil {
 		return

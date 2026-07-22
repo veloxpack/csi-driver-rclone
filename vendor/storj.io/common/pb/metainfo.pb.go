@@ -1295,6 +1295,286 @@ func (m *GetBucketObjectLockConfigurationResponse) GetConfiguration() *ObjectLoc
 	return nil
 }
 
+type FilterRule struct {
+	Prefix               string   `protobuf:"bytes,1,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	Suffix               string   `protobuf:"bytes,2,opt,name=suffix,proto3" json:"suffix,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *FilterRule) Reset()         { *m = FilterRule{} }
+func (m *FilterRule) String() string { return proto.CompactTextString(m) }
+func (*FilterRule) ProtoMessage()    {}
+
+func (m *FilterRule) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_FilterRule.Unmarshal(m, b)
+}
+func (m *FilterRule) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_FilterRule.Marshal(b, m, deterministic)
+}
+func (m *FilterRule) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FilterRule.Merge(m, src)
+}
+func (m *FilterRule) XXX_Size() int {
+	return xxx_messageInfo_FilterRule.Size(m)
+}
+func (m *FilterRule) XXX_DiscardUnknown() {
+	xxx_messageInfo_FilterRule.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FilterRule proto.InternalMessageInfo
+
+func (m *FilterRule) GetPrefix() string {
+	if m != nil {
+		return m.Prefix
+	}
+	return ""
+}
+
+func (m *FilterRule) GetSuffix() string {
+	if m != nil {
+		return m.Suffix
+	}
+	return ""
+}
+
+type NotificationConfiguration struct {
+	Id                   string      `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TopicName            string      `protobuf:"bytes,2,opt,name=topic_name,json=topicName,proto3" json:"topic_name,omitempty"`
+	Events               []string    `protobuf:"bytes,3,rep,name=events,proto3" json:"events,omitempty"`
+	Filter               *FilterRule `protobuf:"bytes,4,opt,name=filter,proto3" json:"filter,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
+}
+
+func (m *NotificationConfiguration) Reset()         { *m = NotificationConfiguration{} }
+func (m *NotificationConfiguration) String() string { return proto.CompactTextString(m) }
+func (*NotificationConfiguration) ProtoMessage()    {}
+
+func (m *NotificationConfiguration) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_NotificationConfiguration.Unmarshal(m, b)
+}
+func (m *NotificationConfiguration) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_NotificationConfiguration.Marshal(b, m, deterministic)
+}
+func (m *NotificationConfiguration) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NotificationConfiguration.Merge(m, src)
+}
+func (m *NotificationConfiguration) XXX_Size() int {
+	return xxx_messageInfo_NotificationConfiguration.Size(m)
+}
+func (m *NotificationConfiguration) XXX_DiscardUnknown() {
+	xxx_messageInfo_NotificationConfiguration.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_NotificationConfiguration proto.InternalMessageInfo
+
+func (m *NotificationConfiguration) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+func (m *NotificationConfiguration) GetTopicName() string {
+	if m != nil {
+		return m.TopicName
+	}
+	return ""
+}
+
+func (m *NotificationConfiguration) GetEvents() []string {
+	if m != nil {
+		return m.Events
+	}
+	return nil
+}
+
+func (m *NotificationConfiguration) GetFilter() *FilterRule {
+	if m != nil {
+		return m.Filter
+	}
+	return nil
+}
+
+type SetBucketNotificationConfigurationRequest struct {
+	Header               *RequestHeader             `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
+	Name                 []byte                     `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Configuration        *NotificationConfiguration `protobuf:"bytes,3,opt,name=configuration,proto3" json:"configuration,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
+	XXX_unrecognized     []byte                     `json:"-"`
+	XXX_sizecache        int32                      `json:"-"`
+}
+
+func (m *SetBucketNotificationConfigurationRequest) Reset() {
+	*m = SetBucketNotificationConfigurationRequest{}
+}
+func (m *SetBucketNotificationConfigurationRequest) String() string {
+	return proto.CompactTextString(m)
+}
+func (*SetBucketNotificationConfigurationRequest) ProtoMessage() {}
+
+func (m *SetBucketNotificationConfigurationRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetBucketNotificationConfigurationRequest.Unmarshal(m, b)
+}
+func (m *SetBucketNotificationConfigurationRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetBucketNotificationConfigurationRequest.Marshal(b, m, deterministic)
+}
+func (m *SetBucketNotificationConfigurationRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetBucketNotificationConfigurationRequest.Merge(m, src)
+}
+func (m *SetBucketNotificationConfigurationRequest) XXX_Size() int {
+	return xxx_messageInfo_SetBucketNotificationConfigurationRequest.Size(m)
+}
+func (m *SetBucketNotificationConfigurationRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetBucketNotificationConfigurationRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SetBucketNotificationConfigurationRequest proto.InternalMessageInfo
+
+func (m *SetBucketNotificationConfigurationRequest) GetHeader() *RequestHeader {
+	if m != nil {
+		return m.Header
+	}
+	return nil
+}
+
+func (m *SetBucketNotificationConfigurationRequest) GetName() []byte {
+	if m != nil {
+		return m.Name
+	}
+	return nil
+}
+
+func (m *SetBucketNotificationConfigurationRequest) GetConfiguration() *NotificationConfiguration {
+	if m != nil {
+		return m.Configuration
+	}
+	return nil
+}
+
+type SetBucketNotificationConfigurationResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SetBucketNotificationConfigurationResponse) Reset() {
+	*m = SetBucketNotificationConfigurationResponse{}
+}
+func (m *SetBucketNotificationConfigurationResponse) String() string {
+	return proto.CompactTextString(m)
+}
+func (*SetBucketNotificationConfigurationResponse) ProtoMessage() {}
+
+func (m *SetBucketNotificationConfigurationResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetBucketNotificationConfigurationResponse.Unmarshal(m, b)
+}
+func (m *SetBucketNotificationConfigurationResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetBucketNotificationConfigurationResponse.Marshal(b, m, deterministic)
+}
+func (m *SetBucketNotificationConfigurationResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetBucketNotificationConfigurationResponse.Merge(m, src)
+}
+func (m *SetBucketNotificationConfigurationResponse) XXX_Size() int {
+	return xxx_messageInfo_SetBucketNotificationConfigurationResponse.Size(m)
+}
+func (m *SetBucketNotificationConfigurationResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetBucketNotificationConfigurationResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SetBucketNotificationConfigurationResponse proto.InternalMessageInfo
+
+type GetBucketNotificationConfigurationRequest struct {
+	Header               *RequestHeader `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
+	Name                 []byte         `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
+}
+
+func (m *GetBucketNotificationConfigurationRequest) Reset() {
+	*m = GetBucketNotificationConfigurationRequest{}
+}
+func (m *GetBucketNotificationConfigurationRequest) String() string {
+	return proto.CompactTextString(m)
+}
+func (*GetBucketNotificationConfigurationRequest) ProtoMessage() {}
+
+func (m *GetBucketNotificationConfigurationRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetBucketNotificationConfigurationRequest.Unmarshal(m, b)
+}
+func (m *GetBucketNotificationConfigurationRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetBucketNotificationConfigurationRequest.Marshal(b, m, deterministic)
+}
+func (m *GetBucketNotificationConfigurationRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetBucketNotificationConfigurationRequest.Merge(m, src)
+}
+func (m *GetBucketNotificationConfigurationRequest) XXX_Size() int {
+	return xxx_messageInfo_GetBucketNotificationConfigurationRequest.Size(m)
+}
+func (m *GetBucketNotificationConfigurationRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetBucketNotificationConfigurationRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetBucketNotificationConfigurationRequest proto.InternalMessageInfo
+
+func (m *GetBucketNotificationConfigurationRequest) GetHeader() *RequestHeader {
+	if m != nil {
+		return m.Header
+	}
+	return nil
+}
+
+func (m *GetBucketNotificationConfigurationRequest) GetName() []byte {
+	if m != nil {
+		return m.Name
+	}
+	return nil
+}
+
+type GetBucketNotificationConfigurationResponse struct {
+	Configuration        *NotificationConfiguration `protobuf:"bytes,1,opt,name=configuration,proto3" json:"configuration,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
+	XXX_unrecognized     []byte                     `json:"-"`
+	XXX_sizecache        int32                      `json:"-"`
+}
+
+func (m *GetBucketNotificationConfigurationResponse) Reset() {
+	*m = GetBucketNotificationConfigurationResponse{}
+}
+func (m *GetBucketNotificationConfigurationResponse) String() string {
+	return proto.CompactTextString(m)
+}
+func (*GetBucketNotificationConfigurationResponse) ProtoMessage() {}
+
+func (m *GetBucketNotificationConfigurationResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetBucketNotificationConfigurationResponse.Unmarshal(m, b)
+}
+func (m *GetBucketNotificationConfigurationResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetBucketNotificationConfigurationResponse.Marshal(b, m, deterministic)
+}
+func (m *GetBucketNotificationConfigurationResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetBucketNotificationConfigurationResponse.Merge(m, src)
+}
+func (m *GetBucketNotificationConfigurationResponse) XXX_Size() int {
+	return xxx_messageInfo_GetBucketNotificationConfigurationResponse.Size(m)
+}
+func (m *GetBucketNotificationConfigurationResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetBucketNotificationConfigurationResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetBucketNotificationConfigurationResponse proto.InternalMessageInfo
+
+func (m *GetBucketNotificationConfigurationResponse) GetConfiguration() *NotificationConfiguration {
+	if m != nil {
+		return m.Configuration
+	}
+	return nil
+}
+
 type DeleteBucketRequest struct {
 	Header                    *RequestHeader `protobuf:"bytes,15,opt,name=header,proto3" json:"header,omitempty"`
 	Name                      []byte         `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -6066,6 +6346,8 @@ type BatchRequestItem struct {
 	//	*BatchRequestItem_BucketSetVersioning
 	//	*BatchRequestItem_BucketGetObjectLockConfiguration
 	//	*BatchRequestItem_BucketSetObjectLockConfiguration
+	//	*BatchRequestItem_BucketGetNotificationConfiguration
+	//	*BatchRequestItem_BucketSetNotificationConfiguration
 	//	*BatchRequestItem_BucketDelete
 	//	*BatchRequestItem_BucketList
 	//	*BatchRequestItem_ObjectBegin
@@ -6155,6 +6437,12 @@ type BatchRequestItem_BucketGetObjectLockConfiguration struct {
 }
 type BatchRequestItem_BucketSetObjectLockConfiguration struct {
 	BucketSetObjectLockConfiguration *SetBucketObjectLockConfigurationRequest `protobuf:"bytes,38,opt,name=bucket_set_object_lock_configuration,json=bucketSetObjectLockConfiguration,proto3,oneof" json:"bucket_set_object_lock_configuration,omitempty"`
+}
+type BatchRequestItem_BucketGetNotificationConfiguration struct {
+	BucketGetNotificationConfiguration *GetBucketNotificationConfigurationRequest `protobuf:"bytes,43,opt,name=bucket_get_notification_configuration,json=bucketGetNotificationConfiguration,proto3,oneof" json:"bucket_get_notification_configuration,omitempty"`
+}
+type BatchRequestItem_BucketSetNotificationConfiguration struct {
+	BucketSetNotificationConfiguration *SetBucketNotificationConfigurationRequest `protobuf:"bytes,44,opt,name=bucket_set_notification_configuration,json=bucketSetNotificationConfiguration,proto3,oneof" json:"bucket_set_notification_configuration,omitempty"`
 }
 type BatchRequestItem_BucketDelete struct {
 	BucketDelete *DeleteBucketRequest `protobuf:"bytes,3,opt,name=bucket_delete,json=bucketDelete,proto3,oneof" json:"bucket_delete,omitempty"`
@@ -6250,46 +6538,48 @@ type BatchRequestItem_RevokeApiKey struct {
 	RevokeApiKey *RevokeAPIKeyRequest `protobuf:"bytes,19,opt,name=revoke_api_key,json=revokeApiKey,proto3,oneof" json:"revoke_api_key,omitempty"`
 }
 
-func (*BatchRequestItem_BucketCreate) isBatchRequestItem_Request()                     {}
-func (*BatchRequestItem_BucketGet) isBatchRequestItem_Request()                        {}
-func (*BatchRequestItem_BucketGetLocation) isBatchRequestItem_Request()                {}
-func (*BatchRequestItem_BucketGetTagging) isBatchRequestItem_Request()                 {}
-func (*BatchRequestItem_BucketSetTagging) isBatchRequestItem_Request()                 {}
-func (*BatchRequestItem_BucketGetVersioning) isBatchRequestItem_Request()              {}
-func (*BatchRequestItem_BucketSetVersioning) isBatchRequestItem_Request()              {}
-func (*BatchRequestItem_BucketGetObjectLockConfiguration) isBatchRequestItem_Request() {}
-func (*BatchRequestItem_BucketSetObjectLockConfiguration) isBatchRequestItem_Request() {}
-func (*BatchRequestItem_BucketDelete) isBatchRequestItem_Request()                     {}
-func (*BatchRequestItem_BucketList) isBatchRequestItem_Request()                       {}
-func (*BatchRequestItem_ObjectBegin) isBatchRequestItem_Request()                      {}
-func (*BatchRequestItem_ObjectCommit) isBatchRequestItem_Request()                     {}
-func (*BatchRequestItem_ObjectGet) isBatchRequestItem_Request()                        {}
-func (*BatchRequestItem_ObjectList) isBatchRequestItem_Request()                       {}
-func (*BatchRequestItem_ObjectBeginDelete) isBatchRequestItem_Request()                {}
-func (*BatchRequestItem_ObjectFinishDelete) isBatchRequestItem_Request()               {}
-func (*BatchRequestItem_ObjectsDelete) isBatchRequestItem_Request()                    {}
-func (*BatchRequestItem_ObjectGetIps) isBatchRequestItem_Request()                     {}
-func (*BatchRequestItem_ObjectListPendingStreams) isBatchRequestItem_Request()         {}
-func (*BatchRequestItem_ObjectDownload) isBatchRequestItem_Request()                   {}
-func (*BatchRequestItem_ObjectUpdateMetadata) isBatchRequestItem_Request()             {}
-func (*BatchRequestItem_ObjectBeginMove) isBatchRequestItem_Request()                  {}
-func (*BatchRequestItem_ObjectFinishMove) isBatchRequestItem_Request()                 {}
-func (*BatchRequestItem_ObjectBeginCopy) isBatchRequestItem_Request()                  {}
-func (*BatchRequestItem_ObjectFinishCopy) isBatchRequestItem_Request()                 {}
-func (*BatchRequestItem_ObjectGetRetention) isBatchRequestItem_Request()               {}
-func (*BatchRequestItem_ObjectSetRetention) isBatchRequestItem_Request()               {}
-func (*BatchRequestItem_ObjectGetLegalHold) isBatchRequestItem_Request()               {}
-func (*BatchRequestItem_ObjectSetLegalHold) isBatchRequestItem_Request()               {}
-func (*BatchRequestItem_SegmentBegin) isBatchRequestItem_Request()                     {}
-func (*BatchRequestItem_SegmentCommit) isBatchRequestItem_Request()                    {}
-func (*BatchRequestItem_SegmentMakeInline) isBatchRequestItem_Request()                {}
-func (*BatchRequestItem_SegmentBeginDelete) isBatchRequestItem_Request()               {}
-func (*BatchRequestItem_SegmentFinishDelete) isBatchRequestItem_Request()              {}
-func (*BatchRequestItem_SegmentList) isBatchRequestItem_Request()                      {}
-func (*BatchRequestItem_SegmentDownload) isBatchRequestItem_Request()                  {}
-func (*BatchRequestItem_SegmentBeginRetryPieces) isBatchRequestItem_Request()          {}
-func (*BatchRequestItem_PartDelete) isBatchRequestItem_Request()                       {}
-func (*BatchRequestItem_RevokeApiKey) isBatchRequestItem_Request()                     {}
+func (*BatchRequestItem_BucketCreate) isBatchRequestItem_Request()                       {}
+func (*BatchRequestItem_BucketGet) isBatchRequestItem_Request()                          {}
+func (*BatchRequestItem_BucketGetLocation) isBatchRequestItem_Request()                  {}
+func (*BatchRequestItem_BucketGetTagging) isBatchRequestItem_Request()                   {}
+func (*BatchRequestItem_BucketSetTagging) isBatchRequestItem_Request()                   {}
+func (*BatchRequestItem_BucketGetVersioning) isBatchRequestItem_Request()                {}
+func (*BatchRequestItem_BucketSetVersioning) isBatchRequestItem_Request()                {}
+func (*BatchRequestItem_BucketGetObjectLockConfiguration) isBatchRequestItem_Request()   {}
+func (*BatchRequestItem_BucketSetObjectLockConfiguration) isBatchRequestItem_Request()   {}
+func (*BatchRequestItem_BucketGetNotificationConfiguration) isBatchRequestItem_Request() {}
+func (*BatchRequestItem_BucketSetNotificationConfiguration) isBatchRequestItem_Request() {}
+func (*BatchRequestItem_BucketDelete) isBatchRequestItem_Request()                       {}
+func (*BatchRequestItem_BucketList) isBatchRequestItem_Request()                         {}
+func (*BatchRequestItem_ObjectBegin) isBatchRequestItem_Request()                        {}
+func (*BatchRequestItem_ObjectCommit) isBatchRequestItem_Request()                       {}
+func (*BatchRequestItem_ObjectGet) isBatchRequestItem_Request()                          {}
+func (*BatchRequestItem_ObjectList) isBatchRequestItem_Request()                         {}
+func (*BatchRequestItem_ObjectBeginDelete) isBatchRequestItem_Request()                  {}
+func (*BatchRequestItem_ObjectFinishDelete) isBatchRequestItem_Request()                 {}
+func (*BatchRequestItem_ObjectsDelete) isBatchRequestItem_Request()                      {}
+func (*BatchRequestItem_ObjectGetIps) isBatchRequestItem_Request()                       {}
+func (*BatchRequestItem_ObjectListPendingStreams) isBatchRequestItem_Request()           {}
+func (*BatchRequestItem_ObjectDownload) isBatchRequestItem_Request()                     {}
+func (*BatchRequestItem_ObjectUpdateMetadata) isBatchRequestItem_Request()               {}
+func (*BatchRequestItem_ObjectBeginMove) isBatchRequestItem_Request()                    {}
+func (*BatchRequestItem_ObjectFinishMove) isBatchRequestItem_Request()                   {}
+func (*BatchRequestItem_ObjectBeginCopy) isBatchRequestItem_Request()                    {}
+func (*BatchRequestItem_ObjectFinishCopy) isBatchRequestItem_Request()                   {}
+func (*BatchRequestItem_ObjectGetRetention) isBatchRequestItem_Request()                 {}
+func (*BatchRequestItem_ObjectSetRetention) isBatchRequestItem_Request()                 {}
+func (*BatchRequestItem_ObjectGetLegalHold) isBatchRequestItem_Request()                 {}
+func (*BatchRequestItem_ObjectSetLegalHold) isBatchRequestItem_Request()                 {}
+func (*BatchRequestItem_SegmentBegin) isBatchRequestItem_Request()                       {}
+func (*BatchRequestItem_SegmentCommit) isBatchRequestItem_Request()                      {}
+func (*BatchRequestItem_SegmentMakeInline) isBatchRequestItem_Request()                  {}
+func (*BatchRequestItem_SegmentBeginDelete) isBatchRequestItem_Request()                 {}
+func (*BatchRequestItem_SegmentFinishDelete) isBatchRequestItem_Request()                {}
+func (*BatchRequestItem_SegmentList) isBatchRequestItem_Request()                        {}
+func (*BatchRequestItem_SegmentDownload) isBatchRequestItem_Request()                    {}
+func (*BatchRequestItem_SegmentBeginRetryPieces) isBatchRequestItem_Request()            {}
+func (*BatchRequestItem_PartDelete) isBatchRequestItem_Request()                         {}
+func (*BatchRequestItem_RevokeApiKey) isBatchRequestItem_Request()                       {}
 
 func (m *BatchRequestItem) GetRequest() isBatchRequestItem_Request {
 	if m != nil {
@@ -6357,6 +6647,20 @@ func (m *BatchRequestItem) GetBucketGetObjectLockConfiguration() *GetBucketObjec
 func (m *BatchRequestItem) GetBucketSetObjectLockConfiguration() *SetBucketObjectLockConfigurationRequest {
 	if x, ok := m.GetRequest().(*BatchRequestItem_BucketSetObjectLockConfiguration); ok {
 		return x.BucketSetObjectLockConfiguration
+	}
+	return nil
+}
+
+func (m *BatchRequestItem) GetBucketGetNotificationConfiguration() *GetBucketNotificationConfigurationRequest {
+	if x, ok := m.GetRequest().(*BatchRequestItem_BucketGetNotificationConfiguration); ok {
+		return x.BucketGetNotificationConfiguration
+	}
+	return nil
+}
+
+func (m *BatchRequestItem) GetBucketSetNotificationConfiguration() *SetBucketNotificationConfigurationRequest {
+	if x, ok := m.GetRequest().(*BatchRequestItem_BucketSetNotificationConfiguration); ok {
+		return x.BucketSetNotificationConfiguration
 	}
 	return nil
 }
@@ -6590,6 +6894,8 @@ func (*BatchRequestItem) XXX_OneofWrappers() []interface{} {
 		(*BatchRequestItem_BucketSetVersioning)(nil),
 		(*BatchRequestItem_BucketGetObjectLockConfiguration)(nil),
 		(*BatchRequestItem_BucketSetObjectLockConfiguration)(nil),
+		(*BatchRequestItem_BucketGetNotificationConfiguration)(nil),
+		(*BatchRequestItem_BucketSetNotificationConfiguration)(nil),
 		(*BatchRequestItem_BucketDelete)(nil),
 		(*BatchRequestItem_BucketList)(nil),
 		(*BatchRequestItem_ObjectBegin)(nil),
@@ -6716,6 +7022,8 @@ type BatchResponseItem struct {
 	//	*BatchResponseItem_BucketSetVersioning
 	//	*BatchResponseItem_BucketGetObjectLockConfiguration
 	//	*BatchResponseItem_BucketSetObjectLockConfiguration
+	//	*BatchResponseItem_BucketGetNotificationConfiguration
+	//	*BatchResponseItem_BucketSetNotificationConfiguration
 	//	*BatchResponseItem_BucketDelete
 	//	*BatchResponseItem_BucketList
 	//	*BatchResponseItem_ObjectBegin
@@ -6805,6 +7113,12 @@ type BatchResponseItem_BucketGetObjectLockConfiguration struct {
 }
 type BatchResponseItem_BucketSetObjectLockConfiguration struct {
 	BucketSetObjectLockConfiguration *SetBucketObjectLockConfigurationResponse `protobuf:"bytes,38,opt,name=bucket_set_object_lock_configuration,json=bucketSetObjectLockConfiguration,proto3,oneof" json:"bucket_set_object_lock_configuration,omitempty"`
+}
+type BatchResponseItem_BucketGetNotificationConfiguration struct {
+	BucketGetNotificationConfiguration *GetBucketNotificationConfigurationResponse `protobuf:"bytes,43,opt,name=bucket_get_notification_configuration,json=bucketGetNotificationConfiguration,proto3,oneof" json:"bucket_get_notification_configuration,omitempty"`
+}
+type BatchResponseItem_BucketSetNotificationConfiguration struct {
+	BucketSetNotificationConfiguration *SetBucketNotificationConfigurationResponse `protobuf:"bytes,44,opt,name=bucket_set_notification_configuration,json=bucketSetNotificationConfiguration,proto3,oneof" json:"bucket_set_notification_configuration,omitempty"`
 }
 type BatchResponseItem_BucketDelete struct {
 	BucketDelete *DeleteBucketResponse `protobuf:"bytes,3,opt,name=bucket_delete,json=bucketDelete,proto3,oneof" json:"bucket_delete,omitempty"`
@@ -6900,46 +7214,48 @@ type BatchResponseItem_RevokeApiKey struct {
 	RevokeApiKey *RevokeAPIKeyResponse `protobuf:"bytes,19,opt,name=revoke_api_key,json=revokeApiKey,proto3,oneof" json:"revoke_api_key,omitempty"`
 }
 
-func (*BatchResponseItem_BucketCreate) isBatchResponseItem_Response()                     {}
-func (*BatchResponseItem_BucketGet) isBatchResponseItem_Response()                        {}
-func (*BatchResponseItem_BucketGetLocation) isBatchResponseItem_Response()                {}
-func (*BatchResponseItem_BucketGetTagging) isBatchResponseItem_Response()                 {}
-func (*BatchResponseItem_BucketSetTagging) isBatchResponseItem_Response()                 {}
-func (*BatchResponseItem_BucketGetVersioning) isBatchResponseItem_Response()              {}
-func (*BatchResponseItem_BucketSetVersioning) isBatchResponseItem_Response()              {}
-func (*BatchResponseItem_BucketGetObjectLockConfiguration) isBatchResponseItem_Response() {}
-func (*BatchResponseItem_BucketSetObjectLockConfiguration) isBatchResponseItem_Response() {}
-func (*BatchResponseItem_BucketDelete) isBatchResponseItem_Response()                     {}
-func (*BatchResponseItem_BucketList) isBatchResponseItem_Response()                       {}
-func (*BatchResponseItem_ObjectBegin) isBatchResponseItem_Response()                      {}
-func (*BatchResponseItem_ObjectCommit) isBatchResponseItem_Response()                     {}
-func (*BatchResponseItem_ObjectGet) isBatchResponseItem_Response()                        {}
-func (*BatchResponseItem_ObjectList) isBatchResponseItem_Response()                       {}
-func (*BatchResponseItem_ObjectBeginDelete) isBatchResponseItem_Response()                {}
-func (*BatchResponseItem_ObjectFinishDelete) isBatchResponseItem_Response()               {}
-func (*BatchResponseItem_ObjectsDelete) isBatchResponseItem_Response()                    {}
-func (*BatchResponseItem_ObjectGetIps) isBatchResponseItem_Response()                     {}
-func (*BatchResponseItem_ObjectListPendingStreams) isBatchResponseItem_Response()         {}
-func (*BatchResponseItem_ObjectDownload) isBatchResponseItem_Response()                   {}
-func (*BatchResponseItem_ObjectUpdateMetadata) isBatchResponseItem_Response()             {}
-func (*BatchResponseItem_ObjectBeginMove) isBatchResponseItem_Response()                  {}
-func (*BatchResponseItem_ObjectFinishMove) isBatchResponseItem_Response()                 {}
-func (*BatchResponseItem_ObjectBeginCopy) isBatchResponseItem_Response()                  {}
-func (*BatchResponseItem_ObjectFinishCopy) isBatchResponseItem_Response()                 {}
-func (*BatchResponseItem_ObjectGetRetention) isBatchResponseItem_Response()               {}
-func (*BatchResponseItem_ObjectSetRetention) isBatchResponseItem_Response()               {}
-func (*BatchResponseItem_ObjectGetLegalHold) isBatchResponseItem_Response()               {}
-func (*BatchResponseItem_ObjectSetLegalHold) isBatchResponseItem_Response()               {}
-func (*BatchResponseItem_SegmentBegin) isBatchResponseItem_Response()                     {}
-func (*BatchResponseItem_SegmentCommit) isBatchResponseItem_Response()                    {}
-func (*BatchResponseItem_SegmentMakeInline) isBatchResponseItem_Response()                {}
-func (*BatchResponseItem_SegmentBeginDelete) isBatchResponseItem_Response()               {}
-func (*BatchResponseItem_SegmentFinishDelete) isBatchResponseItem_Response()              {}
-func (*BatchResponseItem_SegmentList) isBatchResponseItem_Response()                      {}
-func (*BatchResponseItem_SegmentDownload) isBatchResponseItem_Response()                  {}
-func (*BatchResponseItem_SegmentBeginRetryPieces) isBatchResponseItem_Response()          {}
-func (*BatchResponseItem_PartDelete) isBatchResponseItem_Response()                       {}
-func (*BatchResponseItem_RevokeApiKey) isBatchResponseItem_Response()                     {}
+func (*BatchResponseItem_BucketCreate) isBatchResponseItem_Response()                       {}
+func (*BatchResponseItem_BucketGet) isBatchResponseItem_Response()                          {}
+func (*BatchResponseItem_BucketGetLocation) isBatchResponseItem_Response()                  {}
+func (*BatchResponseItem_BucketGetTagging) isBatchResponseItem_Response()                   {}
+func (*BatchResponseItem_BucketSetTagging) isBatchResponseItem_Response()                   {}
+func (*BatchResponseItem_BucketGetVersioning) isBatchResponseItem_Response()                {}
+func (*BatchResponseItem_BucketSetVersioning) isBatchResponseItem_Response()                {}
+func (*BatchResponseItem_BucketGetObjectLockConfiguration) isBatchResponseItem_Response()   {}
+func (*BatchResponseItem_BucketSetObjectLockConfiguration) isBatchResponseItem_Response()   {}
+func (*BatchResponseItem_BucketGetNotificationConfiguration) isBatchResponseItem_Response() {}
+func (*BatchResponseItem_BucketSetNotificationConfiguration) isBatchResponseItem_Response() {}
+func (*BatchResponseItem_BucketDelete) isBatchResponseItem_Response()                       {}
+func (*BatchResponseItem_BucketList) isBatchResponseItem_Response()                         {}
+func (*BatchResponseItem_ObjectBegin) isBatchResponseItem_Response()                        {}
+func (*BatchResponseItem_ObjectCommit) isBatchResponseItem_Response()                       {}
+func (*BatchResponseItem_ObjectGet) isBatchResponseItem_Response()                          {}
+func (*BatchResponseItem_ObjectList) isBatchResponseItem_Response()                         {}
+func (*BatchResponseItem_ObjectBeginDelete) isBatchResponseItem_Response()                  {}
+func (*BatchResponseItem_ObjectFinishDelete) isBatchResponseItem_Response()                 {}
+func (*BatchResponseItem_ObjectsDelete) isBatchResponseItem_Response()                      {}
+func (*BatchResponseItem_ObjectGetIps) isBatchResponseItem_Response()                       {}
+func (*BatchResponseItem_ObjectListPendingStreams) isBatchResponseItem_Response()           {}
+func (*BatchResponseItem_ObjectDownload) isBatchResponseItem_Response()                     {}
+func (*BatchResponseItem_ObjectUpdateMetadata) isBatchResponseItem_Response()               {}
+func (*BatchResponseItem_ObjectBeginMove) isBatchResponseItem_Response()                    {}
+func (*BatchResponseItem_ObjectFinishMove) isBatchResponseItem_Response()                   {}
+func (*BatchResponseItem_ObjectBeginCopy) isBatchResponseItem_Response()                    {}
+func (*BatchResponseItem_ObjectFinishCopy) isBatchResponseItem_Response()                   {}
+func (*BatchResponseItem_ObjectGetRetention) isBatchResponseItem_Response()                 {}
+func (*BatchResponseItem_ObjectSetRetention) isBatchResponseItem_Response()                 {}
+func (*BatchResponseItem_ObjectGetLegalHold) isBatchResponseItem_Response()                 {}
+func (*BatchResponseItem_ObjectSetLegalHold) isBatchResponseItem_Response()                 {}
+func (*BatchResponseItem_SegmentBegin) isBatchResponseItem_Response()                       {}
+func (*BatchResponseItem_SegmentCommit) isBatchResponseItem_Response()                      {}
+func (*BatchResponseItem_SegmentMakeInline) isBatchResponseItem_Response()                  {}
+func (*BatchResponseItem_SegmentBeginDelete) isBatchResponseItem_Response()                 {}
+func (*BatchResponseItem_SegmentFinishDelete) isBatchResponseItem_Response()                {}
+func (*BatchResponseItem_SegmentList) isBatchResponseItem_Response()                        {}
+func (*BatchResponseItem_SegmentDownload) isBatchResponseItem_Response()                    {}
+func (*BatchResponseItem_SegmentBeginRetryPieces) isBatchResponseItem_Response()            {}
+func (*BatchResponseItem_PartDelete) isBatchResponseItem_Response()                         {}
+func (*BatchResponseItem_RevokeApiKey) isBatchResponseItem_Response()                       {}
 
 func (m *BatchResponseItem) GetResponse() isBatchResponseItem_Response {
 	if m != nil {
@@ -7007,6 +7323,20 @@ func (m *BatchResponseItem) GetBucketGetObjectLockConfiguration() *GetBucketObje
 func (m *BatchResponseItem) GetBucketSetObjectLockConfiguration() *SetBucketObjectLockConfigurationResponse {
 	if x, ok := m.GetResponse().(*BatchResponseItem_BucketSetObjectLockConfiguration); ok {
 		return x.BucketSetObjectLockConfiguration
+	}
+	return nil
+}
+
+func (m *BatchResponseItem) GetBucketGetNotificationConfiguration() *GetBucketNotificationConfigurationResponse {
+	if x, ok := m.GetResponse().(*BatchResponseItem_BucketGetNotificationConfiguration); ok {
+		return x.BucketGetNotificationConfiguration
+	}
+	return nil
+}
+
+func (m *BatchResponseItem) GetBucketSetNotificationConfiguration() *SetBucketNotificationConfigurationResponse {
+	if x, ok := m.GetResponse().(*BatchResponseItem_BucketSetNotificationConfiguration); ok {
+		return x.BucketSetNotificationConfiguration
 	}
 	return nil
 }
@@ -7240,6 +7570,8 @@ func (*BatchResponseItem) XXX_OneofWrappers() []interface{} {
 		(*BatchResponseItem_BucketSetVersioning)(nil),
 		(*BatchResponseItem_BucketGetObjectLockConfiguration)(nil),
 		(*BatchResponseItem_BucketSetObjectLockConfiguration)(nil),
+		(*BatchResponseItem_BucketGetNotificationConfiguration)(nil),
+		(*BatchResponseItem_BucketSetNotificationConfiguration)(nil),
 		(*BatchResponseItem_BucketDelete)(nil),
 		(*BatchResponseItem_BucketList)(nil),
 		(*BatchResponseItem_ObjectBegin)(nil),
@@ -7925,6 +8257,146 @@ func (m *EncryptedKeyAndNonce) GetPosition() *SegmentPosition {
 func (m *EncryptedKeyAndNonce) GetEncryptedKey() []byte {
 	if m != nil {
 		return m.EncryptedKey
+	}
+	return nil
+}
+
+type AccountLicensesRequest struct {
+	Header               *RequestHeader `protobuf:"bytes,15,opt,name=header,proto3" json:"header,omitempty"`
+	Type                 string         `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	BucketName           string         `protobuf:"bytes,2,opt,name=bucket_name,json=bucketName,proto3" json:"bucket_name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
+}
+
+func (m *AccountLicensesRequest) Reset()         { *m = AccountLicensesRequest{} }
+func (m *AccountLicensesRequest) String() string { return proto.CompactTextString(m) }
+func (*AccountLicensesRequest) ProtoMessage()    {}
+
+func (m *AccountLicensesRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_AccountLicensesRequest.Unmarshal(m, b)
+}
+func (m *AccountLicensesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_AccountLicensesRequest.Marshal(b, m, deterministic)
+}
+func (m *AccountLicensesRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AccountLicensesRequest.Merge(m, src)
+}
+func (m *AccountLicensesRequest) XXX_Size() int {
+	return xxx_messageInfo_AccountLicensesRequest.Size(m)
+}
+func (m *AccountLicensesRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_AccountLicensesRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AccountLicensesRequest proto.InternalMessageInfo
+
+func (m *AccountLicensesRequest) GetHeader() *RequestHeader {
+	if m != nil {
+		return m.Header
+	}
+	return nil
+}
+
+func (m *AccountLicensesRequest) GetType() string {
+	if m != nil {
+		return m.Type
+	}
+	return ""
+}
+
+func (m *AccountLicensesRequest) GetBucketName() string {
+	if m != nil {
+		return m.BucketName
+	}
+	return ""
+}
+
+type AccountLicense struct {
+	Type                 string    `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	ExpiresAt            time.Time `protobuf:"bytes,2,opt,name=expires_at,json=expiresAt,proto3,stdtime" json:"expires_at"`
+	Key                  []byte    `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *AccountLicense) Reset()         { *m = AccountLicense{} }
+func (m *AccountLicense) String() string { return proto.CompactTextString(m) }
+func (*AccountLicense) ProtoMessage()    {}
+
+func (m *AccountLicense) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_AccountLicense.Unmarshal(m, b)
+}
+func (m *AccountLicense) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_AccountLicense.Marshal(b, m, deterministic)
+}
+func (m *AccountLicense) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AccountLicense.Merge(m, src)
+}
+func (m *AccountLicense) XXX_Size() int {
+	return xxx_messageInfo_AccountLicense.Size(m)
+}
+func (m *AccountLicense) XXX_DiscardUnknown() {
+	xxx_messageInfo_AccountLicense.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AccountLicense proto.InternalMessageInfo
+
+func (m *AccountLicense) GetType() string {
+	if m != nil {
+		return m.Type
+	}
+	return ""
+}
+
+func (m *AccountLicense) GetExpiresAt() time.Time {
+	if m != nil {
+		return m.ExpiresAt
+	}
+	return time.Time{}
+}
+
+func (m *AccountLicense) GetKey() []byte {
+	if m != nil {
+		return m.Key
+	}
+	return nil
+}
+
+type AccountLicensesResponse struct {
+	Licenses             []*AccountLicense `protobuf:"bytes,1,rep,name=licenses,proto3" json:"licenses,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *AccountLicensesResponse) Reset()         { *m = AccountLicensesResponse{} }
+func (m *AccountLicensesResponse) String() string { return proto.CompactTextString(m) }
+func (*AccountLicensesResponse) ProtoMessage()    {}
+
+func (m *AccountLicensesResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_AccountLicensesResponse.Unmarshal(m, b)
+}
+func (m *AccountLicensesResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_AccountLicensesResponse.Marshal(b, m, deterministic)
+}
+func (m *AccountLicensesResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AccountLicensesResponse.Merge(m, src)
+}
+func (m *AccountLicensesResponse) XXX_Size() int {
+	return xxx_messageInfo_AccountLicensesResponse.Size(m)
+}
+func (m *AccountLicensesResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_AccountLicensesResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_AccountLicensesResponse proto.InternalMessageInfo
+
+func (m *AccountLicensesResponse) GetLicenses() []*AccountLicense {
+	if m != nil {
+		return m.Licenses
 	}
 	return nil
 }

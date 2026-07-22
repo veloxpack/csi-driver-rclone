@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"runtime"
+	"slices"
 	"sync"
 	"time"
 	_ "unsafe" // for go:linkname
@@ -20,7 +21,6 @@ import (
 	"storj.io/uplink/private/eestream/scheduler"
 	"storj.io/uplink/private/metaclient"
 	"storj.io/uplink/private/storage/streams"
-	"storj.io/uplink/private/stream"
 )
 
 // ErrUploadDone is returned when either Abort or Commit has already been called.
@@ -113,16 +113,12 @@ func (project *Project) uploadObjectWithRetention(ctx context.Context, bucket, k
 	}
 	upload.streams = streams
 
-	if project.concurrentSegmentUploadConfig == nil {
-		upload.upload = stream.NewUpload(ctx, mutableStream, streams, options)
-	} else {
-		sched := scheduler.New(project.concurrentSegmentUploadConfig.SchedulerOptions)
-		u, err := streams.UploadObject(ctx, mutableStream.BucketName(), mutableStream.Path(), mutableStream, sched, options)
-		if err != nil {
-			return nil, convertKnownErrors(err, bucket, key)
-		}
-		upload.upload = u
+	sched := scheduler.New(project.concurrentSegmentUploadConfig.SchedulerOptions)
+	u, err := streams.UploadObject(ctx, mutableStream.BucketName(), mutableStream.Path(), mutableStream, sched, options)
+	if err != nil {
+		return nil, convertKnownErrors(err, bucket, key)
 	}
+	upload.upload = u
 
 	upload.tracker = project.tracker.Child("upload", 1)
 	return upload, nil
@@ -134,6 +130,10 @@ func (dyn dynamicMetadata) Metadata() ([]byte, error) {
 	return pb.Marshal(&pb.SerializableMeta{
 		UserDefined: CustomMetadata(dyn.Object.Metadata).Clone(),
 	})
+}
+
+func (dyn dynamicMetadata) ETag() ([]byte, error) {
+	return slices.Clone(dyn.Object.ETag), nil
 }
 
 type streamUpload interface {
@@ -171,6 +171,7 @@ func (upload *Upload) Info() *Object {
 		obj.System.ContentLength = meta.Size
 		obj.System.Created = meta.Modified
 		obj.version = meta.Version
+		obj.isVersioned = meta.IsVersioned
 	}
 	return obj
 }
@@ -310,6 +311,28 @@ func (upload *Upload) SetCustomMetadata(ctx context.Context, custom CustomMetada
 	return nil
 }
 
+// setETag updates etag to be included with the object.
+func (upload *Upload) setETag(ctx context.Context, etag []byte) error {
+	upload.mu.Lock()
+	defer upload.mu.Unlock()
+
+	if upload.aborted {
+		return errwrapf("%w: upload aborted", ErrUploadDone)
+	}
+	if upload.closed {
+		return errwrapf("%w: already committed", ErrUploadDone)
+	}
+	if upload.upload.Meta() != nil {
+		return errwrapf("%w: already committed", ErrUploadDone)
+	}
+
+	if etag != nil {
+		upload.object.ETag = slices.Clone(etag)
+	}
+
+	return nil
+}
+
 // uploadObjectWithRetention exposes the private project.uploadObjectWithRetention method.
 //
 // NB: this is used with linkname in private/object.
@@ -341,3 +364,15 @@ func upload_getMetaclientObject(u *Upload) *metaclient.Object { return u.object 
 //nolint:deadcode,unused
 //go:linkname upload_getStreamMeta
 func upload_getStreamMeta(u *Upload) *streams.Meta { return u.upload.Meta() }
+
+// upload_setETag exposes the private upload.setETag method.
+//
+// NB: this is used with linkname in private/object.
+// It needs to be updated when this is updated.
+//
+//lint:ignore U1000, used with linkname
+//nolint:deadcode,unused
+//go:linkname upload_setETag
+func upload_setETag(ctx context.Context, u *Upload, etag []byte) (err error) {
+	return u.setETag(ctx, etag)
+}

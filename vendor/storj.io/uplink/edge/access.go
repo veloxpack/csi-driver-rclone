@@ -6,6 +6,8 @@ package edge
 import (
 	"context"
 	"errors"
+	"time"
+	_ "unsafe" // for go:linkname
 
 	"github.com/zeebo/errs"
 
@@ -34,6 +36,8 @@ type Credentials struct {
 	SecretKey string
 	// HTTP(S) URL to the gateway.
 	Endpoint string
+
+	freeTierRestrictedExpiration *time.Time
 }
 
 // RegisterAccessOptions contains optional parameters for RegisterAccess.
@@ -92,10 +96,24 @@ func (config *Config) RegisterAccess(
 	}
 
 	credentials := Credentials{
-		AccessKeyID: registerGatewayResponse.AccessKeyId,
-		SecretKey:   registerGatewayResponse.SecretKey,
-		Endpoint:    registerGatewayResponse.Endpoint,
+		AccessKeyID:                  registerGatewayResponse.AccessKeyId,
+		SecretKey:                    registerGatewayResponse.SecretKey,
+		Endpoint:                     registerGatewayResponse.Endpoint,
+		freeTierRestrictedExpiration: registerGatewayResponse.FreeTierRestrictedExpiration,
 	}
 
 	return &credentials, nil
+}
+
+// credentialsFreeTierExpiration exposes the credentials' expiration date
+// that was limited as a result of free-tier limitations.
+//
+// NB: this is used with linkname in private/edge.
+// It needs to be updated when this is updated.
+//
+//lint:ignore U1000, used with linkname
+//nolint:deadcode,unused
+//go:linkname credentialsFreeTierExpiration
+func credentialsFreeTierExpiration(credentials *Credentials) *time.Time {
+	return credentials.freeTierRestrictedExpiration
 }

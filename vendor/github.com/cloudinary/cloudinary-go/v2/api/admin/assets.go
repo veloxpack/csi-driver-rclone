@@ -12,15 +12,16 @@ import (
 )
 
 const (
-	assets        api.EndPoint = "resources"
-	byAssetFolder api.EndPoint = "by_asset_folder"
-	visualSearch  api.EndPoint = "visual_search"
-	derivedAssets api.EndPoint = "derived_resources"
-	relatedAssets api.EndPoint = "related_assets"
-	tags          api.EndPoint = "tags"
-	cldContext    api.EndPoint = "context"
-	moderations   api.EndPoint = "moderations"
-	restore       api.EndPoint = "restore"
+	assets                     api.EndPoint = "resources"
+	byAssetFolder              api.EndPoint = "by_asset_folder"
+	visualSearch               api.EndPoint = "visual_search"
+	derivedAssets              api.EndPoint = "derived_resources"
+	relatedAssets              api.EndPoint = "related_assets"
+	relatedComplementaryAssets api.EndPoint = "related_complementary_assets"
+	tags                       api.EndPoint = "tags"
+	cldContext                 api.EndPoint = "context"
+	moderations                api.EndPoint = "moderations"
+	restore                    api.EndPoint = "restore"
 )
 
 // AssetTypes lists available asset types.
@@ -447,6 +448,29 @@ type DeleteRelatedAssetsByAssetIDsParams struct {
 func (a *API) DeleteRelatedAssetsByAssetIDs(ctx context.Context, params DeleteRelatedAssetsByAssetIDsParams) (*DeleteRelatedAssetsResult, error) {
 	res := &DeleteRelatedAssetsResult{}
 	_, err := a.delete(ctx, api.BuildPath(assets, relatedAssets, params.AssetID), params, res)
+
+	return res, err
+}
+
+// RelatedComplementaryAssetsByAssetIDsParams are the parameters for AddRelatedComplementaryAssetsByAssetIDs.
+type RelatedComplementaryAssetsByAssetIDsParams struct {
+	AssetID           string                 `json:"-"`
+	RelatedAssetIDs   []string               `json:"related_asset_ids"`
+	ComplementaryType string                 `json:"complementary_type"`
+	Metadata          map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// AddRelatedComplementaryAssetsByAssetIDs relates an asset to other complementary assets by asset IDs.
+func (a *API) AddRelatedComplementaryAssetsByAssetIDs(ctx context.Context, params RelatedComplementaryAssetsByAssetIDsParams) (*AddRelatedAssetsResult, error) {
+	res := &AddRelatedAssetsResult{}
+	_, err := a.post(ctx, api.BuildPath(assets, relatedComplementaryAssets, params.AssetID), params, res)
+
+	return res, err
+}
+
+func (a *API) DeleteRelatedComplementaryAssetsByAssetIDs(ctx context.Context, params RelatedComplementaryAssetsByAssetIDsParams) (*DeleteRelatedAssetsResult, error) {
+	res := &DeleteRelatedAssetsResult{}
+	_, err := a.delete(ctx, api.BuildPath(assets, relatedComplementaryAssets, params.AssetID), params, res)
 
 	return res, err
 }

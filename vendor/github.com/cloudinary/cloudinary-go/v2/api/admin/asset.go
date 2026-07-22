@@ -14,25 +14,27 @@ import (
 
 // AssetParams are the parameters for Asset.
 type AssetParams struct {
-	AssetType             api.AssetType    `json:"-"`
-	DeliveryType          api.DeliveryType `json:"-"`
-	PublicID              string           `json:"-"`
-	Exif                  *bool            `json:"exif,omitempty"`
-	Colors                *bool            `json:"colors,omitempty"`
-	Faces                 *bool            `json:"faces,omitempty"`
-	QualityAnalysis       *bool            `json:"quality_analysis,omitempty"`
-	ImageMetadata         *bool            `json:"image_metadata,omitempty"`
-	MediaMetadata         *bool            `json:"media_metadata,omitempty"`
-	Phash                 *bool            `json:"phash,omitempty"`
-	Pages                 *bool            `json:"pages,omitempty"`
-	AccessibilityAnalysis *bool            `json:"accessibility_analysis,omitempty"`
-	CinemagraphAnalysis   *bool            `json:"cinemagraph_analysis,omitempty"`
-	Coordinates           *bool            `json:"coordinates,omitempty"`
-	MaxResults            int              `json:"max_results,omitempty"`
-	DerivedNextCursor     string           `json:"derived_next_cursor,omitempty"`
-	Related               *bool            `json:"related,omitempty"`
-	RelatedNextCursor     string           `json:"related_next_cursor,omitempty"`
-	Versions              *bool            `json:"versions,omitempty"`
+	AssetType                      api.AssetType    `json:"-"`
+	DeliveryType                   api.DeliveryType `json:"-"`
+	PublicID                       string           `json:"-"`
+	Exif                           *bool            `json:"exif,omitempty"`
+	Colors                         *bool            `json:"colors,omitempty"`
+	Faces                          *bool            `json:"faces,omitempty"`
+	QualityAnalysis                *bool            `json:"quality_analysis,omitempty"`
+	ImageMetadata                  *bool            `json:"image_metadata,omitempty"`
+	MediaMetadata                  *bool            `json:"media_metadata,omitempty"`
+	Phash                          *bool            `json:"phash,omitempty"`
+	Pages                          *bool            `json:"pages,omitempty"`
+	AccessibilityAnalysis          *bool            `json:"accessibility_analysis,omitempty"`
+	CinemagraphAnalysis            *bool            `json:"cinemagraph_analysis,omitempty"`
+	Coordinates                    *bool            `json:"coordinates,omitempty"`
+	MaxResults                     int              `json:"max_results,omitempty"`
+	DerivedNextCursor              string           `json:"derived_next_cursor,omitempty"`
+	Related                        *bool            `json:"related,omitempty"`
+	RelatedNextCursor              string           `json:"related_next_cursor,omitempty"`
+	RelatedComplementary           *bool            `json:"related_complementary,omitempty"`
+	RelatedComplementaryNextCursor string           `json:"related_complementary_next_cursor,omitempty"`
+	Versions                       *bool            `json:"versions,omitempty"`
 }
 
 // Asset returns the details of the specified asset and all its derived resources.
@@ -52,51 +54,53 @@ func (a *API) Asset(ctx context.Context, params AssetParams) (*AssetResult, erro
 
 // AssetResult is the result of the Asset.
 type AssetResult struct {
-	AssetID               string                      `json:"asset_id"`
-	PublicID              string                      `json:"public_id"`
-	Format                string                      `json:"format"`
-	AssetFolder           string                      `json:"asset_folder"`
-	DisplayName           string                      `json:"display_name"`
-	Version               int                         `json:"version"`
-	ResourceType          string                      `json:"resource_type"`
-	Type                  string                      `json:"type"`
-	CreatedAt             time.Time                   `json:"created_at"`
-	Bytes                 int                         `json:"bytes"`
-	Width                 int                         `json:"width"`
-	Height                int                         `json:"height"`
-	Backup                bool                        `json:"backup"`
-	AccessMode            string                      `json:"access_mode"`
-	AccessControl         api.AccessControl           `json:"access_control,omitempty"`
-	URL                   string                      `json:"url"`
-	SecureURL             string                      `json:"secure_url"`
-	Metadata              api.Metadata                `json:"metadata,omitempty"`
-	Tags                  []string                    `json:"tags"`
-	LastUpdated           api.LastUpdated             `json:"last_updated"`
-	NextCursor            string                      `json:"next_cursor"`
-	Derived               []interface{}               `json:"derived"`
-	Etag                  string                      `json:"etag"`
-	ImageMetadata         ImageMetadataResult         `json:"image_metadata"`
-	VideoMetadata         MediaMetadataResult         `json:"video_metadata"`
-	Coordinates           interface{}                 `json:"coordinates"`
-	Info                  interface{}                 `json:"info"`
-	Exif                  interface{}                 `json:"exif"`
-	Faces                 [][]int                     `json:"faces"`
-	IllustrationScore     float64                     `json:"illustration_score"`
-	SemiTransparent       bool                        `json:"semi_transparent"`
-	Grayscale             bool                        `json:"grayscale"`
-	Colors                [][]interface{}             `json:"colors"`
-	Predominant           PredominantResult           `json:"predominant"`
-	Phash                 string                      `json:"phash"`
-	QualityAnalysis       QualityAnalysisResult       `json:"quality_analysis"`
-	QualityScore          float64                     `json:"quality_score"`
-	AccessibilityAnalysis AccessibilityAnalysisResult `json:"accessibility_analysis"`
-	Pages                 int                         `json:"pages"`
-	CinemagraphAnalysis   CinemagraphAnalysisResult   `json:"cinemagraph_analysis"`
-	Usage                 interface{}                 `json:"usage"`
-	OriginalFilename      string                      `json:"original_filename"`
-	Context               AssetContextResult          `json:"context"`
-	Error                 api.ErrorResp               `json:"error,omitempty"`
-	Response              interface{}
+	AssetID                    string                            `json:"asset_id"`
+	PublicID                   string                            `json:"public_id"`
+	Format                     string                            `json:"format"`
+	AssetFolder                string                            `json:"asset_folder"`
+	DisplayName                string                            `json:"display_name"`
+	Version                    int                               `json:"version"`
+	ResourceType               string                            `json:"resource_type"`
+	Type                       string                            `json:"type"`
+	CreatedAt                  time.Time                         `json:"created_at"`
+	Bytes                      int                               `json:"bytes"`
+	Width                      int                               `json:"width"`
+	Height                     int                               `json:"height"`
+	Backup                     bool                              `json:"backup"`
+	AccessMode                 string                            `json:"access_mode"`
+	AccessControl              api.AccessControl                 `json:"access_control,omitempty"`
+	URL                        string                            `json:"url"`
+	SecureURL                  string                            `json:"secure_url"`
+	Metadata                   api.Metadata                      `json:"metadata,omitempty"`
+	Tags                       []string                          `json:"tags"`
+	LastUpdated                api.LastUpdated                   `json:"last_updated"`
+	NextCursor                 string                            `json:"next_cursor"`
+	Derived                    []interface{}                     `json:"derived"`
+	Etag                       string                            `json:"etag"`
+	ImageMetadata              ImageMetadataResult               `json:"image_metadata"`
+	VideoMetadata              MediaMetadataResult               `json:"video_metadata"`
+	Coordinates                interface{}                       `json:"coordinates"`
+	Info                       interface{}                       `json:"info"`
+	Exif                       interface{}                       `json:"exif"`
+	Faces                      [][]int                           `json:"faces"`
+	IllustrationScore          float64                           `json:"illustration_score"`
+	SemiTransparent            bool                              `json:"semi_transparent"`
+	Grayscale                  bool                              `json:"grayscale"`
+	Colors                     [][]interface{}                   `json:"colors"`
+	Predominant                PredominantResult                 `json:"predominant"`
+	Phash                      string                            `json:"phash"`
+	QualityAnalysis            QualityAnalysisResult             `json:"quality_analysis"`
+	QualityScore               float64                           `json:"quality_score"`
+	RelatedComplementaryAssets []RelatedComplementaryAssetResult `json:"related_complementary_assets"`
+	AccessibilityAnalysis      AccessibilityAnalysisResult       `json:"accessibility_analysis"`
+	Pages                      int                               `json:"pages"`
+	CinemagraphAnalysis        CinemagraphAnalysisResult         `json:"cinemagraph_analysis"`
+	Usage                      interface{}                       `json:"usage"`
+	OriginalFilename           string                            `json:"original_filename"`
+	Context                    AssetContextResult                `json:"context"`
+	AdminContext               []AssetAdminContextResult         `json:"admin_context"`
+	Error                      api.ErrorResp                     `json:"error,omitempty"`
+	Response                   interface{}
 }
 
 // QualityAnalysisResult contains the details about quality analysis.
@@ -115,6 +119,17 @@ type QualityAnalysisResult struct {
 	Blockiness        float64 `json:"blockiness"`
 	ChromaSubsampling float64 `json:"chroma_subsampling"`
 	Resolution        float64 `json:"resolution"`
+}
+
+// RelatedComplementaryAssetResult contains the details about a related complementary asset.
+type RelatedComplementaryAssetResult struct {
+	AssetID           string                 `json:"asset_id"`
+	PublicID          string                 `json:"public_id"`
+	ResourceType      string                 `json:"resource_type"`
+	Type              string                 `json:"type"`
+	Status            string                 `json:"status"`
+	ComplementaryType string                 `json:"complementary_type"`
+	Metadata          map[string]interface{} `json:"metadata"`
 }
 
 // AccessibilityAnalysisResult contains the details about accessibility analysis.
@@ -181,6 +196,11 @@ func (m *AssetContextResult) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type AssetAdminContextResult struct {
+	Name  string      `json:"name"`
+	Value interface{} `json:"value"`
+}
+
 // UpdateAssetParams are the parameters for UpdateAsset.
 type UpdateAssetParams struct {
 	AssetType         api.AssetType        `json:"-"`
@@ -202,6 +222,7 @@ type UpdateAssetParams struct {
 	NotificationURL   string               `json:"notification_url,omitempty"`
 	Tags              api.CldAPIArray      `json:"tags,omitempty,omitempty"`
 	Context           api.CldAPIMap        `json:"context,omitempty"`
+	AdminContext      []api.AdminContext   `json:"admin_context,omitempty"`
 	FaceCoordinates   api.Coordinates      `json:"face_coordinates,omitempty"`
 	CustomCoordinates api.Coordinates      `json:"custom_coordinates,omitempty"`
 	AccessControl     interface{}          `json:"access_control,omitempty"`
@@ -222,21 +243,23 @@ func (a *API) UpdateAsset(ctx context.Context, params UpdateAssetParams) (*Asset
 
 // AssetByAssetIDParams are the parameters for AssetByAssetID.
 type AssetByAssetIDParams struct {
-	AssetID               string `json:"-"`
-	Colors                *bool  `json:"colors,omitempty"`
-	Exif                  *bool  `json:"exif,omitempty"`
-	Faces                 *bool  `json:"faces,omitempty"`
-	QualityAnalysis       *bool  `json:"quality_analysis,omitempty"`
-	ImageMetadata         *bool  `json:"image_metadata,omitempty"`
-	MediaMetadata         *bool  `json:"media_metadata,omitempty"`
-	Phash                 *bool  `json:"phash,omitempty"`
-	Pages                 *bool  `json:"pages,omitempty"`
-	CinemagraphAnalysis   *bool  `json:"cinemagraph_analysis,omitempty"`
-	Coordinates           *bool  `json:"coordinates,omitempty"`
-	MaxResults            int    `json:"max_results,omitempty"`
-	DerivedNextCursor     string `json:"derived_next_cursor,omitempty"`
-	AccessibilityAnalysis *bool  `json:"accessibility_analysis,omitempty"`
-	Versions              *bool  `json:"versions,omitempty"`
+	AssetID                        string `json:"-"`
+	Colors                         *bool  `json:"colors,omitempty"`
+	Exif                           *bool  `json:"exif,omitempty"`
+	Faces                          *bool  `json:"faces,omitempty"`
+	QualityAnalysis                *bool  `json:"quality_analysis,omitempty"`
+	ImageMetadata                  *bool  `json:"image_metadata,omitempty"`
+	MediaMetadata                  *bool  `json:"media_metadata,omitempty"`
+	Phash                          *bool  `json:"phash,omitempty"`
+	Pages                          *bool  `json:"pages,omitempty"`
+	CinemagraphAnalysis            *bool  `json:"cinemagraph_analysis,omitempty"`
+	Coordinates                    *bool  `json:"coordinates,omitempty"`
+	MaxResults                     int    `json:"max_results,omitempty"`
+	DerivedNextCursor              string `json:"derived_next_cursor,omitempty"`
+	AccessibilityAnalysis          *bool  `json:"accessibility_analysis,omitempty"`
+	Versions                       *bool  `json:"versions,omitempty"`
+	RelatedComplementary           *bool  `json:"related_complementary,omitempty"`
+	RelatedComplementaryNextCursor string `json:"related_complementary_next_cursor,omitempty"`
 }
 
 // AssetByAssetID returns the details of the specified asset and all its derived assets by asset id.

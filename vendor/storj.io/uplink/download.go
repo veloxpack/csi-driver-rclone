@@ -35,10 +35,22 @@ type DownloadOptions struct {
 
 // DownloadObject starts a download from the specific key.
 func (project *Project) DownloadObject(ctx context.Context, bucket, key string, options *DownloadOptions) (_ *Download, err error) {
-	return project.downloadObjectWithVersion(ctx, bucket, key, nil, options)
+
+	var opts *metaclient.DownloadOptions
+	if options != nil {
+		sr, err := metaclient.NewStreamRange(options.Offset, options.Length)
+		if err != nil {
+			return nil, packageError.Wrap(err)
+		}
+		opts = &metaclient.DownloadOptions{
+			Range: sr,
+		}
+	}
+
+	return project.downloadObjectWithVersion(ctx, bucket, key, nil, opts)
 }
 
-func (project *Project) downloadObjectWithVersion(ctx context.Context, bucket, key string, version []byte, options *DownloadOptions) (_ *Download, err error) {
+func (project *Project) downloadObjectWithVersion(ctx context.Context, bucket, key string, version []byte, options *metaclient.DownloadOptions) (_ *Download, err error) {
 	download := &Download{
 		bucket: bucket,
 		stats:  newOperationStats(ctx, project.access.satelliteURL),
@@ -61,31 +73,12 @@ func (project *Project) downloadObjectWithVersion(ctx context.Context, bucket, k
 	}
 
 	var opts metaclient.DownloadOptions
-	switch {
-	case options == nil:
+	if options == nil {
 		opts.Range = metaclient.StreamRange{
 			Mode: metaclient.StreamRangeAll,
 		}
-	case options.Offset < 0:
-		if options.Length >= 0 {
-			return nil, packageError.New("suffix requires length to be negative, got %v", options.Length)
-		}
-		opts.Range = metaclient.StreamRange{
-			Mode:   metaclient.StreamRangeSuffix,
-			Suffix: -options.Offset,
-		}
-	case options.Length < 0:
-		opts.Range = metaclient.StreamRange{
-			Mode:  metaclient.StreamRangeStart,
-			Start: options.Offset,
-		}
-
-	default:
-		opts.Range = metaclient.StreamRange{
-			Mode:  metaclient.StreamRangeStartLimit,
-			Start: options.Offset,
-			Limit: options.Offset + options.Length,
-		}
+	} else {
+		opts = *options
 	}
 
 	// N.B. we always call dbCleanup which closes the db because
@@ -229,7 +222,7 @@ func (download *Download) emitEvent() {
 //lint:ignore U1000, used with linkname
 //nolint:deadcode,unused
 //go:linkname downloadObjectWithVersion
-func downloadObjectWithVersion(ctx context.Context, project *Project, bucket, key string, version []byte, options *DownloadOptions) (_ *Download, err error) {
+func downloadObjectWithVersion(ctx context.Context, project *Project, bucket, key string, version []byte, options *metaclient.DownloadOptions) (_ *Download, err error) {
 	return project.downloadObjectWithVersion(ctx, bucket, key, version, options)
 }
 

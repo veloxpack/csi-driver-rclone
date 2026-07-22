@@ -365,10 +365,3 @@ func (stream *timedUploadStream) CloseAndRecv() (resp *pb.PieceUploadResponse, e
 	}, stream.cancelTimeout)
 	return resp, err
 }
-
-func min(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
-}

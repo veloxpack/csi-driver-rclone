@@ -5,4 +5,4 @@
 // Unfortunately, this requires exposing some of the details from crypto/sha512.
 package hmacsha512
 
-// Currently vendored crypto/sha512 version is go1.22.2
+// Currently vendored crypto/sha512 version is go1.26.0

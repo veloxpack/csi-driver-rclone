@@ -37,6 +37,7 @@ type DownloadParts struct {
 	fs.FileInfo
 	lib.WriterAndAt
 	totalWritten  int64
+	startOffset   int64
 	parts         []*Part
 	queue         chan *Part
 	finishedParts chan *Part
@@ -49,7 +50,7 @@ type DownloadParts struct {
 	path           string
 }
 
-func (d *DownloadParts) Init(file fs.File, info fs.FileInfo, globalWait manager.ConcurrencyManager, writer lib.WriterAndAt, config files_sdk.Config) *DownloadParts {
+func (d *DownloadParts) Init(file fs.File, info fs.FileInfo, globalWait manager.ConcurrencyManager, writer lib.WriterAndAt, config files_sdk.Config, startOffset int64) *DownloadParts {
 	d.File = file
 	d.FileInfo = info
 	d.path = info.Name()
@@ -58,6 +59,8 @@ func (d *DownloadParts) Init(file fs.File, info fs.FileInfo, globalWait manager.
 	d.Config = config
 	d.RWMutex = &sync.RWMutex{}
 	d.queueLock = &sync.Mutex{}
+	d.startOffset = startOffset
+	atomic.AddInt64(&d.totalWritten, startOffset)
 	return d
 }
 
@@ -65,13 +68,6 @@ func (d *DownloadParts) Run(ctx context.Context) error {
 	d.Context, d.CancelFunc = context.WithCancel(ctx)
 	d.queueContext, d.queueCancel = context.WithCancel(d.Context)
 	defer func() {
-		d.Config.LogPath(
-			d.path,
-			map[string]interface{}{
-				"message":  "Finished canceling context and closing file",
-				"realSize": atomic.LoadInt64(&d.totalWritten),
-			},
-		)
 		d.CancelFunc()
 		d.CloseError = d.WriterAndAt.Close()
 		d.fileManager.Release()
@@ -135,24 +131,6 @@ func (d *DownloadParts) waitForParts() error {
 
 func (d *DownloadParts) realSizeOverLap() error {
 	lastPart := d.parts[len(d.parts)-1]
-	d.Config.LogPath(
-		d.path,
-		map[string]interface{}{
-			"message":  "starting realSizeOverLap",
-			"size":     d.FileInfo.Size(),
-			"realSize": atomic.LoadInt64(&d.totalWritten),
-		},
-	)
-	defer func() {
-		d.Config.LogPath(
-			d.path,
-			map[string]interface{}{
-				"message":  "finishing realSizeOverLap",
-				"size":     d.FileInfo.Size(),
-				"realSize": atomic.LoadInt64(&d.totalWritten),
-			},
-		)
-	}()
 	for {
 		if d.FileInfo.(UntrustedSize).UntrustedSize() && d.queueContext.Err() == nil && lastPart.bytes == lastPart.len {
 			d.queueLock.Lock()
@@ -181,6 +159,9 @@ func (d *DownloadParts) realSizeOverLap() error {
 				}
 			}
 		} else {
+			if cause := context.Cause(d.Context); errors.Is(cause, ErrJobPaused) {
+				return cause
+			}
 			if d.FileInfo.Size() != atomic.LoadInt64(&d.totalWritten) && !d.FileInfo.(UntrustedSize).UntrustedSize() {
 				return fmt.Errorf("server reported size does not match downloaded file. - expected: %v, actual: %v", d.FileInfo.Size(), atomic.LoadInt64(&d.totalWritten))
 			}
@@ -279,11 +260,12 @@ func (d *DownloadParts) state() map[string]interface{} {
 }
 
 func (d *DownloadParts) buildParts() {
-	size := d.FileInfo.Size()
+	size := d.FileInfo.Size() - d.startOffset
 	iter := (ByteOffset{PartSizes: lib.PartSizes}).BySize(&size)
 
 	for {
 		offset, next, i := iter()
+		offset.off += d.startOffset
 		d.parts = append(d.parts, (&Part{OffSet: offset, number: i + 1}).WithContext(d.Context))
 		if next == nil {
 			break
@@ -393,9 +375,23 @@ func (d *DownloadParts) downloadFile() error {
 	if ok {
 		d.File = withContext.WithContext(d.Context)
 	}
-	n, err := io.Copy(d.WriterAndAt, d.File)
-	if n == 0 {
-		d.WriterAndAt.Write([]byte{})
+	var n int64
+	var err error
+	if d.startOffset > 0 {
+		ranger, ok := d.File.(ReaderRange)
+		if !ok {
+			return fmt.Errorf("file does not support range requests for resume")
+		}
+		r, rangeErr := ranger.ReaderRange(d.startOffset, d.FileInfo.Size()-1)
+		if rangeErr != nil {
+			return rangeErr
+		}
+		n, err = lib.CopyAt(d.WriterAndAt, d.startOffset, r)
+	} else {
+		n, err = io.Copy(d.WriterAndAt, d.File)
+		if n == 0 {
+			d.WriterAndAt.Write([]byte{})
+		}
 	}
 	atomic.AddInt64(&d.totalWritten, n)
 	if err != nil {

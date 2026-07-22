@@ -13,6 +13,9 @@ import (
 	"github.com/cloudsoda/go-smb2/internal/smb2"
 )
 
+// length of tag used to verify the integrity of the encrypted data
+const AES_AUTH_TAG_LEN = 16
+
 // Negotiator contains options for func (*Dialer) Dial.
 type Negotiator struct {
 	RequireMessageSigning bool     // enforce signing?
@@ -86,7 +89,7 @@ func (n *Negotiator) makeRequest() (*smb2.NegotiateRequest, error) {
 	return req, nil
 }
 
-func (n *Negotiator) negotiate(t transport, a *account, ctx context.Context) (*conn, error) {
+func (n *Negotiator) negotiate(ctx context.Context, t transport, a *account) (*conn, error) {
 	conn := &conn{
 		t:                   t,
 		outstandingRequests: newOutstandingRequests(),
@@ -98,7 +101,7 @@ func (n *Negotiator) negotiate(t transport, a *account, ctx context.Context) (*c
 	}
 
 	go conn.runSender()
-	go conn.runReciever()
+	go conn.runReceiver()
 
 retry:
 	req, err := n.makeRequest()
@@ -108,7 +111,7 @@ retry:
 
 	req.CreditCharge = 1
 
-	rr, err := conn.send(req, ctx)
+	rr, err := conn.send(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -227,6 +230,12 @@ retry:
 	return conn, nil
 }
 
+// recvBuf wraps a pooled receive buffer. Stored as *recvBuf in sync.Pool
+// so the pointer fits directly in the interface without boxing allocations.
+type recvBuf struct {
+	b []byte
+}
+
 type requestResponse struct {
 	msgId         uint64
 	asyncId       uint64
@@ -235,6 +244,17 @@ type requestResponse struct {
 	ctx           context.Context
 	recv          chan []byte
 	err           error
+	rb            *recvBuf   // pooled receive buffer wrapper; return via freeRecvBuf
+	bufPool       *sync.Pool // pool to return rb to
+}
+
+// freeRecvBuf returns the pooled receive buffer, if any. Safe to call
+// multiple times or when rb is nil.
+func (rr *requestResponse) freeRecvBuf() {
+	if rr.bufPool != nil && rr.rb != nil {
+		rr.bufPool.Put(rr.rb)
+		rr.rb = nil
+	}
 }
 
 type outstandingRequests struct {
@@ -282,7 +302,7 @@ func (r *outstandingRequests) shutdown(err error) {
 type conn struct {
 	t transport
 
-	session                   *session
+	session                   atomic.Pointer[session]
 	outstandingRequests       *outstandingRequests
 	sequenceWindow            uint64
 	dialect                   uint16
@@ -297,10 +317,13 @@ type conn struct {
 
 	account *account
 
-	rdone chan struct{}
-	wdone chan struct{}
-	write chan []byte
-	werr  chan error
+	rdone         chan struct{}
+	wdone         chan struct{}
+	write         chan []byte
+	werr          chan error
+	recvPool      sync.Pool // reusable receive buffers
+	encodeBuf     []byte    // retained request encoding buffer; reused under conn.m
+	compoundSizes []int     // retained sizes buffer for compound requests; reused under conn.m
 
 	m sync.Mutex
 
@@ -310,40 +333,17 @@ type conn struct {
 	// serverGuid        [16]byte
 	// clientGuid        [16]byte
 
-	_useSession int32 // receiver use session?
+	useSession atomic.Bool
 }
 
-func (conn *conn) useSession() bool {
-	return atomic.LoadInt32(&conn._useSession) != 0
-}
-
-func (conn *conn) enableSession() {
-	atomic.StoreInt32(&conn._useSession, 1)
-}
-
-//nolint:unused // appears to be legacy, unsure, so leaving for now
-func (conn *conn) sendRecv(cmd uint16, req smb2.Packet, ctx context.Context) (res []byte, err error) {
-	rr, err := conn.send(req, ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	pkt, err := conn.recv(rr)
-	if err != nil {
-		return nil, err
-	}
-
-	return accept(cmd, pkt)
-}
-
-func (conn *conn) loanCredit(payloadSize int, ctx context.Context) (creditCharge uint16, grantedPayloadSize int, err error) {
+func (conn *conn) loanCredit(ctx context.Context, payloadSize int) (creditCharge uint16, grantedPayloadSize int, err error) {
 	if conn.capabilities&smb2.SMB2_GLOBAL_CAP_LARGE_MTU == 0 {
 		creditCharge = 1
 	} else {
 		creditCharge = uint16((payloadSize-1)/(64*1024) + 1)
 	}
 
-	creditCharge, isComplete, err := conn.account.loan(creditCharge, ctx)
+	creditCharge, isComplete, err := conn.account.loan(ctx, creditCharge)
 	if err != nil {
 		return creditCharge, 0, err
 	}
@@ -358,11 +358,11 @@ func (conn *conn) chargeCredit(creditCharge uint16) {
 	conn.account.charge(creditCharge, creditCharge)
 }
 
-func (conn *conn) send(req smb2.Packet, ctx context.Context) (rr *requestResponse, err error) {
-	return conn.sendWith(req, nil, ctx)
+func (conn *conn) send(ctx context.Context, req smb2.Packet) (rr *requestResponse, err error) {
+	return conn.sendWith(ctx, req, nil)
 }
 
-func (conn *conn) sendWith(req smb2.Packet, tc *treeConn, ctx context.Context) (rr *requestResponse, err error) {
+func (conn *conn) sendWith(ctx context.Context, req smb2.Packet, tc *treeConn) (rr *requestResponse, err error) {
 	conn.m.Lock()
 	defer conn.m.Unlock()
 
@@ -377,7 +377,7 @@ func (conn *conn) sendWith(req smb2.Packet, tc *treeConn, ctx context.Context) (
 		// do nothing
 	}
 
-	rr, err = conn.makeRequestResponse(req, tc, ctx)
+	rr, err = conn.makeRequestResponse(ctx, req, tc)
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +405,200 @@ func (conn *conn) sendWith(req smb2.Packet, tc *treeConn, ctx context.Context) (
 	return rr, nil
 }
 
-func (conn *conn) makeRequestResponse(req smb2.Packet, tc *treeConn, ctx context.Context) (rr *requestResponse, err error) {
+// compoundEntry describes a single request within a compound.
+type compoundEntry struct {
+	req     smb2.Packet
+	tc      *treeConn
+	related bool // set SMB2_FLAGS_RELATED_OPERATIONS on this request
+}
+
+// sendCompound serializes multiple SMB2 requests into a single transport frame
+// and sends them as a compound request. Related entries share a file handle via
+// the sentinel FileId. Returns one requestResponse per entry for receiving
+// individual responses.
+//
+// Caller must have already set CreditCharge on each entry's header (via loanCredit).
+func (conn *conn) sendCompound(ctx context.Context, entries []compoundEntry) ([]*requestResponse, error) {
+	conn.m.Lock()
+	defer conn.m.Unlock()
+
+	if conn.err != nil {
+		return nil, conn.err
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	n := len(entries)
+
+	// Reuse retained sizes buffer.
+	if cap(conn.compoundSizes) < n {
+		conn.compoundSizes = make([]int, n)
+	}
+	sizes := conn.compoundSizes[:n]
+
+	// Phase 1: Set header fields and compute sizes.
+	var totalCreditCharge uint16
+
+	for i, entry := range entries {
+		hdr := entry.req.Header()
+
+		msgId := conn.sequenceWindow
+		creditCharge := hdr.CreditCharge
+		conn.sequenceWindow += uint64(creditCharge)
+		totalCreditCharge += creditCharge
+
+		hdr.MessageId = msgId
+
+		// Only the last request asks for new credits.
+		if i < n-1 {
+			hdr.CreditRequestResponse = 0
+		} else {
+			if hdr.CreditRequestResponse == 0 {
+				hdr.CreditRequestResponse = totalCreditCharge
+			}
+			hdr.CreditRequestResponse += conn.account.opening()
+		}
+
+		if entry.related {
+			hdr.Flags |= smb2.SMB2_FLAGS_RELATED_OPERATIONS
+		}
+
+		if s := conn.session.Load(); s != nil {
+			hdr.SessionId = s.sessionId
+			if entry.tc != nil {
+				hdr.TreeId = entry.tc.treeId
+			}
+		}
+
+		sizes[i] = entry.req.Size()
+	}
+
+	// Compute total buffer size with 8-byte alignment between requests.
+	totalSize := 0
+	for i, sz := range sizes {
+		if i < n-1 {
+			totalSize += (sz + 7) &^ 7
+		} else {
+			totalSize += sz
+		}
+	}
+
+	// Phase 2: Encode into conn.encodeBuf (retained compound buffer).
+	if cap(conn.encodeBuf) < totalSize {
+		conn.encodeBuf = make([]byte, totalSize)
+	}
+	compound := conn.encodeBuf[:totalSize]
+	clear(compound)
+
+	offset := 0
+	for i, entry := range entries {
+		pkt := compound[offset : offset+sizes[i]]
+		entry.req.Encode(pkt)
+
+		if i < n-1 {
+			aligned := (sizes[i] + 7) &^ 7
+			smb2.PacketCodec(pkt).SetNextCommand(uint32(aligned))
+			offset += aligned
+		} else {
+			offset += sizes[i]
+		}
+	}
+
+	// Phase 3: Sign or encrypt.
+	wirePkt := compound
+
+	if s := conn.session.Load(); s != nil {
+		encrypt := s.sessionFlags&smb2.SMB2_SESSION_FLAG_ENCRYPT_DATA != 0
+		if !encrypt {
+			for _, entry := range entries {
+				if entry.tc != nil && entry.tc.shareFlags&smb2.SMB2_SHAREFLAG_ENCRYPT_DATA != 0 {
+					encrypt = true
+					break
+				}
+			}
+		}
+
+		if encrypt {
+			// Encrypt the entire compound as one unit using s.encryptBuf.
+			needed := 52 + len(compound) + 16
+			if cap(s.encryptBuf) < needed {
+				s.encryptBuf = make([]byte, needed)
+			}
+			clear(s.encryptBuf[:needed])
+			var err error
+			wirePkt, err = s.encrypt(compound, s.encryptBuf[:needed])
+			if err != nil {
+				return nil, &InternalError{err.Error()}
+			}
+		} else if s.sessionFlags&(smb2.SMB2_SESSION_FLAG_IS_GUEST|smb2.SMB2_SESSION_FLAG_IS_NULL) == 0 {
+			// Sign each packet individually in-place.
+			// Per MS-SMB2 3.3.5.2.4, the server uses the NextCommand value as the
+			// message length for signature verification (8-byte aligned size), so
+			// non-last entries must be signed over the aligned length including padding.
+			off := 0
+			for i := range entries {
+				signLen := sizes[i]
+				if i < n-1 {
+					signLen = (sizes[i] + 7) &^ 7
+				}
+				pkt := compound[off : off+signLen]
+				s.sign(pkt)
+				off += signLen
+			}
+		}
+	}
+
+	// Phase 4: Register all requestResponses and send.
+	rrs := make([]*requestResponse, n)
+	off := 0
+	for i := range entries {
+		p := smb2.PacketCodec(compound[off : off+sizes[i]])
+		rrs[i] = &requestResponse{
+			msgId:         p.MessageId(),
+			creditRequest: p.CreditRequest(),
+			ctx:           ctx,
+			recv:          make(chan []byte, 1),
+		}
+		conn.outstandingRequests.set(rrs[i].msgId, rrs[i])
+
+		if i < n-1 {
+			off += (sizes[i] + 7) &^ 7
+		} else {
+			off += sizes[i]
+		}
+	}
+
+	select {
+	case conn.write <- wirePkt:
+		select {
+		case err := <-conn.werr:
+			if err != nil {
+				for _, rr := range rrs {
+					conn.outstandingRequests.pop(rr.msgId)
+				}
+				return nil, &TransportError{err}
+			}
+		case <-ctx.Done():
+			for _, rr := range rrs {
+				conn.outstandingRequests.pop(rr.msgId)
+			}
+			return nil, ctx.Err()
+		}
+	case <-ctx.Done():
+		for _, rr := range rrs {
+			conn.outstandingRequests.pop(rr.msgId)
+		}
+		return nil, ctx.Err()
+	}
+
+	return rrs, nil
+}
+
+func (conn *conn) makeRequestResponse(ctx context.Context, req smb2.Packet, tc *treeConn) (rr *requestResponse, err error) {
 	hdr := req.Header()
 
 	var msgId uint64
@@ -425,24 +618,33 @@ func (conn *conn) makeRequestResponse(req smb2.Packet, tc *treeConn, ctx context
 
 	hdr.MessageId = msgId
 
-	s := conn.session
+	s := conn.session.Load()
 
 	if s != nil {
 		hdr.SessionId = s.sessionId
-
 		if tc != nil {
 			hdr.TreeId = tc.treeId
 		}
 	}
 
-	pkt := make([]byte, req.Size())
+	needed := req.Size()
+	if cap(conn.encodeBuf) < needed {
+		conn.encodeBuf = make([]byte, needed)
+	}
+	pkt := conn.encodeBuf[:needed]
+	clear(pkt)
 
 	req.Encode(pkt)
 
 	if s != nil {
 		if _, ok := req.(*smb2.SessionSetupRequest); !ok {
 			if s.sessionFlags&smb2.SMB2_SESSION_FLAG_ENCRYPT_DATA != 0 || (tc != nil && tc.shareFlags&smb2.SMB2_SHAREFLAG_ENCRYPT_DATA != 0) {
-				pkt, err = s.encrypt(pkt)
+				needed := 52 + len(pkt) + AES_AUTH_TAG_LEN
+				if cap(s.encryptBuf) < needed {
+					s.encryptBuf = make([]byte, needed)
+				}
+				clear(s.encryptBuf[:needed])
+				pkt, err = s.encrypt(pkt, s.encryptBuf[:needed])
 				if err != nil {
 					return nil, &InternalError{err.Error()}
 				}
@@ -494,8 +696,20 @@ func (conn *conn) runSender() {
 	}
 }
 
-func (conn *conn) runReciever() {
+func (conn *conn) runReceiver() {
 	var err error
+
+	// A panic should shutdown the connection
+	defer func() {
+		if r := recover(); r != nil {
+			err = &InvalidResponseError{fmt.Sprintf("receiver panic: %v", r)}
+			conn.m.Lock()
+			defer conn.m.Unlock()
+			conn.outstandingRequests.shutdown(err)
+			conn.err = err
+			close(conn.wdone)
+		}
+	}()
 
 	for {
 		n, e := conn.t.ReadSize()
@@ -505,70 +719,113 @@ func (conn *conn) runReciever() {
 			goto exit
 		}
 
-		pkt := make([]byte, n)
+		rb, ok := conn.recvPool.Get().(*recvBuf)
+		if !ok || cap(rb.b) < n {
+			rb = &recvBuf{b: make([]byte, n)}
+		}
+		pkt := rb.b[:n]
 
 		_, e = conn.t.Read(pkt)
 		if e != nil {
+			conn.freePoolBuf(rb)
+
 			err = &TransportError{e}
 
 			goto exit
 		}
 
-		hasSession := conn.useSession()
+		hasSession := conn.useSession.Load()
 
 		var isEncrypted bool
 
 		if hasSession {
-			pkt, e, isEncrypted = conn.tryDecrypt(pkt)
+			var pRb *recvBuf
+			pkt, pRb, e, isEncrypted = conn.tryDecrypt(pkt)
 			if e != nil {
+				conn.freePoolBuf(rb)
+
 				logger.Println("skip:", e)
 
 				continue
 			}
 
+			if isEncrypted {
+				// Decrypt produced a new plaintext buffer; the
+				// original ciphertext buffer can be reused now.
+				conn.freePoolBuf(rb)
+				rb = pRb
+			}
+
 			p := smb2.PacketCodec(pkt)
-			if s := conn.session; s != nil {
+			if s := conn.session.Load(); s != nil {
 				if s.sessionId != p.SessionId() {
+					conn.freePoolBuf(rb)
+
 					logger.Println("skip:", &InvalidResponseError{"unknown session id"})
 
 					continue
 				}
-
-				if tc, ok := s.treeConnTables[p.TreeId()]; ok {
-					if tc.treeId != p.TreeId() {
-						logger.Println("skip:", &InvalidResponseError{"unknown tree id"})
-
-						continue
-					}
-				}
 			}
 		}
 
-		var next []byte
+		p := smb2.PacketCodec(pkt)
 
-		for {
-			p := smb2.PacketCodec(pkt)
+		// validate the packet if it doesn't have a session yet. tryDecrypt
+		// already checks the packet validity when there is a session.
+		if !hasSession && p.IsInvalid() {
+			conn.freePoolBuf(rb)
+			logger.Println("skip:", &InvalidResponseError{"invalid packet header"})
+			continue
+		}
 
-			if off := p.NextCommand(); off != 0 {
-				pkt, next = pkt[:off], pkt[off:]
-			} else {
-				next = nil
-			}
-
+		if p.NextCommand() == 0 {
+			// Single response: transfer the pooled buffer to the caller.
 			if hasSession {
 				e = conn.tryVerify(pkt, isEncrypted)
 			}
-
-			e = conn.tryHandle(pkt, e)
-			if e != nil {
+			if e = conn.tryHandle(pkt, e, rb); e != nil {
 				logger.Println("skip:", e)
 			}
+		} else {
+			// Compound response: sub-responses share the underlying
+			// buffer, so we cannot transfer ownership to any one caller.
+			// The buffer is intentionally not returned to the pool; it
+			// will be GC'd once all consumers finish with their pkt slices.
 
-			if next == nil {
-				break
+			var next []byte
+			for {
+				// validate each segment before reading its header fields.
+				if p.IsInvalid() {
+					logger.Println("skip:", &InvalidResponseError{"invalid chained packet header"})
+					break
+				}
+
+				off := p.NextCommand()
+				if off != 0 {
+					// Check for a valid offset - greater than the header size and less than the buffer size
+					if off < 64 || off > uint32(len(pkt)) {
+						err = &InvalidResponseError{"NextCommand offset out of bounds"}
+						goto exit
+					}
+					pkt, next = pkt[:off], pkt[off:]
+				} else {
+					next = nil
+				}
+
+				if hasSession {
+					e = conn.tryVerify(pkt, isEncrypted)
+				}
+				if e = conn.tryHandle(pkt, e, nil); e != nil {
+					logger.Println("skip:", e)
+				}
+
+				if next == nil {
+					break
+				}
+
+				pkt = next
+				p = smb2.PacketCodec(pkt)
 			}
-
-			pkt = next
 		}
 	}
 
@@ -672,64 +929,90 @@ func acceptError(status uint32, res []byte) error {
 	return &ResponseError{Code: status, data: [][]byte{eData}}
 }
 
-func (conn *conn) tryDecrypt(pkt []byte) ([]byte, error, bool) {
+func (conn *conn) tryDecrypt(pkt []byte) ([]byte, *recvBuf, error, bool) {
 	p := smb2.PacketCodec(pkt)
 	if p.IsInvalid() {
 		t := smb2.TransformCodec(pkt)
 		if t.IsInvalid() {
-			return nil, &InvalidResponseError{"broken packet header format"}, false
+			return nil, nil, &InvalidResponseError{"broken packet header format"}, false
 		}
 
 		if t.Flags() != smb2.Encrypted {
-			return nil, &InvalidResponseError{"encrypted flag is not on"}, false
+			return nil, nil, &InvalidResponseError{"encrypted flag is not on"}, false
 		}
 
-		if conn.session == nil || conn.session.sessionId != t.SessionId() {
-			return nil, &InvalidResponseError{"unknown session id returned"}, false
+		s := conn.session.Load()
+
+		if s == nil || s.sessionId != t.SessionId() {
+			return nil, nil, &InvalidResponseError{"unknown session id returned"}, false
 		}
 
-		pkt, err := conn.session.decrypt(pkt)
+		// Get a pooled buffer for the decrypt work-buffer (ciphertext + tag).
+		cLen := len(t.EncryptedData()) + AES_AUTH_TAG_LEN
+		pRb, ok := conn.recvPool.Get().(*recvBuf)
+		if !ok || cap(pRb.b) < cLen {
+			pRb = &recvBuf{b: make([]byte, cLen)}
+		}
+		c := pRb.b[:cLen]
+
+		pkt, err := s.decrypt(pkt, c)
 		if err != nil {
-			return nil, &InvalidResponseError{err.Error()}, false
+			conn.freePoolBuf(pRb)
+			return nil, nil, &InvalidResponseError{err.Error()}, false
 		}
 
-		return pkt, nil, true
+		return pkt, pRb, nil, true
 	}
 
-	return pkt, nil, false
+	return pkt, nil, nil, false
 }
 
 func (conn *conn) tryVerify(pkt []byte, isEncrypted bool) error {
 	p := smb2.PacketCodec(pkt)
 
-	msgId := p.MessageId()
+	msgID := p.MessageId()
 
-	if msgId != 0xFFFFFFFFFFFFFFFF {
-		if p.Flags()&smb2.SMB2_FLAGS_SIGNED != 0 {
-			if conn.session == nil || conn.session.sessionId != p.SessionId() {
-				return &InvalidResponseError{"unknown session id returned"}
-			} else {
-				if !conn.session.verify(pkt) {
-					return &InvalidResponseError{"unverified packet returned"}
-				}
-			}
-		} else {
-			if conn.requireSigning && !isEncrypted {
-				if conn.session != nil {
-					if conn.session.sessionFlags&(smb2.SMB2_SESSION_FLAG_IS_GUEST|smb2.SMB2_SESSION_FLAG_IS_NULL) == 0 {
-						if conn.session.sessionId == p.SessionId() {
-							return &InvalidResponseError{"signing required"}
-						}
-					}
-				}
-			}
-		}
+	// MS-SMB2 3.2.5.1.3 states that the client MUST skip signature processing if:
+	// - MessageId is 0xFFFFFFFFFFFFFFFF
+	// - Status in the SMB2 header is STATUS_PENDING
+	// 		- 3.3.4.1.1 says servers should skip signing interim responses to async requests - STATUS_PENDING is an interim response
+	// - Client is using the SMB 3.x dialect and the message was successfully decrypted+authenticated (isEncrypted=true)
+	if msgID == 0xFFFFFFFFFFFFFFFF {
+		return nil
+	}
+	if erref.NtStatus(p.Status()) == erref.STATUS_PENDING {
+		return nil
+	}
+	if isEncrypted {
+		return nil
 	}
 
+	s := conn.session.Load()
+	if s == nil {
+		return &InvalidResponseError{"packet received before session established"}
+	}
+	if s.sessionId != p.SessionId() {
+		return &InvalidResponseError{"packet for unknown session"}
+	}
+
+	// guest and null sessions can't produce signatures, so they don't need to be verified
+	if s.sessionFlags&(smb2.SMB2_SESSION_FLAG_IS_GUEST|smb2.SMB2_SESSION_FLAG_IS_NULL) != 0 {
+		return nil
+	}
+
+	// verify if 1) the connection requires signing or 2) if the message itself is signed
+	if conn.requireSigning || p.Flags()&smb2.SMB2_FLAGS_SIGNED != 0 {
+		if !s.verify(pkt) {
+			return &InvalidResponseError{"packet failed signature verification"}
+		}
+		return nil
+	}
+
+	// the message was not signed AND signing is not required
 	return nil
 }
 
-func (conn *conn) tryHandle(pkt []byte, e error) error {
+func (conn *conn) tryHandle(pkt []byte, e error, rb *recvBuf) error {
 	p := smb2.PacketCodec(pkt)
 
 	msgId := p.MessageId()
@@ -737,20 +1020,37 @@ func (conn *conn) tryHandle(pkt []byte, e error) error {
 	rr, ok := conn.outstandingRequests.pop(msgId)
 	switch {
 	case !ok:
+		conn.freePoolBuf(rb)
 		return &InvalidResponseError{"unknown message id returned"}
 	case e != nil:
 		rr.err = e
+		conn.freePoolBuf(rb)
 
 		close(rr.recv)
 	case erref.NtStatus(p.Status()) == erref.STATUS_PENDING:
 		rr.asyncId = p.AsyncId()
 		conn.account.charge(p.CreditResponse(), rr.creditRequest)
 		conn.outstandingRequests.set(msgId, rr)
+		conn.freePoolBuf(rb)
 	default:
 		conn.account.charge(p.CreditResponse(), rr.creditRequest)
+
+		// Transfer ownership of the pooled receive buffer to the
+		// requestResponse so the caller can return it via freeRecvBuf
+		// after it has finished reading the response packet. (the
+		// error cases in this switch statement all free the buffer
+		// immediately)
+		rr.rb = rb
+		rr.bufPool = &conn.recvPool
 
 		rr.recv <- pkt
 	}
 
 	return nil
+}
+
+func (conn *conn) freePoolBuf(rb *recvBuf) {
+	if rb != nil {
+		conn.recvPool.Put(rb)
+	}
 }

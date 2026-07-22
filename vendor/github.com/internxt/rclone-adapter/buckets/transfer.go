@@ -18,7 +18,7 @@ type TransferResult struct {
 
 // Transfer uploads data to the given URL and returns the ETag
 func Transfer(ctx context.Context, cfg *config.Config, uploadURL string, r io.Reader, size int64) (*TransferResult, error) {
-	req, err := http.NewRequestWithContext(ctx, "PUT", uploadURL, r)
+	req, err := http.NewRequestWithContext(ctx, "PUT", uploadURL, io.NopCloser(r))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transfer request: %w", err)
 	}

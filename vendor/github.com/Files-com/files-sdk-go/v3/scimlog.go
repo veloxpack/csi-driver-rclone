@@ -24,7 +24,7 @@ func (s ScimLog) Identifier() interface{} {
 type ScimLogCollection []ScimLog
 
 type ScimLogListParams struct {
-	SortBy map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	SortBy interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
 	ListParams
 }
 

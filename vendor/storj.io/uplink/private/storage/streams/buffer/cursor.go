@@ -177,7 +177,7 @@ func (c *Cursor) ReadTo(n int64) {
 		}
 		if atomic.CompareAndSwapInt64(&c.maxRead, maxRead, n) {
 			c.mu.Lock()
-			defer c.mu.Unlock()
+			defer c.mu.Unlock() //nolint go-critic, this defer is immediately executed near return
 
 			c.cond.Broadcast()
 			return
@@ -194,7 +194,7 @@ func (c *Cursor) WroteTo(n int64) {
 		}
 		if atomic.CompareAndSwapInt64(&c.written, written, n) {
 			c.mu.Lock()
-			defer c.mu.Unlock()
+			defer c.mu.Unlock() //nolint go-critic, this defer is immediately executed near return
 
 			c.cond.Broadcast()
 			return

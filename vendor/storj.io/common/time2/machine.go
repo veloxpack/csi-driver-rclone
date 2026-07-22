@@ -155,12 +155,10 @@ func (backend *machineBackend) blockThenAdvance(ctx context.Context, minimumTime
 	// be nice to use primitives from the sync2 package, but we can't since
 	// that would introduce an import cycle.
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		<-ctx.Done()
 		backend.cond.Broadcast()
-	}()
+	})
 	defer func() {
 		cancel()
 		wg.Wait()

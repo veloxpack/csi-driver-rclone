@@ -216,6 +216,15 @@ func Find(params files_sdk.FileFindParams, opts ...files_sdk.RequestResponseOpti
 	return (&Client{}).Find(params, opts...)
 }
 
+func (c *Client) ZipListContents(params files_sdk.FileZipListContentsParams, opts ...files_sdk.RequestResponseOption) (zipListEntryCollection files_sdk.ZipListEntryCollection, err error) {
+	err = files_sdk.Resource(c.Config, lib.Resource{Method: "GET", Path: "/file_actions/zip_list/{path}", Params: params, Entity: &zipListEntryCollection}, opts...)
+	return
+}
+
+func ZipListContents(params files_sdk.FileZipListContentsParams, opts ...files_sdk.RequestResponseOption) (zipListEntryCollection files_sdk.ZipListEntryCollection, err error) {
+	return (&Client{}).ZipListContents(params, opts...)
+}
+
 func (c *Client) Copy(params files_sdk.FileCopyParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {
 	err = files_sdk.Resource(c.Config, lib.Resource{Method: "POST", Path: "/file_actions/copy/{path}", Params: params, Entity: &fileAction}, opts...)
 	return
@@ -232,6 +241,24 @@ func (c *Client) Move(params files_sdk.FileMoveParams, opts ...files_sdk.Request
 
 func Move(params files_sdk.FileMoveParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {
 	return (&Client{}).Move(params, opts...)
+}
+
+func (c *Client) Unzip(params files_sdk.FileUnzipParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {
+	err = files_sdk.Resource(c.Config, lib.Resource{Method: "POST", Path: "/file_actions/unzip", Params: params, Entity: &fileAction}, opts...)
+	return
+}
+
+func Unzip(params files_sdk.FileUnzipParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {
+	return (&Client{}).Unzip(params, opts...)
+}
+
+func (c *Client) Zip(params files_sdk.FileZipParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {
+	err = files_sdk.Resource(c.Config, lib.Resource{Method: "POST", Path: "/file_actions/zip", Params: params, Entity: &fileAction}, opts...)
+	return
+}
+
+func Zip(params files_sdk.FileZipParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {
+	return (&Client{}).Zip(params, opts...)
 }
 
 func (c *Client) BeginUpload(params files_sdk.FileBeginUploadParams, opts ...files_sdk.RequestResponseOption) (fileUploadPartCollection files_sdk.FileUploadPartCollection, err error) {

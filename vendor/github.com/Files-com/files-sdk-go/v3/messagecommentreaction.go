@@ -19,9 +19,9 @@ func (m MessageCommentReaction) Identifier() interface{} {
 type MessageCommentReactionCollection []MessageCommentReaction
 
 type MessageCommentReactionListParams struct {
-	UserId           int64                  `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
-	SortBy           map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
-	MessageCommentId int64                  `url:"message_comment_id" json:"message_comment_id" path:"message_comment_id"`
+	UserId           int64       `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
+	SortBy           interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	MessageCommentId int64       `url:"message_comment_id" json:"message_comment_id" path:"message_comment_id"`
 	ListParams
 }
 

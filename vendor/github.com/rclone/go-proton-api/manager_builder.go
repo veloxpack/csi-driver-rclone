@@ -10,7 +10,7 @@ import (
 
 const (
 	// DefaultHostURL is the default host of the API.
-	DefaultHostURL = "https://mail.proton.me/api"
+	DefaultHostURL = "https://drive-api.proton.me"
 
 	// DefaultAppVersion is the default app version used to communicate with the API.
 	// This must be changed (using the WithAppVersion option) for production use.
@@ -69,9 +69,12 @@ func (builder *managerBuilder) build() *Manager {
 	// Set the cookie jar.
 	m.rc.SetCookieJar(builder.cookieJar)
 
-	// Set the logger.
+	// Set the logger. The same logger is also stored in a package-level
+	// slot so code paths without access to a Manager (e.g. Keys.Unlock)
+	// can route their warnings through it.
 	if builder.logger != nil {
 		m.rc.SetLogger(builder.logger)
+		setPkgLogger(builder.logger)
 	}
 
 	// Set the debug flag.

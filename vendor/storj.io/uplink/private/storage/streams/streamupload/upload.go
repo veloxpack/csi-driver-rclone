@@ -50,7 +50,7 @@ type EncryptedMetadata interface {
 	// final segment. The stream metadata is encrypted and returned. Also
 	// returned is an encrypted version of the key used to encrypt the metadata
 	// as well as the nonce used to encrypt the key.
-	EncryptedMetadata(lastSegmentSize int64) (data []byte, encKey *storj.EncryptedPrivateKey, nonce *storj.Nonce, err error)
+	EncryptedMetadata(lastSegmentSize int64) (_ *metaclient.EncryptedUserData, err error)
 }
 
 // Info is the information about the stream upload.
@@ -180,6 +180,7 @@ func uploadSegments(ctx context.Context, segmentSource SegmentSource, segmentUpl
 		if err != nil {
 			return Info{}, err
 		}
+		commitObject.IfNoneMatch = beginObject.IfNoneMatch
 		aggregator.Schedule(commitObject)
 	}
 
@@ -193,16 +194,14 @@ func uploadSegments(ctx context.Context, segmentSource SegmentSource, segmentUpl
 func createCommitObjectParams(lastSegment splitter.Segment, encMeta EncryptedMetadata) (*metaclient.CommitObjectParams, error) {
 	info := lastSegment.Finalize()
 
-	encryptedMetadata, encryptedMetadataKey, encryptedMetadataKeyNonce, err := encMeta.EncryptedMetadata(info.PlainSize)
+	encryptedUserData, err := encMeta.EncryptedMetadata(info.PlainSize)
 	if err != nil {
 		return nil, err
 	}
 
 	return &metaclient.CommitObjectParams{
-		StreamID:                      nil, // set by the stream batcher
-		EncryptedMetadataNonce:        *encryptedMetadataKeyNonce,
-		EncryptedMetadataEncryptedKey: *encryptedMetadataKey,
-		EncryptedMetadata:             encryptedMetadata,
+		StreamID:          nil, // set by the stream batcher
+		EncryptedUserData: *encryptedUserData,
 	}, nil
 }
 

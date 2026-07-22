@@ -97,8 +97,8 @@ func (u *API) postAndSignForm(ctx context.Context, urlPath string, formParams ur
 }
 
 func (u *API) signRequest(requestParams url.Values) (url.Values, error) {
-	// No signing for OAuth Token
-	if u.Config.Cloud.OAuthToken != "" {
+	// No signing for OAuth Token or without API key
+	if u.Config.Cloud.OAuthToken != "" || u.Config.Cloud.APIKey == "" {
 		return requestParams, nil
 	}
 

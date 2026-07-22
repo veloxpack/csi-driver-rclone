@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -22,6 +23,12 @@ func downloader(ctx context.Context, fileSys fs.FS, params DownloaderParams) *Jo
 	job := (&Job{}).Init()
 	SetJobParams(job, direction.DownloadType, params, params.config.Logger, fileSys)
 	job.Config = params.config
+	if params.PriorJobCheckpoint != nil {
+		job.CompletedPaths = make(map[string]struct{}, len(params.PriorJobCheckpoint.CompletedPaths))
+		for _, p := range params.PriorJobCheckpoint.CompletedPaths {
+			job.CompletedPaths[p] = struct{}{}
+		}
+	}
 	jobCtx := job.WithContext(ctx)
 	remoteFs, ok := fileSys.(lib.FSWithContext)
 	if ok {
@@ -193,6 +200,7 @@ func createIndexedStatus(f Entity, params DownloaderParams, job *Job) {
 			s.file = s.FileInfo.Sys().(files_sdk.File)
 			s.localPath = localPath(s.file, *job)
 			s.remotePath = s.file.Path
+			s.TmpPath = params.ResumeTmpPath
 		} else {
 			s.SetStatus(status.Errored, err)
 		}
@@ -204,6 +212,12 @@ func createIndexedStatus(f Entity, params DownloaderParams, job *Job) {
 func enqueueDownload(ctx context.Context, job *Job, downloadStatus *DownloadStatus, signal chan *DownloadStatus) {
 	if downloadStatus.error != nil || downloadStatus.fsFile == nil {
 		job.UpdateStatus(status.Errored, downloadStatus, downloadStatus.RecentError())
+		job.FilesManager.Done()
+		signal <- downloadStatus
+		return
+	}
+	if _, ok := job.CompletedPaths[downloadStatus.LocalPath()]; ok {
+		job.UpdateStatus(status.Skipped, downloadStatus, nil)
 		job.FilesManager.Done()
 		signal <- downloadStatus
 		return
@@ -296,24 +310,57 @@ func downloadFolderItem(ctx context.Context, signal chan *DownloadStatus, s *Dow
 			return
 		}
 
-		tmpName, err := tmpDownloadPath(reportStatus.LocalPath(), reportStatus.tempPath)
-		if err != nil {
-			reportStatus.Job().UpdateStatus(status.Errored, reportStatus, err)
-			return
+		var startOffset int64
+		tmpName := reportStatus.TmpPath
+		if tmpName != "" {
+			if _, err := os.Stat(tmpName); os.IsNotExist(err) {
+				reportStatus.Job().Logger.Printf("tmp download file not found, starting over: %v", tmpName)
+				tmpName = ""
+				reportStatus.TmpPath = ""
+			}
 		}
-		reportStatus.Job().Config.LogPath(
-			reportStatus.RemotePath(),
-			map[string]interface{}{
-				"LocalTempPath": tmpName,
-			},
-		)
-		writer := openFile(tmpName, reportStatus)
+		if tmpName == "" {
+			tmpName = existingTmpDownloadPath(reportStatus.LocalPath(), reportStatus.tempPath)
+		}
+		if tmpName == "" {
+			var err error
+			tmpName, err = tmpDownloadPath(reportStatus.LocalPath(), reportStatus.tempPath)
+			if err != nil {
+				reportStatus.Job().UpdateStatus(status.Errored, reportStatus, err)
+				return
+			}
+		} else {
+			fi, err := os.Stat(tmpName)
+			if err == nil {
+				startOffset = fi.Size()
+			}
+			if startOffset > remoteStat.Size() {
+				startOffset = 0
+			}
+			if startOffset == remoteStat.Size() {
+				// Temp file is already fully downloaded - skip the network request and finalize directly.
+				if err := finalizeTmpDownload(tmpName, reportStatus.LocalPath()); err != nil {
+					removeTmpDownload(tmpName)
+					reportStatus.Job().UpdateStatus(status.Errored, reportStatus, err)
+				} else {
+					reportStatus.SetFinalSize(startOffset)
+					reportStatus.Job().UpdateStatus(status.Complete, reportStatus, nil)
+				}
+				return
+			}
+		}
+		reportStatus.TmpPath = tmpName
+		if startOffset > 0 {
+			reportStatus.IncrementTransferBytes(startOffset)
+		}
+		writer := openFile(tmpName, reportStatus, startOffset)
 		downloadParts := (&DownloadParts{}).Init(
 			reportStatus.fsFile,
 			remoteStat,
 			reportStatus.Job().Manager.FilePartsManager,
 			writer,
 			reportStatus.Job().Config,
+			startOffset,
 		)
 
 		lib.AnyError(func(err error) {
@@ -323,15 +370,10 @@ func downloadFolderItem(ctx context.Context, signal chan *DownloadStatus, s *Dow
 			func() error { return downloadParts.CloseError },
 		)
 
+		cause := context.Cause(ctx)
+
 		if reportStatus.Status().Is(status.Valid...) {
 			reportStatus.SetFinalSize(downloadParts.FinalSize())
-			reportStatus.Job().Config.LogPath(
-				reportStatus.RemotePath(),
-				map[string]interface{}{
-					"LocalTempPath": tmpName,
-					"FinalSize":     downloadParts.FinalSize(),
-				},
-			)
 			err := finalizeTmpDownload(tmpName, reportStatus.LocalPath())
 			if err != nil {
 				removeTmpDownload(tmpName)
@@ -355,16 +397,24 @@ func downloadFolderItem(ctx context.Context, signal chan *DownloadStatus, s *Dow
 				reportStatus.Job().UpdateStatus(status.Complete, reportStatus, nil)
 			}
 		} else {
-			err := removeTmpDownload(tmpName) // Clean up on invalid download
-			if err != nil {
-				reportStatus.Job().UpdateStatus(status.Errored, reportStatus, err)
+			if !errors.Is(cause, ErrJobPaused) {
+				err := removeTmpDownload(tmpName) // Clean up on invalid download
+				if err != nil {
+					reportStatus.Job().UpdateStatus(status.Errored, reportStatus, err)
+				}
 			}
 		}
 	}(ctx, s)
 }
 
-func openFile(partName string, reportStatus *DownloadStatus) lib.ProgressWriter {
-	out, createErr := os.Create(partName)
+func openFile(partName string, reportStatus *DownloadStatus, startOffset int64) lib.ProgressWriter {
+	var out *os.File
+	var createErr error
+	if startOffset > 0 {
+		out, createErr = os.OpenFile(partName, os.O_WRONLY|os.O_CREATE, 0644)
+	} else {
+		out, createErr = os.Create(partName)
+	}
 	if createErr != nil {
 		reportStatus.Job().UpdateStatus(status.Errored, reportStatus, createErr)
 	}

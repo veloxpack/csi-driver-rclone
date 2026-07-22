@@ -36,7 +36,7 @@ type PiecesProgress struct {
 }
 
 // NewPiecesProgress constructs PiecesProgress with a neededShares number of
-// necessary shares per stripe, out of total total shares. PiecesProgress
+// necessary shares per stripe, out of total shares. PiecesProgress
 // doesn't care about how many stripes there are but will keep track of which
 // stripe each share reader is on.
 func NewPiecesProgress(minimum, total int32) *PiecesProgress {

@@ -23,13 +23,13 @@ TEXT ·mulWW(SB), NOSPLIT, $0
 // func addVV(z, x, y []Word) (c Word)
 
 TEXT ·addVV(SB), NOSPLIT, $0
-	MOVD addvectorfacility+0x00(SB), R1
+	MOVD saferith_addvectorfacility+0x00(SB), R1
 	BR   (R1)
 
 TEXT ·addVV_check(SB), NOSPLIT, $0
 	MOVB   ·hasVX(SB), R1
 	CMPBEQ R1, $1, vectorimpl              // vectorfacility = 1, vector supported
-	MOVD   $addvectorfacility+0x00(SB), R1
+	MOVD   $saferith_addvectorfacility+0x00(SB), R1
 	MOVD   $·addVV_novec(SB), R2
 	MOVD   R2, 0(R1)
 
@@ -37,15 +37,15 @@ TEXT ·addVV_check(SB), NOSPLIT, $0
 	BR ·addVV_novec(SB)
 
 vectorimpl:
-	MOVD $addvectorfacility+0x00(SB), R1
+	MOVD $saferith_addvectorfacility+0x00(SB), R1
 	MOVD $·addVV_vec(SB), R2
 	MOVD R2, 0(R1)
 
 	// MOVD	$·addVV_vec(SB), 0(R1)
 	BR ·addVV_vec(SB)
 
-GLOBL addvectorfacility+0x00(SB), NOPTR, $8
-DATA addvectorfacility+0x00(SB)/8, $·addVV_check(SB)
+GLOBL saferith_addvectorfacility+0x00(SB), NOPTR, $8
+DATA saferith_addvectorfacility+0x00(SB)/8, $·addVV_check(SB)
 
 TEXT ·addVV_vec(SB), NOSPLIT, $0
 	MOVD z_len+8(FP), R3
@@ -265,13 +265,13 @@ E1n:
 	RET
 
 TEXT ·subVV(SB), NOSPLIT, $0
-	MOVD subvectorfacility+0x00(SB), R1
+	MOVD saferith_subvectorfacility+0x00(SB), R1
 	BR   (R1)
 
 TEXT ·subVV_check(SB), NOSPLIT, $0
 	MOVB   ·hasVX(SB), R1
 	CMPBEQ R1, $1, vectorimpl              // vectorfacility = 1, vector supported
-	MOVD   $subvectorfacility+0x00(SB), R1
+	MOVD   $saferith_subvectorfacility+0x00(SB), R1
 	MOVD   $·subVV_novec(SB), R2
 	MOVD   R2, 0(R1)
 
@@ -279,15 +279,15 @@ TEXT ·subVV_check(SB), NOSPLIT, $0
 	BR ·subVV_novec(SB)
 
 vectorimpl:
-	MOVD $subvectorfacility+0x00(SB), R1
+	MOVD $saferith_subvectorfacility+0x00(SB), R1
 	MOVD $·subVV_vec(SB), R2
 	MOVD R2, 0(R1)
 
 	// MOVD	$·subVV_vec(SB), 0(R1)
 	BR ·subVV_vec(SB)
 
-GLOBL subvectorfacility+0x00(SB), NOPTR, $8
-DATA subvectorfacility+0x00(SB)/8, $·subVV_check(SB)
+GLOBL saferith_subvectorfacility+0x00(SB), NOPTR, $8
+DATA saferith_subvectorfacility+0x00(SB)/8, $·subVV_check(SB)
 
 // DI = R3, CX = R4, SI = r10, r8 = r8, r9=r9, r10 = r2, r11 = r5, r12 = r6, r13 = r7, r14 = r1 (R0 set to 0) + use R11
 // func subVV(z, x, y []Word) (c Word)

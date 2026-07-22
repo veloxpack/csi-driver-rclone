@@ -158,9 +158,9 @@ func (t *Tracker) addEncryptedETag(ctx context.Context, lastSegment Segment, bat
 		}
 		switch batchItem := batchItem.(type) {
 		case *metaclient.MakeInlineSegmentParams:
-			batchItem.EncryptedTag = encryptedETag
+			batchItem.EncryptedETag = encryptedETag
 		case *metaclient.CommitSegmentParams:
-			batchItem.EncryptedTag = encryptedETag
+			batchItem.EncryptedETag = encryptedETag
 		default:
 			return errs.New("unhandled segment batch item type: %T", batchItem)
 		}

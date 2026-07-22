@@ -24,6 +24,15 @@ func setup(t *testing.T, replaceExistingDraft bool) (context.Context, context.Ca
 
 	{
 		// pre-condition check
+		if config.UseReusableLogin {
+			if config.ReusableCredential.UID == "" || config.ReusableCredential.AccessToken == "" || config.ReusableCredential.RefreshToken == "" || config.ReusableCredential.SaltedKeyPass == "" {
+				t.Skip("Skipping integration test: PROTON_API_BRIDGE_TEST_UID, PROTON_API_BRIDGE_TEST_ACCESS_TOKEN, PROTON_API_BRIDGE_TEST_REFRESH_TOKEN and PROTON_API_BRIDGE_TEST_SALTEDKEYPASS must be set")
+			}
+		} else {
+			if config.FirstLoginCredential.Username == "" || config.FirstLoginCredential.Password == "" {
+				t.Skip("Skipping integration test: PROTON_API_BRIDGE_TEST_USERNAME and PROTON_API_BRIDGE_TEST_PASSWORD must be set")
+			}
+		}
 		if !config.DestructiveIntegrationTest {
 			t.Fatalf("CAUTION: the integration test requires a clean proton drive")
 		}
@@ -168,7 +177,11 @@ func uploadFileByFilepathWithError(t *testing.T, ctx context.Context, protonDriv
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	info, err := os.Stat(filepath)
 	if err != nil {

@@ -325,9 +325,9 @@ func encryptFull(kr *crypto.KeyRing, literal []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func encodeBase64(writer io.Writer, b []byte) error {
+func encodeBase64(writer io.Writer, b []byte) (err error) {
 	encoder := base64.NewEncoder(base64.StdEncoding, writer)
-	defer encoder.Close()
+	defer checkClose(encoder, &err)
 
 	if _, err := encoder.Write(b); err != nil {
 		return err

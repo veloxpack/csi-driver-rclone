@@ -291,7 +291,7 @@ func (c NetShareEnumAllResponseDecoder) IsIncomplete() bool {
 			return true
 		}
 
-		for i := 0; i < count; i++ {
+		for range count {
 			if len(c) < offset+12 {
 				return true
 			}
@@ -310,7 +310,7 @@ func (c NetShareEnumAllResponseDecoder) IsIncomplete() bool {
 			return true
 		}
 
-		for i := 0; i < count; i++ {
+		for range count {
 			{ // name
 				if len(c) < offset+12 {
 					return true
@@ -361,7 +361,7 @@ func (c NetShareEnumAllResponseDecoder) ShareNameList() []string {
 	switch level {
 	case 0:
 		offset := 48 + count*4 // name pointer
-		for i := 0; i < count; i++ {
+		for i := range count {
 			noff := int(le.Uint32(c[offset+4 : offset+8]))    // offset
 			nlen := int(le.Uint32(c[offset+8:offset+12])) * 2 // actual count
 
@@ -371,7 +371,7 @@ func (c NetShareEnumAllResponseDecoder) ShareNameList() []string {
 		}
 	case 1:
 		offset := 48 + count*12
-		for i := 0; i < count; i++ {
+		for i := range count {
 			{ // name
 				noff := int(le.Uint32(c[offset+4 : offset+8]))    // offset
 				nlen := int(le.Uint32(c[offset+8:offset+12])) * 2 // actual count

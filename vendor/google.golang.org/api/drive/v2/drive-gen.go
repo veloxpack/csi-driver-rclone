@@ -1,4 +1,4 @@
-// Copyright 2025 Google LLC.
+// Copyright 2026 Google LLC.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -370,9 +370,13 @@ type About struct {
 	CanCreateDrives bool `json:"canCreateDrives,omitempty"`
 	// CanCreateTeamDrives: Deprecated: Use `canCreateDrives` instead.
 	CanCreateTeamDrives bool `json:"canCreateTeamDrives,omitempty"`
-	// DomainSharingPolicy: The domain sharing policy for the current user.
+	// DomainSharingPolicy: Deprecated: Does not granularly represent allowlisted
+	// domains or Trust Rules. The domain sharing policy for the current user.
 	// Possible values are: * `allowed` * `allowedWithWarning` * `incomingOnly` *
-	// `disallowed`
+	// `disallowed` Note that if the user is enrolled in Trust Rules, `disallowed`
+	// will always be returned. If sharing is restricted to allowlisted domains,
+	// either `incomingOnly` or `allowedWithWarning` will be returned, depending on
+	// whether receiving files from outside the allowlisted domains is permitted.
 	DomainSharingPolicy string `json:"domainSharingPolicy,omitempty"`
 	// DriveThemes: A list of themes that are supported for shared drives.
 	DriveThemes []*AboutDriveThemes `json:"driveThemes,omitempty"`
@@ -6246,7 +6250,8 @@ type DrivesListCall struct {
 // List:  Lists the user's shared drives. This method accepts the `q`
 // parameter, which is a search query combining one or more search terms. For
 // more information, see the Search for shared drives
-// (/workspace/drive/api/guides/search-shareddrives) guide.
+// (https://developers.google.com/workspace/drive/api/guides/search-shareddrives)
+// guide.
 func (r *DrivesService) List() *DrivesListCall {
 	c := &DrivesListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	return c
@@ -6698,16 +6703,20 @@ func (c *FilesCopyCall) TimedTextTrackName(timedTextTrackName string) *FilesCopy
 }
 
 // Visibility sets the optional parameter "visibility": The visibility of the
-// new file. This parameter is only relevant when the source is not a native
-// Google Doc and convert=false.
+// new file. Permissions are still inherited from parent folders. This
+// parameter is only relevant when the source is not a Google Doc file and when
+// `convert=false`.
 //
 // Possible values:
 //
 //	"DEFAULT" (default) - The visibility of the new file is determined by the
 //
-// user's default visibility/sharing policies.
+// user's default visibility or sharing policies.
 //
-//	"PRIVATE" - The new file will be visible to only the owner.
+//	"PRIVATE" - The user's default visibility or sharing policies are ignored,
+//
+// and the new file is only visible to the owner and any users with permissions
+// inherited from the parent folder.
 func (c *FilesCopyCall) Visibility(visibility string) *FilesCopyCall {
 	c.urlParams_.Set("visibility", visibility)
 	return c
@@ -7222,9 +7231,10 @@ type FilesGetCall struct {
 // parameter `alt=media`, then the response includes the file contents in the
 // response body. Downloading content with `alt=media` only works if the file
 // is stored in Drive. To download Google Docs, Sheets, and Slides use
-// `files.export` (/workspace/drive/api/reference/rest/v2/files/export)
+// `files.export`
+// (https://developers.google.com/workspace/drive/api/reference/rest/v2/files/export)
 // instead. For more information, see Download & export files
-// (/workspace/drive/api/guides/manage-downloads).
+// (https://developers.google.com/workspace/drive/api/guides/manage-downloads).
 //
 // - fileId: The ID for the file in question.
 func (r *FilesService) Get(fileId string) *FilesGetCall {
@@ -7421,8 +7431,8 @@ type FilesInsertCall struct {
 // MIME type, rather than the literal `*/*` value. The literal `*/*` is only
 // used to indicate that any valid MIME type can be uploaded. For more
 // information on uploading files, see Upload file data
-// (/workspace/drive/api/guides/manage-uploads). Apps creating shortcuts with
-// `files.insert` must specify the MIME type
+// (https://developers.google.com/workspace/drive/api/guides/manage-uploads).
+// Apps creating shortcuts with `files.insert` must specify the MIME type
 // `application/vnd.google-apps.shortcut`. Apps should specify a file extension
 // in the `title` property when inserting files with the API. For example, an
 // operation to insert a JPEG file should specify something like "title":
@@ -7526,15 +7536,19 @@ func (c *FilesInsertCall) UseContentAsIndexableText(useContentAsIndexableText bo
 }
 
 // Visibility sets the optional parameter "visibility": The visibility of the
-// new file. This parameter is only relevant when convert=false.
+// new file. Permissions are still inherited from parent folders. This
+// parameter is only relevant when `convert=false`.
 //
 // Possible values:
 //
 //	"DEFAULT" (default) - The visibility of the new file is determined by the
 //
-// user's default visibility/sharing policies.
+// user's default visibility or sharing policies.
 //
-//	"PRIVATE" - The new file will be visible to only the owner.
+//	"PRIVATE" - The user's default visibility or sharing policies are ignored,
+//
+// and the new file is only visible to the owner and any users with permissions
+// inherited from the parent folder.
 func (c *FilesInsertCall) Visibility(visibility string) *FilesInsertCall {
 	c.urlParams_.Set("visibility", visibility)
 	return c
@@ -7692,11 +7706,13 @@ type FilesListCall struct {
 }
 
 // List:  Lists the user's files. For more information, see Search for files
-// and folders (/workspace/drive/api/guides/search-files). This method accepts
-// the `q` parameter, which is a search query combining one or more search
-// terms. This method returns *all* files by default, including trashed files.
-// If you don't want trashed files to appear in the list, use the
-// `trashed=false` query parameter to remove trashed files from the results.
+// and folders
+// (https://developers.google.com/workspace/drive/api/guides/search-files).
+// This method accepts the `q` parameter, which is a search query combining one
+// or more search terms. This method returns *all* files by default, including
+// trashed files. If you don't want trashed files to appear in the list, use
+// the `trashed=false` query parameter to remove trashed files from the
+// results.
 func (r *FilesService) List() *FilesListCall {
 	c := &FilesListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	return c
@@ -8868,9 +8884,10 @@ type FilesUpdateCall struct {
 // types:* `*/*` (Specify a valid MIME type, rather than the literal `*/*`
 // value. The literal `*/*` is only used to indicate that any valid MIME type
 // can be uploaded. For more information, see Google Workspace and Google Drive
-// supported MIME types (/workspace/drive/api/guides/mime-types).) For more
-// information on uploading files, see Upload file data
-// (/workspace/drive/api/guides/manage-uploads).
+// supported MIME types
+// (https://developers.google.com/workspace/drive/api/guides/mime-types).) For
+// more information on uploading files, see Upload file data
+// (https://developers.google.com/workspace/drive/api/guides/manage-uploads).
 //
 // - fileId: The ID of the file to update.
 func (r *FilesService) Update(fileId string, file *File) *FilesUpdateCall {
@@ -9810,7 +9827,7 @@ func (r *PermissionsService) Delete(fileId string, permissionId string) *Permiss
 }
 
 // EnforceExpansiveAccess sets the optional parameter "enforceExpansiveAccess":
-// Whether the request should enforce expansive access rules.
+// Deprecated: All requests use the expansive access rules.
 func (c *PermissionsDeleteCall) EnforceExpansiveAccess(enforceExpansiveAccess bool) *PermissionsDeleteCall {
 	c.urlParams_.Set("enforceExpansiveAccess", fmt.Sprint(enforceExpansiveAccess))
 	return c
@@ -10172,7 +10189,7 @@ func (c *PermissionsInsertCall) EmailMessage(emailMessage string) *PermissionsIn
 }
 
 // EnforceExpansiveAccess sets the optional parameter "enforceExpansiveAccess":
-// Whether the request should enforce expansive access rules.
+// Deprecated: All requests use the expansive access rules.
 func (c *PermissionsInsertCall) EnforceExpansiveAccess(enforceExpansiveAccess bool) *PermissionsInsertCall {
 	c.urlParams_.Set("enforceExpansiveAccess", fmt.Sprint(enforceExpansiveAccess))
 	return c
@@ -10515,7 +10532,7 @@ func (r *PermissionsService) Patch(fileId string, permissionId string, permissio
 }
 
 // EnforceExpansiveAccess sets the optional parameter "enforceExpansiveAccess":
-// Whether the request should enforce expansive access rules.
+// Deprecated: All requests use the expansive access rules.
 func (c *PermissionsPatchCall) EnforceExpansiveAccess(enforceExpansiveAccess bool) *PermissionsPatchCall {
 	c.urlParams_.Set("enforceExpansiveAccess", fmt.Sprint(enforceExpansiveAccess))
 	return c
@@ -10669,7 +10686,7 @@ func (r *PermissionsService) Update(fileId string, permissionId string, permissi
 }
 
 // EnforceExpansiveAccess sets the optional parameter "enforceExpansiveAccess":
-// Whether the request should enforce expansive access rules.
+// Deprecated: All requests use the expansive access rules.
 func (c *PermissionsUpdateCall) EnforceExpansiveAccess(enforceExpansiveAccess bool) *PermissionsUpdateCall {
 	c.urlParams_.Set("enforceExpansiveAccess", fmt.Sprint(enforceExpansiveAccess))
 	return c
@@ -12336,7 +12353,13 @@ type RevisionsListCall struct {
 	header_      http.Header
 }
 
-// List: Lists a file's revisions.
+// List: Lists a file's revisions. **Important:** The list of revisions
+// returned by this method might be incomplete for files with a large revision
+// history, including frequently edited Google Docs, Sheets, and Slides. Older
+// revisions might be omitted from the response, meaning the first revision
+// returned may not be the oldest existing revision. The revision history
+// visible in the Workspace editor user interface might be more complete than
+// the list returned by the API.
 //
 // - fileId: The ID of the file.
 func (r *RevisionsService) List(fileId string) *RevisionsListCall {

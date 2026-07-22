@@ -251,7 +251,7 @@ func (access *Access) Share(permission Permission, prefixes ...SharePrefix) (*Ac
 	for _, prefix := range prefixes {
 		internalPrefixes = append(internalPrefixes, grant.SharePrefix(prefix))
 	}
-	rv, err := access.toInternal().Restrict(
+	rv, err := access_toInternal(access).Restrict(
 		grant.Permission{
 			AllowDownload: permission.AllowDownload,
 			AllowUpload:   permission.AllowUpload,
@@ -267,10 +267,18 @@ func (access *Access) Share(permission Permission, prefixes ...SharePrefix) (*Ac
 	if err != nil {
 		return nil, err
 	}
-	return accessFromInternal(rv)
+	return access_fromInternal(rv)
 }
 
-func (access *Access) toInternal() *grant.Access {
+// access_toInternal converts an *Access to a *grant.Access.
+//
+// NB: this is used with linkname in internal/expose.
+// It needs to be updated when this is updated.
+//
+//lint:ignore U1000, used with linkname
+//nolint:unused
+//go:linkname access_toInternal
+func access_toInternal(access *Access) *grant.Access {
 	return &grant.Access{
 		SatelliteAddress: access.satelliteURL.String(),
 		APIKey:           access.apiKey,
@@ -278,7 +286,15 @@ func (access *Access) toInternal() *grant.Access {
 	}
 }
 
-func accessFromInternal(access *grant.Access) (*Access, error) {
+// access_fromInternal converts a *grant.Access to an *Access.
+//
+// NB: this is used with linkname in internal/expose.
+// It needs to be updated when this is updated.
+//
+//lint:ignore U1000, used with linkname
+//nolint:unused
+//go:linkname access_fromInternal
+func access_fromInternal(access *grant.Access) (*Access, error) {
 	satelliteURL, err := parseNodeURL(access.SatelliteAddress)
 	if err != nil {
 		return nil, packageError.Wrap(err)

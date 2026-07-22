@@ -13,6 +13,7 @@ type BundleRecipient struct {
 	Note             string     `json:"note,omitempty" path:"note,omitempty" url:"note,omitempty"`
 	Recipient        string     `json:"recipient,omitempty" path:"recipient,omitempty" url:"recipient,omitempty"`
 	SentAt           *time.Time `json:"sent_at,omitempty" path:"sent_at,omitempty" url:"sent_at,omitempty"`
+	WorkspaceId      int64      `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 	UserId           int64      `json:"user_id,omitempty" path:"user_id,omitempty" url:"user_id,omitempty"`
 	BundleId         int64      `json:"bundle_id,omitempty" path:"bundle_id,omitempty" url:"bundle_id,omitempty"`
 	ShareAfterCreate *bool      `json:"share_after_create,omitempty" path:"share_after_create,omitempty" url:"share_after_create,omitempty"`
@@ -23,10 +24,10 @@ type BundleRecipient struct {
 type BundleRecipientCollection []BundleRecipient
 
 type BundleRecipientListParams struct {
-	UserId   int64                  `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
-	SortBy   map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
-	Filter   BundleRecipient        `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
-	BundleId int64                  `url:"bundle_id" json:"bundle_id" path:"bundle_id"`
+	UserId   int64       `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
+	SortBy   interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Filter   interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
+	BundleId int64       `url:"bundle_id" json:"bundle_id" path:"bundle_id"`
 	ListParams
 }
 

@@ -25,7 +25,7 @@ import (
 type EndPoint = string
 
 // Version is the Cloudinary Go package version.
-const Version = "2.13.0"
+const Version = "2.15.0"
 
 // UserAgent contains information about the SDK user agent. Passed to the Cloudinary servers.
 var UserAgent = fmt.Sprintf("CloudinaryGo/%s (Go %s)", Version, strings.TrimPrefix(runtime.Version(), "go"))
@@ -170,6 +170,26 @@ type Metadata map[string]interface{}
 
 // HookExecution is the result of a hook execution.
 type HookExecution map[string]interface{}
+
+type AdminContextOp string
+
+const (
+	AdminContextOpAdd     AdminContextOp = "+"
+	AdminContextOpRemove  AdminContextOp = "-"
+	AdminContextOpReplace AdminContextOp = "="
+)
+
+type AdminContextType string
+
+const AdminContextTypeArray AdminContextType = "array"
+
+// AdminContext is the Cloudinary admin contextual metadata payload
+type AdminContext struct {
+	Name  string           `json:"name"`
+	Value []string         `json:"value"`
+	Type  AdminContextType `json:"type"`
+	Op    AdminContextOp   `json:"op"`
+}
 
 // AutoTranscription represents the auto transcription params.
 type AutoTranscription struct {

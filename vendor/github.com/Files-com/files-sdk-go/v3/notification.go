@@ -38,12 +38,12 @@ func (n Notification) Identifier() interface{} {
 type NotificationCollection []Notification
 
 type NotificationListParams struct {
-	SortBy           map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
-	Filter           Notification           `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
-	FilterPrefix     map[string]interface{} `url:"filter_prefix,omitempty" json:"filter_prefix,omitempty" path:"filter_prefix"`
-	Path             string                 `url:"path,omitempty" json:"path,omitempty" path:"path"`
-	IncludeAncestors *bool                  `url:"include_ancestors,omitempty" json:"include_ancestors,omitempty" path:"include_ancestors"`
-	GroupId          string                 `url:"group_id,omitempty" json:"group_id,omitempty" path:"group_id"`
+	SortBy           interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Filter           interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
+	FilterPrefix     interface{} `url:"filter_prefix,omitempty" json:"filter_prefix,omitempty" path:"filter_prefix"`
+	Path             string      `url:"path,omitempty" json:"path,omitempty" path:"path"`
+	IncludeAncestors *bool       `url:"include_ancestors,omitempty" json:"include_ancestors,omitempty" path:"include_ancestors"`
+	GroupId          string      `url:"group_id,omitempty" json:"group_id,omitempty" path:"group_id"`
 	ListParams
 }
 

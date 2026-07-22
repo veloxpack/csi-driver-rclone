@@ -20,6 +20,7 @@ type DownloadStatus struct {
 	localPath       string
 	remotePath      string
 	tempPath        string
+	TmpPath         string
 	Sync            bool
 	NoOverwrite     bool
 	endedAt         time.Time

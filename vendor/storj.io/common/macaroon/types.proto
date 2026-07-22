@@ -24,6 +24,8 @@ message Caveat {
   bool disallow_bypass_governance_retention = 11;
   bool disallow_put_bucket_object_lock_configuration = 12;
   bool disallow_get_bucket_object_lock_configuration = 13;
+  bool disallow_put_bucket_notification_configuration = 14;
+  bool disallow_get_bucket_notification_configuration = 15;
 
   // If any entries exist, require all access to happen in at least
   // one of them.

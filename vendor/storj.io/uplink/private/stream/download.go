@@ -7,7 +7,10 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha1"
+	"errors"
 	"io"
+	"net"
+	"syscall"
 
 	"storj.io/common/encryption"
 	"storj.io/common/paths"
@@ -39,6 +42,7 @@ type Download struct {
 
 	decryptionRetries int
 	quiescenceRetries int
+	networkRetries    int
 }
 
 // NewDownload creates new stream download.
@@ -76,9 +80,8 @@ func (download *Download) Read(data []byte) (n int, err error) {
 	}
 
 	if download.reader == nil {
-		err = download.resetReader(false)
-		if err != nil {
-			return 0, err
+		if err := download.resetReader(false); err != nil {
+			return 0, download.problemDetection(err)
 		}
 	}
 
@@ -94,19 +97,20 @@ func (download *Download) Read(data []byte) (n int, err error) {
 
 	if err == nil && n > 0 {
 		download.decryptionRetries = 0
+		download.quiescenceRetries = 0
+		download.networkRetries = 0
+	} else {
+		err = download.problemDetection(err)
+	}
 
-	} else if encryption.ErrDecryptFailed.Has(err) {
-		evs.Event("decryption-failure",
-			eventkit.Int64("decryption-retries", int64(download.decryptionRetries)),
-			eventkit.Int64("quiescence-retries", int64(download.quiescenceRetries)),
-			eventkit.Int64("offset", download.offset),
-			eventkit.Int64("length", download.length),
-			eventkit.Bytes("path-checksum", pathChecksum(download.info.EncPath)),
-			eventkit.String("cipher-suite", download.info.Object.CipherSuite.String()),
-			eventkit.Bytes("stream-id", maybeSatStreamID(download.info.Object.Stream.ID)),
-		)
+	return n, err
+}
 
-		if download.decryptionRetries+download.quiescenceRetries < maxDownloadRetries {
+func (download *Download) problemDetection(err error) error {
+	if encryption.ErrDecryptFailed.Has(err) {
+		download.evenkitEvent("decryption-failure", err)
+
+		if download.shouldRetry() {
 			download.decryptionRetries++
 
 			// force us to get new a new collection of limits.
@@ -115,26 +119,65 @@ func (download *Download) Read(data []byte) (n int, err error) {
 			err = download.resetReader(true)
 		}
 	} else if eestream.ErrInactive.Has(err) {
-		evs.Event("quiescence-failure",
-			eventkit.Int64("decryption-retries", int64(download.decryptionRetries)),
-			eventkit.Int64("quiescence-retries", int64(download.quiescenceRetries)),
-			eventkit.Int64("offset", download.offset),
-			eventkit.Int64("length", download.length),
-			eventkit.Bytes("path-checksum", pathChecksum(download.info.EncPath)),
-			eventkit.String("cipher-suite", download.info.Object.CipherSuite.String()),
-			eventkit.Bytes("stream-id", maybeSatStreamID(download.info.Object.Stream.ID)),
-		)
+		download.evenkitEvent("quiescence-failure", err)
 
-		if download.decryptionRetries+download.quiescenceRetries < maxDownloadRetries {
+		if download.shouldRetry() {
 			download.quiescenceRetries++
 
 			download.info.DownloadedSegments = nil
 
 			err = download.resetReader(false)
 		}
+	} else if isNetworkConnectionError(err) {
+		download.evenkitEvent("network-failure", err)
+
+		if download.shouldRetry() {
+			download.networkRetries++
+
+			download.info.DownloadedSegments = nil
+
+			err = download.resetReader(false)
+		}
+	}
+	return err
+}
+
+func (download *Download) shouldRetry() bool {
+	return download.decryptionRetries+download.quiescenceRetries+download.networkRetries < maxDownloadRetries
+}
+
+func (download *Download) evenkitEvent(name string, err error) {
+	var errorMessage string
+	if err != nil {
+		errorMessage = err.Error()
 	}
 
-	return n, err
+	evs.Event(name,
+		eventkit.Int64("decryption-retries", int64(download.decryptionRetries)),
+		eventkit.Int64("quiescence-retries", int64(download.quiescenceRetries)),
+		eventkit.Int64("network-retries", int64(download.networkRetries)),
+		eventkit.Int64("offset", download.offset),
+		eventkit.Int64("length", download.length),
+		eventkit.Bytes("path-checksum", pathChecksum(download.info.EncPath)),
+		eventkit.String("cipher-suite", download.info.Object.CipherSuite.String()),
+		eventkit.Bytes("stream-id", maybeSatStreamID(download.info.Object.Stream.ID)),
+		eventkit.String("error", errorMessage),
+	)
+}
+
+// isNetworkConnectionError checks if the error indicates a network connection problem
+// that should trigger a retry.
+func isNetworkConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNREFUSED) {
+		return true
+	}
+
+	var netErr net.Error
+	return errors.As(err, &netErr)
 }
 
 // Close closes the stream and releases the underlying resources.
@@ -162,7 +205,10 @@ func (download *Download) resetReader(nextSegmentErrorDetection bool) error {
 
 	obj := download.info.Object
 
-	rr, err := download.streams.Get(download.ctx, obj.Bucket.Name, obj.Path, download.info, nextSegmentErrorDetection)
+	rr, err := download.streams.Get(download.ctx, obj.Bucket.Name, obj.Path, download.info, streams.ErrorDetection{
+		Enabled: nextSegmentErrorDetection,
+		Offset:  download.offset,
+	})
 	if err != nil {
 		return err
 	}

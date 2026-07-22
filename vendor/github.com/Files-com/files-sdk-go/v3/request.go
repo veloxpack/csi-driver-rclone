@@ -24,16 +24,16 @@ func (r Request) Identifier() interface{} {
 type RequestCollection []Request
 
 type RequestListParams struct {
-	SortBy map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
-	Mine   *bool                  `url:"mine,omitempty" json:"mine,omitempty" path:"mine"`
-	Path   string                 `url:"path,omitempty" json:"path,omitempty" path:"path"`
+	SortBy interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Mine   *bool       `url:"mine,omitempty" json:"mine,omitempty" path:"mine"`
+	Path   string      `url:"path,omitempty" json:"path,omitempty" path:"path"`
 	ListParams
 }
 
 type RequestGetFolderParams struct {
-	SortBy map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
-	Mine   *bool                  `url:"mine,omitempty" json:"mine,omitempty" path:"mine"`
-	Path   string                 `url:"-,omitempty" json:"-,omitempty" path:"path"`
+	SortBy interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Mine   *bool       `url:"mine,omitempty" json:"mine,omitempty" path:"mine"`
+	Path   string      `url:"-,omitempty" json:"-,omitempty" path:"path"`
 	ListParams
 }
 

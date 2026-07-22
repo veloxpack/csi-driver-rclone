@@ -11,6 +11,7 @@ import (
 	"storj.io/common/leak"
 	"storj.io/common/memory"
 	"storj.io/common/rpc"
+	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/uplink/private/ecclient"
 	"storj.io/uplink/private/metaclient"
@@ -36,8 +37,8 @@ type Project struct {
 	segmentSize                   int64
 	encryptionParameters          storj.EncryptionParameters
 	concurrentSegmentUploadConfig *testuplink.ConcurrentSegmentUploadsConfig
-
-	tracker leak.Ref
+	satelliteSigner               signing.Signer
+	tracker                       leak.Ref
 }
 
 // OpenProject opens a project with the specific access grant.
@@ -158,11 +159,6 @@ func (project *Project) getStreamsStore(ctx context.Context) (_ *streams.Store, 
 		}
 	}()
 
-	var longTailMargin int
-	if project.concurrentSegmentUploadConfig != nil {
-		longTailMargin = project.concurrentSegmentUploadConfig.LongTailMargin
-	}
-
 	streamStore, err := streams.NewStreamStore(
 		metainfoClient,
 		project.ec,
@@ -170,7 +166,7 @@ func (project *Project) getStreamsStore(ctx context.Context) (_ *streams.Store, 
 		project.access.encAccess.Store,
 		project.encryptionParameters,
 		maxInlineSize,
-		longTailMargin)
+	)
 	if err != nil {
 		return nil, packageError.Wrap(err)
 	}
@@ -192,11 +188,14 @@ func (project *Project) dialMetainfoDB(ctx context.Context) (_ *metaclient.DB, e
 func (project *Project) dialMetainfoClient(ctx context.Context) (_ *metaclient.Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	metainfoClient, err := metaclient.DialNodeURL(ctx,
+	metainfoClient, err := metaclient.DialNodeURLWithOpts(ctx,
 		project.satelliteDialer,
 		project.access.satelliteURL.String(),
 		project.access.apiKey,
-		project.config.UserAgent)
+		metaclient.DialNodeURLOpts{
+			UserAgent:       project.config.UserAgent,
+			SatelliteSigner: project.satelliteSigner,
+		})
 	if err != nil {
 		return nil, packageError.Wrap(err)
 	}
@@ -218,4 +217,10 @@ func getStreamsStoreWithProject(ctx context.Context, project *Project) (_ *strea
 	defer mon.Task()(&ctx)(&err)
 
 	return project.getStreamsStore(ctx)
+}
+
+//nolint:deadcode
+//lint:ignore U1000 used in private/project package
+func setSatelliteSigner(project *Project, signer signing.Signer) {
+	project.satelliteSigner = signer
 }

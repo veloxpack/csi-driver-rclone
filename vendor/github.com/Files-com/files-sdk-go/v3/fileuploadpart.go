@@ -8,22 +8,22 @@ import (
 )
 
 type FileUploadPart struct {
-	Send               map[string]interface{} `json:"send,omitempty" path:"send,omitempty" url:"send,omitempty"`
-	Action             string                 `json:"action,omitempty" path:"action,omitempty" url:"action,omitempty"`
-	AskAboutOverwrites *bool                  `json:"ask_about_overwrites,omitempty" path:"ask_about_overwrites,omitempty" url:"ask_about_overwrites,omitempty"`
-	AvailableParts     int64                  `json:"available_parts,omitempty" path:"available_parts,omitempty" url:"available_parts,omitempty"`
-	Expires            string                 `json:"expires,omitempty" path:"expires,omitempty" url:"expires,omitempty"`
-	Headers            map[string]interface{} `json:"headers,omitempty" path:"headers,omitempty" url:"headers,omitempty"`
-	HttpMethod         string                 `json:"http_method,omitempty" path:"http_method,omitempty" url:"http_method,omitempty"`
-	NextPartsize       int64                  `json:"next_partsize,omitempty" path:"next_partsize,omitempty" url:"next_partsize,omitempty"`
-	ParallelParts      *bool                  `json:"parallel_parts,omitempty" path:"parallel_parts,omitempty" url:"parallel_parts,omitempty"`
-	RetryParts         *bool                  `json:"retry_parts,omitempty" path:"retry_parts,omitempty" url:"retry_parts,omitempty"`
-	Parameters         map[string]interface{} `json:"parameters,omitempty" path:"parameters,omitempty" url:"parameters,omitempty"`
-	PartNumber         int64                  `json:"part_number,omitempty" path:"part_number,omitempty" url:"part_number,omitempty"`
-	Partsize           int64                  `json:"partsize,omitempty" path:"partsize,omitempty" url:"partsize,omitempty"`
-	Path               string                 `json:"path,omitempty" path:"path,omitempty" url:"path,omitempty"`
-	Ref                string                 `json:"ref,omitempty" path:"ref,omitempty" url:"ref,omitempty"`
-	UploadUri          string                 `json:"upload_uri,omitempty" path:"upload_uri,omitempty" url:"upload_uri,omitempty"`
+	Send               interface{} `json:"send,omitempty" path:"send,omitempty" url:"send,omitempty"`
+	Action             string      `json:"action,omitempty" path:"action,omitempty" url:"action,omitempty"`
+	AskAboutOverwrites *bool       `json:"ask_about_overwrites,omitempty" path:"ask_about_overwrites,omitempty" url:"ask_about_overwrites,omitempty"`
+	AvailableParts     int64       `json:"available_parts,omitempty" path:"available_parts,omitempty" url:"available_parts,omitempty"`
+	Expires            string      `json:"expires,omitempty" path:"expires,omitempty" url:"expires,omitempty"`
+	Headers            interface{} `json:"headers,omitempty" path:"headers,omitempty" url:"headers,omitempty"`
+	HttpMethod         string      `json:"http_method,omitempty" path:"http_method,omitempty" url:"http_method,omitempty"`
+	NextPartsize       int64       `json:"next_partsize,omitempty" path:"next_partsize,omitempty" url:"next_partsize,omitempty"`
+	ParallelParts      *bool       `json:"parallel_parts,omitempty" path:"parallel_parts,omitempty" url:"parallel_parts,omitempty"`
+	RetryParts         *bool       `json:"retry_parts,omitempty" path:"retry_parts,omitempty" url:"retry_parts,omitempty"`
+	Parameters         interface{} `json:"parameters,omitempty" path:"parameters,omitempty" url:"parameters,omitempty"`
+	PartNumber         int64       `json:"part_number,omitempty" path:"part_number,omitempty" url:"part_number,omitempty"`
+	Partsize           int64       `json:"partsize,omitempty" path:"partsize,omitempty" url:"partsize,omitempty"`
+	Path               string      `json:"path,omitempty" path:"path,omitempty" url:"path,omitempty"`
+	Ref                string      `json:"ref,omitempty" path:"ref,omitempty" url:"ref,omitempty"`
+	UploadUri          string      `json:"upload_uri,omitempty" path:"upload_uri,omitempty" url:"upload_uri,omitempty"`
 }
 
 func (f FileUploadPart) Identifier() interface{} {

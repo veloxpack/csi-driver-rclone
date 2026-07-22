@@ -19,6 +19,7 @@ type MutableStream struct {
 
 // SerializableMeta is an interface for getting pb.SerializableMeta.
 type SerializableMeta interface {
+	ETag() ([]byte, error)
 	Metadata() ([]byte, error)
 }
 
@@ -56,10 +57,29 @@ func (stream *MutableStream) Metadata() ([]byte, error) {
 	})
 }
 
+// ETag returns the etag for the stream.
+func (stream *MutableStream) ETag() ([]byte, error) {
+	if stream.dynamic {
+		return stream.dynamicMetadata.ETag()
+	}
+	return stream.info.ETag, nil
+}
+
 // UploadOptions contains additional options for uploading.
 type UploadOptions struct {
 	// When Expires is zero, there is no expiration.
 	Expires time.Time
 
 	Retention Retention
+	LegalHold bool
+
+	IfNoneMatch []string
+}
+
+// CommitUploadOptions contains additional options for committing an upload.
+type CommitUploadOptions struct {
+	CustomMetadata map[string]string
+	ETag           []byte
+
+	IfNoneMatch []string
 }

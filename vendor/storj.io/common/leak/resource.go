@@ -79,6 +79,9 @@ func (parent *Resource) Close() error {
 		parent.parent.del(parent)
 	}
 
+	parent.mu.Lock()
+	defer parent.mu.Unlock()
+
 	// the common case
 	if len(parent.open) == 0 {
 		return nil

@@ -34,11 +34,11 @@ func (ki *Krb5Initiator) OID() asn1.ObjectIdentifier {
 // InitSecContext initiates the security context.
 func (ki *Krb5Initiator) InitSecContext() ([]byte, error) {
 	if ki.Client == nil {
-		return nil, errors.New("Kerberos client is not set")
+		return nil, errors.New("Kerberos client is not set") //lint:ignore ST1005 Kerberos is a proper noun
 	}
 
 	if ki.TargetSPN == "" {
-		return nil, errors.New("Kerberos target SPN is not set")
+		return nil, errors.New("Kerberos target SPN is not set") //lint:ignore ST1005 Kerberos is a proper noun
 	}
 
 	tkt, key, err := ki.Client.GetServiceTicket(ki.TargetSPN)

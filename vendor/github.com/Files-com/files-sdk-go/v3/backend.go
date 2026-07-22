@@ -157,7 +157,7 @@ func debugLog(bodyIsJson bool, req *http.Request, config Config, params lib.Valu
 		}
 		clonedReq.Body = io.NopCloser(jsonBody)
 	}
-	command, err := http2curl.GetCurlCommand(clonedReq)
+	command, err := http2curl.GetCurlCommand(sanitizeDebugRequest(clonedReq))
 	if err != nil {
 		panic(err)
 	}

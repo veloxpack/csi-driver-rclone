@@ -4,6 +4,7 @@
 package eestream
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -180,7 +181,7 @@ func (b *StreamingPiece) ReadShare(shareIdx int) (data []byte, release func(), e
 
 	// okay we have the data.
 	if debugEnabled {
-		fmt.Println("buffer reading unit", shareIdx, "from", batchIdx, batchOffset, fmt.Sprintf("%x", data[:3]))
+		fmt.Println("buffer reading unit", shareIdx, "from", batchIdx, batchOffset, hex.EncodeToString(data[:3]))
 	}
 	return data, batch.Release, nil
 }

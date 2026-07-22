@@ -25,6 +25,9 @@ import (
 // thumbnailWG tracks pending thumbnail uploads to ensure they complete before shutdown
 var thumbnailWG sync.WaitGroup
 
+// thumbnailSem limits concurrent thumbnail upload goroutines to prevent unbounded memory usage
+var thumbnailSem = make(chan struct{}, 2)
+
 // WaitForPendingThumbnails blocks until all pending thumbnail uploads complete.
 func WaitForPendingThumbnails() {
 	thumbnailWG.Wait()
@@ -319,6 +322,9 @@ func UploadFileStreamAuto(ctx context.Context, cfg *config.Config, targetFolderU
 // uploadThumbnailAsync handles thumbnail upload in a background goroutine
 func uploadThumbnailAsync(ctx context.Context, cfg *config.Config, fileUUID, fileType string, originalData []byte) {
 	defer thumbnailWG.Done()
+
+	thumbnailSem <- struct{}{}
+	defer func() { <-thumbnailSem }()
 
 	bgCtx := context.Background()
 

@@ -229,7 +229,9 @@ Global configuration is performed by providing a `files_sdk.Config` object to th
 
 #### Base URL
 
-Setting the base URL for the API is required if your site is configured to disable global acceleration.
+Set this to the full https:// URL of your Files.com subdomain (e.g. `https://MY-SUBDOMAIN.files.com`).
+This is not required in most cases, but one benefit of setting it is that it ensures that authentication failures will be logged to your site's API logs.  Without setting this, we won't know which site to associate the authentication failure with, and it won't be logged to your site's API logs.
+This is always required if your site is configured to disable global acceleration.
 This can also be set to use a mock server in development or CI.
 
 ```go title="Example setting"
@@ -313,10 +315,7 @@ single field.
 Each resource supports a unique set of valid filter fields, filter combinations, and combinations of
 filters and sort fields.
 
-For the filter type of ```Filter```, the passed in argument value is an initialized resource struct.
-Struct fields are initialized with values to use in the filter.
-
-For the other filter types, the passed in argument is a Go ```map[string]interface{}``` map that has
+The passed in argument is a Go ```map[string]interface{}``` map that has
 a key of the resource field name to filter on and a passed in value to use in the filter comparison.
 
 #### Filter Types
@@ -342,9 +341,8 @@ import (
 client := user.Client{Config: files_sdk.GlobalConfig}
 
 // non admin users
-filter_value := true;
 parameters := files_sdk.UserListParams{
-    Filter: files_sdk.User{NotSiteAdmin: &filter_value}
+    Filter: map[string]interface{}{"not_site_admin": true}
 }
 userIterator, err := client.List(parameters)
 if err != nil {
@@ -463,10 +461,9 @@ import (
 client := user.Client{Config: files_sdk.GlobalConfig};
 
 // users whose usernames start with 'test' and are not admins
-filterValue := true;
 parameters := files_sdk.UserListParams{
     FilterPrefix: map[string]interface{}{"username": "test"},
-    Filter:       files_sdk.User{NotSiteAdmin: &filterValue},
+    Filter:       map[string]interface{}{"not_site_admin": true},
     SortBy:       map[string]interface{}{"username": "asc"}
 }
 userIterator, err := client.List(parameters)
@@ -610,194 +607,233 @@ if err != nil {
 
 ResponseError errors have additional data returned from the Files.com API to help determine the cause of the error.
 
-| Type | Title |
-| --------- | --------- |
-| `bad-request` | Bad Request |
-| `bad-request/agent-upgrade-required` | Agent Upgrade Required |
-| `bad-request/attachment-too-large` | Attachment Too Large |
-| `bad-request/cannot-download-directory` | Cannot Download Directory |
-| `bad-request/cant-move-with-multiple-locations` | Cant Move With Multiple Locations |
-| `bad-request/datetime-parse` | Datetime Parse |
-| `bad-request/destination-same` | Destination Same |
-| `bad-request/does-not-support-sorting` | Does Not Support Sorting |
-| `bad-request/folder-must-not-be-a-file` | Folder Must Not Be A File |
-| `bad-request/folders-not-allowed` | Folders Not Allowed |
-| `bad-request/invalid-body` | Invalid Body |
-| `bad-request/invalid-cursor` | Invalid Cursor |
-| `bad-request/invalid-cursor-type-for-sort` | Invalid Cursor Type For Sort |
-| `bad-request/invalid-etags` | Invalid Etags |
-| `bad-request/invalid-filter-alias-combination` | Invalid Filter Alias Combination |
-| `bad-request/invalid-filter-field` | Invalid Filter Field |
-| `bad-request/invalid-filter-param` | Invalid Filter Param |
-| `bad-request/invalid-filter-param-format` | Invalid Filter Param Format |
-| `bad-request/invalid-filter-param-value` | Invalid Filter Param Value |
-| `bad-request/invalid-input-encoding` | Invalid Input Encoding |
-| `bad-request/invalid-interface` | Invalid Interface |
-| `bad-request/invalid-oauth-provider` | Invalid Oauth Provider |
-| `bad-request/invalid-path` | Invalid Path |
-| `bad-request/invalid-return-to-url` | Invalid Return To Url |
-| `bad-request/invalid-sort-field` | Invalid Sort Field |
-| `bad-request/invalid-sort-filter-combination` | Invalid Sort Filter Combination |
-| `bad-request/invalid-upload-offset` | Invalid Upload Offset |
-| `bad-request/invalid-upload-part-gap` | Invalid Upload Part Gap |
-| `bad-request/invalid-upload-part-size` | Invalid Upload Part Size |
-| `bad-request/method-not-allowed` | Method Not Allowed |
-| `bad-request/multiple-sort-params-not-allowed` | Multiple Sort Params Not Allowed |
-| `bad-request/no-valid-input-params` | No Valid Input Params |
-| `bad-request/part-number-too-large` | Part Number Too Large |
-| `bad-request/path-cannot-have-trailing-whitespace` | Path Cannot Have Trailing Whitespace |
-| `bad-request/reauthentication-needed-fields` | Reauthentication Needed Fields |
-| `bad-request/request-params-contain-invalid-character` | Request Params Contain Invalid Character |
-| `bad-request/request-params-invalid` | Request Params Invalid |
-| `bad-request/request-params-required` | Request Params Required |
-| `bad-request/search-all-on-child-path` | Search All On Child Path |
-| `bad-request/unrecognized-sort-index` | Unrecognized Sort Index |
-| `bad-request/unsupported-currency` | Unsupported Currency |
-| `bad-request/unsupported-http-response-format` | Unsupported Http Response Format |
-| `bad-request/unsupported-media-type` | Unsupported Media Type |
-| `bad-request/user-id-invalid` | User Id Invalid |
-| `bad-request/user-id-on-user-endpoint` | User Id On User Endpoint |
-| `bad-request/user-required` | User Required |
-| `not-authenticated/additional-authentication-required` | Additional Authentication Required |
-| `not-authenticated/api-key-sessions-not-supported` | Api Key Sessions Not Supported |
-| `not-authenticated/authentication-required` | Authentication Required |
-| `not-authenticated/bundle-registration-code-failed` | Bundle Registration Code Failed |
-| `not-authenticated/files-agent-token-failed` | Files Agent Token Failed |
-| `not-authenticated/inbox-registration-code-failed` | Inbox Registration Code Failed |
-| `not-authenticated/invalid-credentials` | Invalid Credentials |
-| `not-authenticated/invalid-oauth` | Invalid Oauth |
-| `not-authenticated/invalid-or-expired-code` | Invalid Or Expired Code |
-| `not-authenticated/invalid-session` | Invalid Session |
-| `not-authenticated/invalid-username-or-password` | Invalid Username Or Password |
-| `not-authenticated/locked-out` | Locked Out |
-| `not-authenticated/lockout-region-mismatch` | Lockout Region Mismatch |
-| `not-authenticated/one-time-password-incorrect` | One Time Password Incorrect |
-| `not-authenticated/two-factor-authentication-error` | Two Factor Authentication Error |
-| `not-authenticated/two-factor-authentication-setup-expired` | Two Factor Authentication Setup Expired |
-| `not-authorized/api-key-is-disabled` | Api Key Is Disabled |
-| `not-authorized/api-key-is-path-restricted` | Api Key Is Path Restricted |
-| `not-authorized/api-key-only-for-desktop-app` | Api Key Only For Desktop App |
-| `not-authorized/api-key-only-for-mobile-app` | Api Key Only For Mobile App |
-| `not-authorized/api-key-only-for-office-integration` | Api Key Only For Office Integration |
-| `not-authorized/billing-or-site-admin-permission-required` | Billing Or Site Admin Permission Required |
-| `not-authorized/billing-permission-required` | Billing Permission Required |
-| `not-authorized/bundle-maximum-uses-reached` | Bundle Maximum Uses Reached |
-| `not-authorized/bundle-permission-required` | Bundle Permission Required |
-| `not-authorized/cannot-login-while-using-key` | Cannot Login While Using Key |
-| `not-authorized/cant-act-for-other-user` | Cant Act For Other User |
-| `not-authorized/contact-admin-for-password-change-help` | Contact Admin For Password Change Help |
-| `not-authorized/files-agent-failed-authorization` | Files Agent Failed Authorization |
-| `not-authorized/folder-admin-or-billing-permission-required` | Folder Admin Or Billing Permission Required |
-| `not-authorized/folder-admin-permission-required` | Folder Admin Permission Required |
-| `not-authorized/full-permission-required` | Full Permission Required |
-| `not-authorized/history-permission-required` | History Permission Required |
-| `not-authorized/insufficient-permission-for-params` | Insufficient Permission For Params |
-| `not-authorized/insufficient-permission-for-site` | Insufficient Permission For Site |
-| `not-authorized/mover-access-denied` | Mover Access Denied |
-| `not-authorized/mover-package-required` | Mover Package Required |
-| `not-authorized/must-authenticate-with-api-key` | Must Authenticate With Api Key |
-| `not-authorized/need-admin-permission-for-inbox` | Need Admin Permission For Inbox |
-| `not-authorized/non-admins-must-query-by-folder-or-path` | Non Admins Must Query By Folder Or Path |
-| `not-authorized/not-allowed-to-create-bundle` | Not Allowed To Create Bundle |
-| `not-authorized/not-enqueuable-sync` | Not Enqueuable Sync |
-| `not-authorized/password-change-not-required` | Password Change Not Required |
-| `not-authorized/password-change-required` | Password Change Required |
-| `not-authorized/payment-method-error` | Payment Method Error |
-| `not-authorized/read-only-session` | Read Only Session |
-| `not-authorized/read-permission-required` | Read Permission Required |
-| `not-authorized/reauthentication-failed` | Reauthentication Failed |
-| `not-authorized/reauthentication-failed-final` | Reauthentication Failed Final |
-| `not-authorized/reauthentication-needed-action` | Reauthentication Needed Action |
-| `not-authorized/recaptcha-failed` | Recaptcha Failed |
-| `not-authorized/self-managed-required` | Self Managed Required |
-| `not-authorized/site-admin-required` | Site Admin Required |
-| `not-authorized/site-files-are-immutable` | Site Files Are Immutable |
-| `not-authorized/two-factor-authentication-required` | Two Factor Authentication Required |
-| `not-authorized/user-id-without-site-admin` | User Id Without Site Admin |
-| `not-authorized/write-and-bundle-permission-required` | Write And Bundle Permission Required |
-| `not-authorized/write-permission-required` | Write Permission Required |
-| `not-found` | Not Found |
-| `not-found/api-key-not-found` | Api Key Not Found |
-| `not-found/bundle-path-not-found` | Bundle Path Not Found |
-| `not-found/bundle-registration-not-found` | Bundle Registration Not Found |
-| `not-found/code-not-found` | Code Not Found |
-| `not-found/file-not-found` | File Not Found |
-| `not-found/file-upload-not-found` | File Upload Not Found |
-| `not-found/group-not-found` | Group Not Found |
-| `not-found/inbox-not-found` | Inbox Not Found |
-| `not-found/nested-not-found` | Nested Not Found |
-| `not-found/plan-not-found` | Plan Not Found |
-| `not-found/site-not-found` | Site Not Found |
-| `not-found/user-not-found` | User Not Found |
-| `processing-failure` | Processing Failure |
-| `processing-failure/agent-unavailable` | Agent Unavailable |
-| `processing-failure/already-completed` | Already Completed |
-| `processing-failure/automation-cannot-be-run-manually` | Automation Cannot Be Run Manually |
-| `processing-failure/behavior-not-allowed-on-remote-server` | Behavior Not Allowed On Remote Server |
-| `processing-failure/bundle-only-allows-previews` | Bundle Only Allows Previews |
-| `processing-failure/bundle-operation-requires-subfolder` | Bundle Operation Requires Subfolder |
-| `processing-failure/could-not-create-parent` | Could Not Create Parent |
-| `processing-failure/destination-exists` | Destination Exists |
-| `processing-failure/destination-folder-limited` | Destination Folder Limited |
-| `processing-failure/destination-parent-conflict` | Destination Parent Conflict |
-| `processing-failure/destination-parent-does-not-exist` | Destination Parent Does Not Exist |
-| `processing-failure/exceeded-runtime-limit` | Exceeded Runtime Limit |
-| `processing-failure/expired-private-key` | Expired Private Key |
-| `processing-failure/expired-public-key` | Expired Public Key |
-| `processing-failure/export-failure` | Export Failure |
-| `processing-failure/export-not-ready` | Export Not Ready |
-| `processing-failure/failed-to-change-password` | Failed To Change Password |
-| `processing-failure/file-locked` | File Locked |
-| `processing-failure/file-not-uploaded` | File Not Uploaded |
-| `processing-failure/file-pending-processing` | File Pending Processing |
-| `processing-failure/file-processing-error` | File Processing Error |
-| `processing-failure/file-too-big-to-decrypt` | File Too Big To Decrypt |
-| `processing-failure/file-too-big-to-encrypt` | File Too Big To Encrypt |
-| `processing-failure/file-uploaded-to-wrong-region` | File Uploaded To Wrong Region |
-| `processing-failure/filename-too-long` | Filename Too Long |
-| `processing-failure/folder-locked` | Folder Locked |
-| `processing-failure/folder-not-empty` | Folder Not Empty |
-| `processing-failure/history-unavailable` | History Unavailable |
-| `processing-failure/invalid-bundle-code` | Invalid Bundle Code |
-| `processing-failure/invalid-file-type` | Invalid File Type |
-| `processing-failure/invalid-filename` | Invalid Filename |
-| `processing-failure/invalid-priority-color` | Invalid Priority Color |
-| `processing-failure/invalid-range` | Invalid Range |
-| `processing-failure/invalid-site` | Invalid Site |
-| `processing-failure/metadata-not-supported-on-remotes` | Metadata Not Supported On Remotes |
-| `processing-failure/model-save-error` | Model Save Error |
-| `processing-failure/multiple-processing-errors` | Multiple Processing Errors |
-| `processing-failure/path-too-long` | Path Too Long |
-| `processing-failure/recipient-already-shared` | Recipient Already Shared |
-| `processing-failure/remote-server-error` | Remote Server Error |
-| `processing-failure/resource-belongs-to-parent-site` | Resource Belongs To Parent Site |
-| `processing-failure/resource-locked` | Resource Locked |
-| `processing-failure/subfolder-locked` | Subfolder Locked |
-| `processing-failure/sync-in-progress` | Sync In Progress |
-| `processing-failure/two-factor-authentication-code-already-sent` | Two Factor Authentication Code Already Sent |
-| `processing-failure/two-factor-authentication-country-blacklisted` | Two Factor Authentication Country Blacklisted |
-| `processing-failure/two-factor-authentication-general-error` | Two Factor Authentication General Error |
-| `processing-failure/two-factor-authentication-method-unsupported-error` | Two Factor Authentication Method Unsupported Error |
-| `processing-failure/two-factor-authentication-unsubscribed-recipient` | Two Factor Authentication Unsubscribed Recipient |
-| `processing-failure/updates-not-allowed-for-remotes` | Updates Not Allowed For Remotes |
-| `rate-limited/duplicate-share-recipient` | Duplicate Share Recipient |
-| `rate-limited/reauthentication-rate-limited` | Reauthentication Rate Limited |
-| `rate-limited/too-many-concurrent-logins` | Too Many Concurrent Logins |
-| `rate-limited/too-many-concurrent-requests` | Too Many Concurrent Requests |
-| `rate-limited/too-many-login-attempts` | Too Many Login Attempts |
-| `rate-limited/too-many-requests` | Too Many Requests |
-| `rate-limited/too-many-shares` | Too Many Shares |
-| `service-unavailable/automations-unavailable` | Automations Unavailable |
-| `service-unavailable/migration-in-progress` | Migration In Progress |
-| `service-unavailable/site-disabled` | Site Disabled |
-| `service-unavailable/uploads-unavailable` | Uploads Unavailable |
-| `site-configuration/account-already-exists` | Account Already Exists |
-| `site-configuration/account-overdue` | Account Overdue |
-| `site-configuration/no-account-for-site` | No Account For Site |
-| `site-configuration/site-was-removed` | Site Was Removed |
-| `site-configuration/trial-expired` | Trial Expired |
-| `site-configuration/trial-locked` | Trial Locked |
-| `site-configuration/user-requests-enabled-required` | User Requests Enabled Required |
+```go title="Example ResponseError Type Matching"
+if err != nil {
+    if errors.Is(err, files_sdk.ErrInvalidUsernameOrPassword) {
+        fmt.Println("Bad username/password")
+    } else if files_sdk.IsNotFound(err) {
+        fmt.Println("Resource not found")
+    }
+
+    var responseErr files_sdk.ResponseError
+    if errors.As(err, &responseErr) {
+        fmt.Println(responseErr.Title)
+    }
+}
+```
+
+| Type | Go Error | Title |
+| --------- | --------- | --------- |
+| `bad-request` | `ErrBadRequest` | Bad Request |
+| `bad-request/agent-upgrade-required` | `ErrAgentUpgradeRequired` | Agent Upgrade Required |
+| `bad-request/attachment-too-large` | `ErrAttachmentTooLarge` | Attachment Too Large |
+| `bad-request/cannot-download-directory` | `ErrCannotDownloadDirectory` | Cannot Download Directory |
+| `bad-request/cant-move-with-multiple-locations` | `ErrCantMoveWithMultipleLocations` | Cant Move With Multiple Locations |
+| `bad-request/datetime-parse` | `ErrDatetimeParse` | Datetime Parse |
+| `bad-request/destination-same` | `ErrDestinationSame` | Destination Same |
+| `bad-request/destination-site-mismatch` | `ErrDestinationSiteMismatch` | Destination Site Mismatch |
+| `bad-request/does-not-support-sorting` | `ErrDoesNotSupportSorting` | Does Not Support Sorting |
+| `bad-request/folder-must-not-be-a-file` | `ErrFolderMustNotBeAFile` | Folder Must Not Be A File |
+| `bad-request/folders-not-allowed` | `ErrFoldersNotAllowed` | Folders Not Allowed |
+| `bad-request/internal-general-error` | `ErrInternalGeneralError` | Internal General Error |
+| `bad-request/invalid-body` | `ErrInvalidBody` | Invalid Body |
+| `bad-request/invalid-cursor` | `ErrInvalidCursor` | Invalid Cursor |
+| `bad-request/invalid-cursor-type-for-sort` | `ErrInvalidCursorTypeForSort` | Invalid Cursor Type For Sort |
+| `bad-request/invalid-etags` | `ErrInvalidEtags` | Invalid Etags |
+| `bad-request/invalid-filter-alias-combination` | `ErrInvalidFilterAliasCombination` | Invalid Filter Alias Combination |
+| `bad-request/invalid-filter-field` | `ErrInvalidFilterField` | Invalid Filter Field |
+| `bad-request/invalid-filter-param` | `ErrInvalidFilterParam` | Invalid Filter Param |
+| `bad-request/invalid-filter-param-format` | `ErrInvalidFilterParamFormat` | Invalid Filter Param Format |
+| `bad-request/invalid-filter-param-value` | `ErrInvalidFilterParamValue` | Invalid Filter Param Value |
+| `bad-request/invalid-input-encoding` | `ErrInvalidInputEncoding` | Invalid Input Encoding |
+| `bad-request/invalid-interface` | `ErrInvalidInterface` | Invalid Interface |
+| `bad-request/invalid-oauth-provider` | `ErrInvalidOauthProvider` | Invalid Oauth Provider |
+| `bad-request/invalid-path` | `ErrInvalidPath` | Invalid Path |
+| `bad-request/invalid-return-to-url` | `ErrInvalidReturnToUrl` | Invalid Return To Url |
+| `bad-request/invalid-sort-field` | `ErrInvalidSortField` | Invalid Sort Field |
+| `bad-request/invalid-sort-filter-combination` | `ErrInvalidSortFilterCombination` | Invalid Sort Filter Combination |
+| `bad-request/invalid-upload-offset` | `ErrInvalidUploadOffset` | Invalid Upload Offset |
+| `bad-request/invalid-upload-part-gap` | `ErrInvalidUploadPartGap` | Invalid Upload Part Gap |
+| `bad-request/invalid-upload-part-size` | `ErrInvalidUploadPartSize` | Invalid Upload Part Size |
+| `bad-request/invalid-workspace-id-header` | `ErrInvalidWorkspaceIdHeader` | Invalid Workspace Id Header |
+| `bad-request/method-not-allowed` | `ErrMethodNotAllowed` | Method Not Allowed |
+| `bad-request/multiple-sort-params-not-allowed` | `ErrMultipleSortParamsNotAllowed` | Multiple Sort Params Not Allowed |
+| `bad-request/no-valid-input-params` | `ErrNoValidInputParams` | No Valid Input Params |
+| `bad-request/part-number-too-large` | `ErrPartNumberTooLarge` | Part Number Too Large |
+| `bad-request/path-cannot-have-trailing-whitespace` | `ErrPathCannotHaveTrailingWhitespace` | Path Cannot Have Trailing Whitespace |
+| `bad-request/reauthentication-needed-fields` | `ErrReauthenticationNeededFields` | Reauthentication Needed Fields |
+| `bad-request/request-params-contain-invalid-character` | `ErrRequestParamsContainInvalidCharacter` | Request Params Contain Invalid Character |
+| `bad-request/request-params-invalid` | `ErrRequestParamsInvalid` | Request Params Invalid |
+| `bad-request/request-params-required` | `ErrRequestParamsRequired` | Request Params Required |
+| `bad-request/search-all-on-child-path` | `ErrSearchAllOnChildPath` | Search All On Child Path |
+| `bad-request/unrecognized-sort-index` | `ErrUnrecognizedSortIndex` | Unrecognized Sort Index |
+| `bad-request/unsupported-currency` | `ErrUnsupportedCurrency` | Unsupported Currency |
+| `bad-request/unsupported-http-response-format` | `ErrUnsupportedHttpResponseFormat` | Unsupported Http Response Format |
+| `bad-request/unsupported-media-type` | `ErrUnsupportedMediaType` | Unsupported Media Type |
+| `bad-request/user-id-invalid` | `ErrUserIdInvalid` | User Id Invalid |
+| `bad-request/user-id-on-user-endpoint` | `ErrUserIdOnUserEndpoint` | User Id On User Endpoint |
+| `bad-request/user-required` | `ErrUserRequired` | User Required |
+| `not-authenticated/additional-authentication-required` | `ErrAdditionalAuthenticationRequired` | Additional Authentication Required |
+| `not-authenticated/api-key-sessions-not-supported` | `ErrApiKeySessionsNotSupported` | Api Key Sessions Not Supported |
+| `not-authenticated/authentication-required` | `ErrAuthenticationRequired` | Authentication Required |
+| `not-authenticated/bundle-registration-code-failed` | `ErrBundleRegistrationCodeFailed` | Bundle Registration Code Failed |
+| `not-authenticated/files-agent-token-failed` | `ErrFilesAgentTokenFailed` | Files Agent Token Failed |
+| `not-authenticated/inbox-registration-code-failed` | `ErrInboxRegistrationCodeFailed` | Inbox Registration Code Failed |
+| `not-authenticated/invalid-credentials` | `ErrInvalidCredentials` | Invalid Credentials |
+| `not-authenticated/invalid-oauth` | `ErrInvalidOauth` | Invalid Oauth |
+| `not-authenticated/invalid-or-expired-code` | `ErrInvalidOrExpiredCode` | Invalid Or Expired Code |
+| `not-authenticated/invalid-session` | `ErrInvalidSession` | Invalid Session |
+| `not-authenticated/invalid-username-or-password` | `ErrInvalidUsernameOrPassword` | Invalid Username Or Password |
+| `not-authenticated/locked-out` | `ErrLockedOut` | Locked Out |
+| `not-authenticated/lockout-region-mismatch` | `ErrLockoutRegionMismatch` | Lockout Region Mismatch |
+| `not-authenticated/one-time-password-incorrect` | `ErrOneTimePasswordIncorrect` | One Time Password Incorrect |
+| `not-authenticated/two-factor-authentication-error` | `ErrTwoFactorAuthenticationError` | Two Factor Authentication Error |
+| `not-authenticated/two-factor-authentication-setup-expired` | `ErrTwoFactorAuthenticationSetupExpired` | Two Factor Authentication Setup Expired |
+| `not-authorized/api-key-is-disabled` | `ErrApiKeyIsDisabled` | Api Key Is Disabled |
+| `not-authorized/api-key-is-path-restricted` | `ErrApiKeyIsPathRestricted` | Api Key Is Path Restricted |
+| `not-authorized/api-key-only-for-desktop-app` | `ErrApiKeyOnlyForDesktopApp` | Api Key Only For Desktop App |
+| `not-authorized/api-key-only-for-mobile-app` | `ErrApiKeyOnlyForMobileApp` | Api Key Only For Mobile App |
+| `not-authorized/api-key-only-for-office-integration` | `ErrApiKeyOnlyForOfficeIntegration` | Api Key Only For Office Integration |
+| `not-authorized/billing-or-site-admin-permission-required` | `ErrBillingOrSiteAdminPermissionRequired` | Billing Or Site Admin Permission Required |
+| `not-authorized/billing-permission-required` | `ErrBillingPermissionRequired` | Billing Permission Required |
+| `not-authorized/bundle-maximum-uses-reached` | `ErrBundleMaximumUsesReached` | Bundle Maximum Uses Reached |
+| `not-authorized/bundle-permission-required` | `ErrBundlePermissionRequired` | Bundle Permission Required |
+| `not-authorized/cannot-login-while-using-key` | `ErrCannotLoginWhileUsingKey` | Cannot Login While Using Key |
+| `not-authorized/cant-act-for-other-user` | `ErrCantActForOtherUser` | Cant Act For Other User |
+| `not-authorized/contact-admin-for-password-change-help` | `ErrContactAdminForPasswordChangeHelp` | Contact Admin For Password Change Help |
+| `not-authorized/files-agent-failed-authorization` | `ErrFilesAgentFailedAuthorization` | Files Agent Failed Authorization |
+| `not-authorized/folder-admin-or-billing-permission-required` | `ErrFolderAdminOrBillingPermissionRequired` | Folder Admin Or Billing Permission Required |
+| `not-authorized/folder-admin-permission-required` | `ErrFolderAdminPermissionRequired` | Folder Admin Permission Required |
+| `not-authorized/full-permission-required` | `ErrFullPermissionRequired` | Full Permission Required |
+| `not-authorized/history-permission-required` | `ErrHistoryPermissionRequired` | History Permission Required |
+| `not-authorized/insufficient-permission-for-params` | `ErrInsufficientPermissionForParams` | Insufficient Permission For Params |
+| `not-authorized/insufficient-permission-for-site` | `ErrInsufficientPermissionForSite` | Insufficient Permission For Site |
+| `not-authorized/mover-access-denied` | `ErrMoverAccessDenied` | Mover Access Denied |
+| `not-authorized/mover-package-required` | `ErrMoverPackageRequired` | Mover Package Required |
+| `not-authorized/must-authenticate-with-api-key` | `ErrMustAuthenticateWithApiKey` | Must Authenticate With Api Key |
+| `not-authorized/need-admin-permission-for-inbox` | `ErrNeedAdminPermissionForInbox` | Need Admin Permission For Inbox |
+| `not-authorized/non-admins-must-query-by-folder-or-path` | `ErrNonAdminsMustQueryByFolderOrPath` | Non Admins Must Query By Folder Or Path |
+| `not-authorized/not-allowed-to-create-bundle` | `ErrNotAllowedToCreateBundle` | Not Allowed To Create Bundle |
+| `not-authorized/not-enqueuable-sync` | `ErrNotEnqueuableSync` | Not Enqueuable Sync |
+| `not-authorized/password-change-not-required` | `ErrPasswordChangeNotRequired` | Password Change Not Required |
+| `not-authorized/password-change-required` | `ErrPasswordChangeRequired` | Password Change Required |
+| `not-authorized/payment-method-error` | `ErrPaymentMethodError` | Payment Method Error |
+| `not-authorized/preview-only-permission-cannot-download` | `ErrPreviewOnlyPermissionCannotDownload` | Preview Only Permission Cannot Download |
+| `not-authorized/read-only-session` | `ErrReadOnlySession` | Read Only Session |
+| `not-authorized/read-permission-required` | `ErrReadPermissionRequired` | Read Permission Required |
+| `not-authorized/reauthentication-failed` | `ErrReauthenticationFailed` | Reauthentication Failed |
+| `not-authorized/reauthentication-failed-final` | `ErrReauthenticationFailedFinal` | Reauthentication Failed Final |
+| `not-authorized/reauthentication-needed-action` | `ErrReauthenticationNeededAction` | Reauthentication Needed Action |
+| `not-authorized/recaptcha-failed` | `ErrRecaptchaFailed` | Recaptcha Failed |
+| `not-authorized/self-managed-required` | `ErrSelfManagedRequired` | Self Managed Required |
+| `not-authorized/site-admin-required` | `ErrSiteAdminRequired` | Site Admin Required |
+| `not-authorized/site-files-are-immutable` | `ErrSiteFilesAreImmutable` | Site Files Are Immutable |
+| `not-authorized/two-factor-authentication-required` | `ErrTwoFactorAuthenticationRequired` | Two Factor Authentication Required |
+| `not-authorized/user-id-without-site-admin` | `ErrUserIdWithoutSiteAdmin` | User Id Without Site Admin |
+| `not-authorized/write-and-bundle-permission-required` | `ErrWriteAndBundlePermissionRequired` | Write And Bundle Permission Required |
+| `not-authorized/write-permission-required` | `ErrWritePermissionRequired` | Write Permission Required |
+| `not-found` | `ErrNotFound` | Not Found |
+| `not-found/api-key-not-found` | `ErrApiKeyNotFound` | Api Key Not Found |
+| `not-found/bundle-path-not-found` | `ErrBundlePathNotFound` | Bundle Path Not Found |
+| `not-found/bundle-registration-not-found` | `ErrBundleRegistrationNotFound` | Bundle Registration Not Found |
+| `not-found/code-not-found` | `ErrCodeNotFound` | Code Not Found |
+| `not-found/file-not-found` | `ErrFileNotFound` | File Not Found |
+| `not-found/file-upload-not-found` | `ErrFileUploadNotFound` | File Upload Not Found |
+| `not-found/group-not-found` | `ErrGroupNotFound` | Group Not Found |
+| `not-found/inbox-not-found` | `ErrInboxNotFound` | Inbox Not Found |
+| `not-found/nested-not-found` | `ErrNestedNotFound` | Nested Not Found |
+| `not-found/plan-not-found` | `ErrPlanNotFound` | Plan Not Found |
+| `not-found/site-not-found` | `ErrSiteNotFound` | Site Not Found |
+| `not-found/user-not-found` | `ErrUserNotFound` | User Not Found |
+| `processing-failure` | `ErrProcessingFailure` | Processing Failure |
+| `processing-failure/agent-unavailable` | `ErrAgentUnavailable` | Agent Unavailable |
+| `processing-failure/already-completed` | `ErrAlreadyCompleted` | Already Completed |
+| `processing-failure/automation-cannot-be-run-manually` | `ErrAutomationCannotBeRunManually` | Automation Cannot Be Run Manually |
+| `processing-failure/behavior-not-allowed-on-remote-server` | `ErrBehaviorNotAllowedOnRemoteServer` | Behavior Not Allowed On Remote Server |
+| `processing-failure/buffered-upload-disabled-for-this-destination` | `ErrBufferedUploadDisabledForThisDestination` | Buffered Upload Disabled For This Destination |
+| `processing-failure/bundle-only-allows-previews` | `ErrBundleOnlyAllowsPreviews` | Bundle Only Allows Previews |
+| `processing-failure/bundle-operation-requires-subfolder` | `ErrBundleOperationRequiresSubfolder` | Bundle Operation Requires Subfolder |
+| `processing-failure/configuration-locked-path` | `ErrConfigurationLockedPath` | Configuration Locked Path |
+| `processing-failure/could-not-create-parent` | `ErrCouldNotCreateParent` | Could Not Create Parent |
+| `processing-failure/destination-exists` | `ErrDestinationExists` | Destination Exists |
+| `processing-failure/destination-folder-limited` | `ErrDestinationFolderLimited` | Destination Folder Limited |
+| `processing-failure/destination-parent-conflict` | `ErrDestinationParentConflict` | Destination Parent Conflict |
+| `processing-failure/destination-parent-does-not-exist` | `ErrDestinationParentDoesNotExist` | Destination Parent Does Not Exist |
+| `processing-failure/exceeded-runtime-limit` | `ErrExceededRuntimeLimit` | Exceeded Runtime Limit |
+| `processing-failure/expectation-already-has-open-window` | `ErrExpectationAlreadyHasOpenWindow` | Expectation Already Has Open Window |
+| `processing-failure/expectation-not-manual-trigger` | `ErrExpectationNotManualTrigger` | Expectation Not Manual Trigger |
+| `processing-failure/expired-private-key` | `ErrExpiredPrivateKey` | Expired Private Key |
+| `processing-failure/expired-public-key` | `ErrExpiredPublicKey` | Expired Public Key |
+| `processing-failure/export-failure` | `ErrExportFailure` | Export Failure |
+| `processing-failure/export-not-ready` | `ErrExportNotReady` | Export Not Ready |
+| `processing-failure/failed-to-change-password` | `ErrFailedToChangePassword` | Failed To Change Password |
+| `processing-failure/file-locked` | `ErrFileLocked` | File Locked |
+| `processing-failure/file-not-uploaded` | `ErrFileNotUploaded` | File Not Uploaded |
+| `processing-failure/file-pending-processing` | `ErrFilePendingProcessing` | File Pending Processing |
+| `processing-failure/file-processing-error` | `ErrFileProcessingError` | File Processing Error |
+| `processing-failure/file-too-big-to-decrypt` | `ErrFileTooBigToDecrypt` | File Too Big To Decrypt |
+| `processing-failure/file-too-big-to-encrypt` | `ErrFileTooBigToEncrypt` | File Too Big To Encrypt |
+| `processing-failure/file-uploaded-to-wrong-region` | `ErrFileUploadedToWrongRegion` | File Uploaded To Wrong Region |
+| `processing-failure/filename-too-long` | `ErrFilenameTooLong` | Filename Too Long |
+| `processing-failure/folder-locked` | `ErrFolderLocked` | Folder Locked |
+| `processing-failure/folder-not-empty` | `ErrFolderNotEmpty` | Folder Not Empty |
+| `processing-failure/history-unavailable` | `ErrHistoryUnavailable` | History Unavailable |
+| `processing-failure/invalid-bundle-code` | `ErrInvalidBundleCode` | Invalid Bundle Code |
+| `processing-failure/invalid-file-type` | `ErrInvalidFileType` | Invalid File Type |
+| `processing-failure/invalid-filename` | `ErrInvalidFilename` | Invalid Filename |
+| `processing-failure/invalid-priority-color` | `ErrInvalidPriorityColor` | Invalid Priority Color |
+| `processing-failure/invalid-range` | `ErrInvalidRange` | Invalid Range |
+| `processing-failure/invalid-site` | `ErrInvalidSite` | Invalid Site |
+| `processing-failure/invalid-zip-file` | `ErrInvalidZipFile` | Invalid Zip File |
+| `processing-failure/metadata-not-supported-on-remotes` | `ErrMetadataNotSupportedOnRemotes` | Metadata Not Supported On Remotes |
+| `processing-failure/model-save-error` | `ErrModelSaveError` | Model Save Error |
+| `processing-failure/multiple-processing-errors` | `ErrMultipleProcessingErrors` | Multiple Processing Errors |
+| `processing-failure/path-too-long` | `ErrPathTooLong` | Path Too Long |
+| `processing-failure/recipient-already-shared` | `ErrRecipientAlreadyShared` | Recipient Already Shared |
+| `processing-failure/remote-server-error` | `ErrRemoteServerError` | Remote Server Error |
+| `processing-failure/resource-belongs-to-parent-site` | `ErrResourceBelongsToParentSite` | Resource Belongs To Parent Site |
+| `processing-failure/resource-locked` | `ErrResourceLocked` | Resource Locked |
+| `processing-failure/subfolder-locked` | `ErrSubfolderLocked` | Subfolder Locked |
+| `processing-failure/sync-in-progress` | `ErrSyncInProgress` | Sync In Progress |
+| `processing-failure/two-factor-authentication-code-already-sent` | `ErrTwoFactorAuthenticationCodeAlreadySent` | Two Factor Authentication Code Already Sent |
+| `processing-failure/two-factor-authentication-country-blacklisted` | `ErrTwoFactorAuthenticationCountryBlacklisted` | Two Factor Authentication Country Blacklisted |
+| `processing-failure/two-factor-authentication-general-error` | `ErrTwoFactorAuthenticationGeneralError` | Two Factor Authentication General Error |
+| `processing-failure/two-factor-authentication-method-unsupported-error` | `ErrTwoFactorAuthenticationMethodUnsupportedError` | Two Factor Authentication Method Unsupported Error |
+| `processing-failure/two-factor-authentication-unsubscribed-recipient` | `ErrTwoFactorAuthenticationUnsubscribedRecipient` | Two Factor Authentication Unsubscribed Recipient |
+| `processing-failure/updates-not-allowed-for-remotes` | `ErrUpdatesNotAllowedForRemotes` | Updates Not Allowed For Remotes |
+| `rate-limited/duplicate-share-recipient` | `ErrDuplicateShareRecipient` | Duplicate Share Recipient |
+| `rate-limited/reauthentication-rate-limited` | `ErrReauthenticationRateLimited` | Reauthentication Rate Limited |
+| `rate-limited/too-many-concurrent-logins` | `ErrTooManyConcurrentLogins` | Too Many Concurrent Logins |
+| `rate-limited/too-many-concurrent-requests` | `ErrTooManyConcurrentRequests` | Too Many Concurrent Requests |
+| `rate-limited/too-many-login-attempts` | `ErrTooManyLoginAttempts` | Too Many Login Attempts |
+| `rate-limited/too-many-requests` | `ErrTooManyRequests` | Too Many Requests |
+| `rate-limited/too-many-shares` | `ErrTooManyShares` | Too Many Shares |
+| `service-unavailable/automations-unavailable` | `ErrAutomationsUnavailable` | Automations Unavailable |
+| `service-unavailable/migration-in-progress` | `ErrMigrationInProgress` | Migration In Progress |
+| `service-unavailable/site-disabled` | `ErrSiteDisabled` | Site Disabled |
+| `service-unavailable/uploads-unavailable` | `ErrUploadsUnavailable` | Uploads Unavailable |
+| `site-configuration/account-already-exists` | `ErrAccountAlreadyExists` | Account Already Exists |
+| `site-configuration/account-overdue` | `ErrAccountOverdue` | Account Overdue |
+| `site-configuration/no-account-for-site` | `ErrNoAccountForSite` | No Account For Site |
+| `site-configuration/site-was-removed` | `ErrSiteWasRemoved` | Site Was Removed |
+| `site-configuration/trial-expired` | `ErrTrialExpired` | Trial Expired |
+| `site-configuration/trial-locked` | `ErrTrialLocked` | Trial Locked |
+| `site-configuration/user-requests-enabled-required` | `ErrUserRequestsEnabledRequired` | User Requests Enabled Required |
+
+### ResponseError Helpers
+
+Helpers are provided for matching error families.
+
+| Error Type Prefix | Go Error | Helper |
+| --------- | --------- | --------- |
+| `bad-request` | `ErrBadRequest` | `IsBadRequest` |
+| `not-authenticated` | `ErrNotAuthenticated` | `IsAuthenticationError` |
+| `not-authorized` | `ErrNotAuthorized` | `IsAuthorizationError` |
+| `not-found` | `ErrNotFound` | `IsNotFound` |
+| `processing-failure` | `ErrProcessingFailure` | `IsProcessingFailure` |
+| `rate-limited` | `ErrRateLimited` | `IsRateLimited` |
+| `service-unavailable` | `ErrServiceUnavailable` | `IsServiceUnavailable` |
+| `site-configuration` | `ErrSiteConfiguration` | `IsSiteConfiguration` |
 
 ## Pagination
 

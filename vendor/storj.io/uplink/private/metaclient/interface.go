@@ -12,6 +12,7 @@ import (
 // CreateObject has optional parameters that can be set.
 type CreateObject struct {
 	Metadata    map[string]string
+	ETag        []byte
 	ContentType string
 	Expires     time.Time
 

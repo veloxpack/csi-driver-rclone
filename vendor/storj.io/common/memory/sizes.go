@@ -31,7 +31,7 @@ func (sizes Sizes) String() string {
 
 // Set adds values from byte values.
 func (sizes *Sizes) Set(s string) error {
-	for _, x := range strings.Fields(s) {
+	for x := range strings.FieldsSeq(s) {
 		var size Size
 		if err := size.Set(x); err != nil {
 			return err

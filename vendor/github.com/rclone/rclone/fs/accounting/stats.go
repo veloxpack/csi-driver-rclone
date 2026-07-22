@@ -730,9 +730,15 @@ func (s *StatsInfo) ResetCounters() {
 	s.startedTransfers = nil
 	s.oldDuration = 0
 
+	// Only restart the average loop if it was running. Otherwise
+	// ResetCounters would spawn a goroutine that pins the StatsInfo,
+	// leaking memory when called on stats that never started the loop.
+	wasStarted := s.average.started
 	s._stopAverageLoop()
 	s.average = averageValues{}
-	s._startAverageLoop()
+	if wasStarted {
+		s._startAverageLoop()
+	}
 }
 
 // ResetErrors sets the errors count to 0 and resets lastError, fatalError and retryError
@@ -957,6 +963,13 @@ func (s *StatsInfo) AddServerSideMove(n int64) {
 	s.mu.Lock()
 	s.serverSideMoves += 1
 	s.serverSideMoveBytes += n
+	s.mu.Unlock()
+}
+
+// AddServerSideCopyBytes adds bytes for a server side copy
+func (s *StatsInfo) AddServerSideCopyBytes(n int64) {
+	s.mu.Lock()
+	s.serverSideCopyBytes += n
 	s.mu.Unlock()
 }
 

@@ -2,7 +2,6 @@ package file
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,13 +53,14 @@ func uploader(parentCtx context.Context, c Uploader, params UploaderParams) *Job
 		WaitTellFinished(job, onComplete, func() { RetryByPolicy(jobCtx, job, job.RetryPolicy.(RetryPolicy), false) })
 
 		metaFile := UploadStatus{
-			job:         job,
-			status:      status.Errored,
-			localPath:   params.LocalPath,
-			Sync:        params.Sync,
-			NoOverwrite: params.NoOverwrite,
-			Uploader:    c,
-			Mutex:       &sync.RWMutex{},
+			job:             job,
+			status:          status.Errored,
+			localPath:       params.LocalPath,
+			Sync:            params.Sync,
+			NoOverwrite:     params.NoOverwrite,
+			Uploader:        c,
+			Mutex:           &sync.RWMutex{},
+			UploadResumable: params.PriorResumable,
 		}
 		if errorJob(job, metaFile, statErr) {
 			return
@@ -68,6 +68,12 @@ func uploader(parentCtx context.Context, c Uploader, params UploaderParams) *Job
 		var err error
 		if job.Ignore, err = ignore.New(params.Ignore...); errorJob(job, metaFile, err) {
 			return
+		}
+		if params.PriorJobCheckpoint != nil {
+			job.CompletedPaths = make(map[string]struct{}, len(params.PriorJobCheckpoint.CompletedPaths))
+			for _, p := range params.PriorJobCheckpoint.CompletedPaths {
+				job.CompletedPaths[p] = struct{}{}
+			}
 		}
 
 		if len(params.Include) > 0 {
@@ -200,11 +206,9 @@ func remotePath(ctx context.Context, localPath, remotePath string, c Uploader, j
 		} else {
 			return "", ctx.Err()
 		}
-		var responseError files_sdk.ResponseError
-		ok := errors.As(err, &responseError)
 		if remoteFile.Type == "directory" {
 			destination = lib.UrlJoinNoEscape(remotePath, localFileName)
-		} else if ok && responseError.Type == "not-found" {
+		} else if files_sdk.IsNotFound(err) {
 			if destination[len(destination)-1:] == "/" {
 				destination = lib.UrlJoinNoEscape(remotePath, localFileName)
 			}
@@ -284,13 +288,42 @@ func enqueueUpload(ctx context.Context, job *Job, uploadStatus *UploadStatus, on
 			uploadStatus.Job().UpdateStatus(status.Errored, uploadStatus, err)
 			return
 		}
+		// For folder resume: pre-set uploadedBytes from checkpoint parts so
+		// per-file progress starts at the correct percentage.  Wrap the
+		// progress callback so those bytes are not re-reported (the caller
+		// accumulates per-file transferBytes on top of the saved checkpoint
+		// total — re-reporting would double-count).  On error/cancel, reset
+		// uploadedBytes to only the NEW bytes before firing the status event
+		// so the folder accumulator stays accurate.
+		progressFn := uploadProgress(uploadStatus)
+		var resumedBytes int64
+		if rb := uploadStatus.UploadResumable.Parts.SuccessfulBytes(); job.Type == directory.Dir && rb > 0 {
+			resumedBytes = rb
+			uploadStatus.SetUploadedBytes(resumedBytes)
+			var skipped int64
+			inner := progressFn
+			progressFn = func(bytesCount int64) {
+				if bytesCount > 0 && skipped < resumedBytes {
+					skip := bytesCount
+					if remaining := resumedBytes - skipped; remaining < skip {
+						skip = remaining
+					}
+					skipped += skip
+					bytesCount -= skip
+				}
+				if bytesCount != 0 {
+					inner(bytesCount)
+				}
+			}
+		}
+
 		opts := []UploadOption{
 			UploadWithContext(ctx),
 			UploadWithManager(job.FilePartsManager),
 			UploadWithReaderAt(localFile),
 			UploadWithSize(uploadStatus.File().Size),
 			UploadWithResume(uploadStatus.UploadResumable),
-			UploadWithProgress(uploadProgress(uploadStatus)),
+			UploadWithProgress(progressFn),
 			UploadWithDestinationPath(uploadStatus.RemotePath()),
 		}
 
@@ -300,6 +333,15 @@ func enqueueUpload(ctx context.Context, job *Job, uploadStatus *UploadStatus, on
 
 		uploadStatus.UploadResumable, err = uploadStatus.UploadWithResume(opts...)
 		if err != nil {
+			if resumedBytes > 0 {
+				// Strip pre-existing bytes so the folder accumulator only
+				// receives the delta (new bytes uploaded this session).
+				newBytes := uploadStatus.TransferBytes() - resumedBytes
+				if newBytes < 0 {
+					newBytes = 0
+				}
+				uploadStatus.SetUploadedBytes(newBytes)
+			}
 			uploadStatus.Job().StatusFromError(uploadStatus, err)
 		} else {
 			uploadStatus.SetUploadedBytes(uploadStatus.Parts.SuccessfulBytes())
@@ -331,6 +373,11 @@ func buildUploadStatus(path string, localFolderPath string, destinationRootPath 
 		dryRun:      params.DryRun,
 		NoOverwrite: params.NoOverwrite,
 	}
+	if params.PriorJobCheckpoint != nil {
+		if resumable, ok := params.PriorJobCheckpoint.PendingParts[path]; ok {
+			uploadStatus.UploadResumable = resumable
+		}
+	}
 	return uploadStatus, true
 }
 
@@ -357,6 +404,10 @@ func buildDestination(path string, localFolderPath string, destinationRootPath s
 }
 
 func excludeFile(uploadStatus *UploadStatus, incrementalUpdates bool) bool {
+	if _, ok := uploadStatus.Job().CompletedPaths[uploadStatus.LocalPath()]; ok {
+		uploadStatus.Job().UpdateStatus(status.Skipped, uploadStatus, nil)
+		return true
+	}
 	if uploadStatus.Job().Ignore.MatchesPath(uploadStatus.LocalPath()) {
 		uploadStatus.Job().UpdateStatus(status.Ignored, uploadStatus, nil)
 		return true
@@ -378,9 +429,7 @@ func excludeFile(uploadStatus *UploadStatus, incrementalUpdates bool) bool {
 
 	if uploadStatus.Sync {
 		file, found, err := uploadStatus.Job().FindRemoteFile(uploadStatus)
-		var responseError files_sdk.ResponseError
-		ok := errors.As(err, &responseError)
-		if !found || (ok && responseError.Type == "not-found") {
+		if !found || files_sdk.IsNotFound(err) {
 			uploadStatus.Job().UpdateStatus(status.Compared, uploadStatus, nil)
 			uploadStatus.Job().Logger.Printf("sync %v not found on destination", uploadStatus.RemotePath())
 			return false

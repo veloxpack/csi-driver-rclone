@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -32,7 +33,10 @@ type Object struct {
 	System SystemMetadata
 	Custom CustomMetadata
 
-	version []byte
+	etag        []byte
+	version     []byte
+	isVersioned bool
+	isLatest    bool
 }
 
 // SystemMetadata contains information about the object that cannot be changed directly.
@@ -53,9 +57,7 @@ type CustomMetadata map[string]string
 // Clone makes a deep clone.
 func (meta CustomMetadata) Clone() CustomMetadata {
 	r := CustomMetadata{}
-	for k, v := range meta {
-		r[k] = v
-	}
+	maps.Copy(r, meta)
 	return r
 }
 
@@ -111,7 +113,7 @@ func (project *Project) DeleteObject(ctx context.Context, bucket, key string) (d
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
-	obj, err := db.DeleteObject(ctx, bucket, key, nil)
+	obj, err := db.DeleteObject(ctx, bucket, key, nil, metaclient.DeleteObjectOptions{})
 	if err != nil {
 		return nil, convertKnownErrors(err, bucket, key)
 	}
@@ -134,7 +136,7 @@ func (project *Project) UpdateObjectMetadata(ctx context.Context, bucket, key st
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
-	err = db.UpdateObjectMetadata(ctx, bucket, key, newMetadata.Clone())
+	err = db.UpdateObjectMetadata(ctx, bucket, key, newMetadata.Clone(), nil, false)
 	if err != nil {
 		return convertKnownErrors(err, bucket, key)
 	}
@@ -158,7 +160,10 @@ func convertObject(obj *metaclient.Object) *Object {
 		},
 		Custom: obj.Metadata,
 
-		version: obj.Version,
+		etag:        obj.ETag,
+		version:     obj.Version,
+		isVersioned: obj.IsVersioned,
+		isLatest:    obj.IsLatest,
 	}
 
 	if object.Custom == nil {
@@ -166,6 +171,18 @@ func convertObject(obj *metaclient.Object) *Object {
 	}
 
 	return object
+}
+
+// objectETag is exposing object etag field.
+//
+// NB: this is used with linkname in private/object.
+// It needs to be updated when this is updated.
+//
+//lint:ignore U1000, used with linkname
+//nolint:deadcode,unused
+//go:linkname objectETag
+func objectETag(object *Object) []byte {
+	return object.etag
 }
 
 // objectVersion is exposing object version field.
@@ -178,4 +195,28 @@ func convertObject(obj *metaclient.Object) *Object {
 //go:linkname objectVersion
 func objectVersion(object *Object) []byte {
 	return object.version
+}
+
+// objectIsVersioned is exposing object.isVersioned field.
+//
+// NB: this is used with linkname in private/object.
+// It needs to be updated when this is updated.
+//
+//lint:ignore U1000, used with linkname
+//nolint:deadcode,unused
+//go:linkname objectIsVersioned
+func objectIsVersioned(object *Object) bool {
+	return object.isVersioned
+}
+
+// objectIsLatest is exposing object.isLatest field.
+//
+// NB: this is used with linkname in private/object.
+// It needs to be updated when this is updated.
+//
+//lint:ignore U1000, used with linkname
+//nolint:deadcode,unused
+//go:linkname objectIsLatest
+func objectIsLatest(object *Object) bool {
+	return object.isLatest
 }

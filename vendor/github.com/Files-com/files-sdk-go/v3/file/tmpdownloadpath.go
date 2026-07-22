@@ -10,6 +10,16 @@ import (
 
 const TempDownloadExtension = "download"
 
+// existingTmpDownloadPath returns the canonical temp file path if it already exists, otherwise "".
+func existingTmpDownloadPath(path, tempPath string) string {
+	if tempPath != "" {
+		_, fileName := filepath.Split(path)
+		path = filepath.Join(tempPath, fileName)
+	}
+	canonicalTmpPath := fmt.Sprintf("%v.%v", path, TempDownloadExtension)
+	return existingTmpDownloadFile(path, canonicalTmpPath)
+}
+
 // tmpDownloadPath Generates a unique temporary download path for a given file path by appending a ".download" extension and, if necessary, additional identifiers to avoid name conflicts.
 func tmpDownloadPath(path string, tempPath string) (string, error) {
 	var index int

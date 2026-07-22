@@ -6,8 +6,8 @@ package streams
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"io"
+	"strconv"
 	"sync/atomic"
 
 	"github.com/zeebo/errs"
@@ -17,6 +17,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/uplink/private/metaclient"
+	"storj.io/uplink/private/stalldetection"
 	"storj.io/uplink/private/storage/streams/pieceupload"
 	"storj.io/uplink/private/storage/streams/segmentupload"
 	"storj.io/uplink/private/storage/streams/splitter"
@@ -143,15 +144,16 @@ type Uploader struct {
 	encStore             *encryption.Store
 	encryptionParameters storj.EncryptionParameters
 	inlineThreshold      int
-	longTailMargin       int
 
 	// The backend is fixed to the real backend in production but is overridden
 	// for testing.
 	backend uploaderBackend
+
+	stallDetectionConfig *stalldetection.Config
 }
 
 // NewUploader constructs a new stream putter.
-func NewUploader(metainfo MetainfoUpload, piecePutter pieceupload.PiecePutter, segmentSize int64, encStore *encryption.Store, encryptionParameters storj.EncryptionParameters, inlineThreshold, longTailMargin int) (*Uploader, error) {
+func NewUploader(metainfo MetainfoUpload, piecePutter pieceupload.PiecePutter, segmentSize int64, encStore *encryption.Store, encryptionParameters storj.EncryptionParameters, inlineThreshold int, stallDetectionConfig *stalldetection.Config) (*Uploader, error) {
 	switch {
 	case segmentSize <= 0:
 		return nil, errs.New("segment size must be larger than 0")
@@ -167,8 +169,8 @@ func NewUploader(metainfo MetainfoUpload, piecePutter pieceupload.PiecePutter, s
 		encStore:             encStore,
 		encryptionParameters: encryptionParameters,
 		inlineThreshold:      inlineThreshold,
-		longTailMargin:       longTailMargin,
 		backend:              realUploaderBackend{},
+		stallDetectionConfig: stallDetectionConfig,
 	}, nil
 }
 
@@ -182,7 +184,7 @@ var uploadCounter int64
 // UploadObject starts an upload of an object to the given location. The object
 // contents can be written to the returned upload, which can then be committed.
 func (u *Uploader) UploadObject(ctx context.Context, bucket, unencryptedKey string, metadata Metadata, sched segmentupload.Scheduler, opts *metaclient.UploadOptions) (_ *Upload, err error) {
-	ctx = testuplink.WithLogWriterContext(ctx, "upload", fmt.Sprint(atomic.AddInt64(&uploadCounter, 1)))
+	ctx = testuplink.WithLogWriterContext(ctx, "upload", strconv.FormatInt(atomic.AddInt64(&uploadCounter, 1), 10))
 	testuplink.Log(ctx, "Starting upload")
 	defer testuplink.Log(ctx, "Done starting upload")
 
@@ -228,9 +230,16 @@ func (u *Uploader) UploadObject(ctx context.Context, bucket, unencryptedKey stri
 	if opts != nil {
 		beginObject.ExpiresAt = opts.Expires
 		beginObject.Retention = opts.Retention
+		beginObject.LegalHold = opts.LegalHold
+		beginObject.IfNoneMatch = opts.IfNoneMatch
 	}
 
-	uploader := segmentUploader{metainfo: u.metainfo, piecePutter: u.piecePutter, sched: sched, longTailMargin: u.longTailMargin}
+	uploader := segmentUploader{
+		metainfo:             u.metainfo,
+		piecePutter:          u.piecePutter,
+		sched:                sched,
+		stallDetectionConfig: u.stallDetectionConfig,
+	}
 
 	encMeta := u.newEncryptedMetadata(metadata, derivedKey)
 
@@ -267,8 +276,8 @@ func (u *Uploader) UploadObject(ctx context.Context, bucket, unencryptedKey stri
 // been fully written to the returned upload, but before calling Commit.
 func (u *Uploader) UploadPart(ctx context.Context, bucket, unencryptedKey string, streamID storj.StreamID, partNumber int32, eTag <-chan []byte, sched segmentupload.Scheduler) (_ *Upload, err error) {
 	ctx = testuplink.WithLogWriterContext(ctx,
-		"upload", fmt.Sprint(atomic.AddInt64(&uploadCounter, 1)),
-		"part_number", fmt.Sprint(partNumber),
+		"upload", strconv.FormatInt(atomic.AddInt64(&uploadCounter, 1), 10),
+		"part_number", strconv.Itoa(int(partNumber)),
 	)
 	testuplink.Log(ctx, "Starting upload")
 	defer testuplink.Log(ctx, "Done starting upload")
@@ -302,7 +311,12 @@ func (u *Uploader) UploadPart(ctx context.Context, bucket, unencryptedKey string
 		split.Finish(ctx.Err())
 	}()
 
-	uploader := segmentUploader{metainfo: u.metainfo, piecePutter: u.piecePutter, sched: sched, longTailMargin: u.longTailMargin}
+	uploader := segmentUploader{
+		metainfo:             u.metainfo,
+		piecePutter:          u.piecePutter,
+		sched:                sched,
+		stallDetectionConfig: u.stallDetectionConfig,
+	}
 
 	go func() {
 		info, err := u.backend.UploadPart(
@@ -340,14 +354,14 @@ func (u *Uploader) newEncryptedMetadata(metadata Metadata, derivedKey *storj.Key
 }
 
 type segmentUploader struct {
-	metainfo       MetainfoUpload
-	piecePutter    pieceupload.PiecePutter
-	sched          segmentupload.Scheduler
-	longTailMargin int
+	metainfo             MetainfoUpload
+	piecePutter          pieceupload.PiecePutter
+	sched                segmentupload.Scheduler
+	stallDetectionConfig *stalldetection.Config
 }
 
 func (u segmentUploader) Begin(ctx context.Context, beginSegment *metaclient.BeginSegmentResponse, segment splitter.Segment) (streamupload.SegmentUpload, error) {
-	return segmentupload.Begin(ctx, beginSegment, segment, limitsExchanger{u.metainfo}, u.piecePutter, u.sched, u.longTailMargin)
+	return segmentupload.Begin(ctx, beginSegment, segment, limitsExchanger{u.metainfo}, u.piecePutter, u.sched, u.stallDetectionConfig)
 }
 
 type limitsExchanger struct {
@@ -372,10 +386,10 @@ type encryptedMetadata struct {
 	cipherSuite storj.CipherSuite
 }
 
-func (e *encryptedMetadata) EncryptedMetadata(lastSegmentSize int64) (data []byte, encKey *storj.EncryptedPrivateKey, nonce *storj.Nonce, err error) {
+func (e *encryptedMetadata) EncryptedMetadata(lastSegmentSize int64) (_ *metaclient.EncryptedUserData, err error) {
 	metadataBytes, err := e.metadata.Metadata()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	streamInfo, err := pb.Marshal(&pb.StreamInfo{
@@ -384,39 +398,54 @@ func (e *encryptedMetadata) EncryptedMetadata(lastSegmentSize int64) (data []byt
 		Metadata:        metadataBytes,
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	var metadataKey storj.Key
 	if _, err := rand.Read(metadataKey[:]); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	var encryptedMetadataKeyNonce storj.Nonce
 	if _, err := rand.Read(encryptedMetadataKeyNonce[:]); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	// encrypt the metadata key with the derived key and the random encrypted key nonce
 	encryptedMetadataKey, err := encryption.EncryptKey(&metadataKey, e.cipherSuite, e.derivedKey, &encryptedMetadataKeyNonce)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	// encrypt the stream info with the metadata key and the zero nonce
 	encryptedStreamInfo, err := encryption.Encrypt(streamInfo, e.cipherSuite, &metadataKey, &storj.Nonce{})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	streamMeta, err := pb.Marshal(&pb.StreamMeta{
 		EncryptedStreamInfo: encryptedStreamInfo,
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
-	return streamMeta, &encryptedMetadataKey, &encryptedMetadataKeyNonce, nil
+	etagBytes, err := e.metadata.ETag()
+	if err != nil {
+		return nil, err
+	}
+
+	encryptedETag, err := encryption.Encrypt(etagBytes, e.cipherSuite, &metadataKey, &storj.Nonce{1})
+	if err != nil {
+		return nil, err
+	}
+
+	return &metaclient.EncryptedUserData{
+		EncryptedMetadata:             streamMeta,
+		EncryptedMetadataEncryptedKey: encryptedMetadataKey[:],
+		EncryptedMetadataNonce:        encryptedMetadataKeyNonce,
+		EncryptedETag:                 encryptedETag,
+	}, nil
 }
 
 type uploaderBackend interface {

@@ -142,7 +142,7 @@ func (c SymbolicLinkReparseDataBufferDecoder) PrintName(mc utf16le.MapChars) str
 type SrvRequestResumeKeyResponseDecoder []byte
 
 func (c SrvRequestResumeKeyResponseDecoder) IsInvalid() bool {
-	return len(c) < int(28+c.ContextLength())
+	return uint64(len(c)) < 28+uint64(c.ContextLength())
 }
 
 func (c SrvRequestResumeKeyResponseDecoder) ResumeKey() []byte {
@@ -302,7 +302,7 @@ const (
 type FileDirectoryInformationDecoder []byte
 
 func (c FileDirectoryInformationDecoder) IsInvalid() bool {
-	return len(c) < int(64+c.FileNameLength())
+	return uint64(len(c)) < 64+uint64(c.FileNameLength())
 }
 
 func (c FileDirectoryInformationDecoder) NextEntryOffset() uint32 {
@@ -440,7 +440,7 @@ func (c FileFsFullSizeInformationDecoder) BytesPerSector() uint32 {
 type FileQuotaInformationDecoder []byte
 
 func (c FileQuotaInformationDecoder) IsInvalid() bool {
-	return len(c) < int(40+c.SidLength())
+	return uint64(len(c)) < 40+uint64(c.SidLength())
 }
 
 func (c FileQuotaInformationDecoder) NextEntryOffset() uint32 {
@@ -682,7 +682,7 @@ func (c FileNameInformationDecoder) IsInvalid() bool {
 		return true
 	}
 
-	if len(c) < int(4+c.FileNameLength()) {
+	if uint64(len(c)) < 4+uint64(c.FileNameLength()) {
 		return true
 	}
 

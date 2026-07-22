@@ -51,7 +51,7 @@ func Decode(b string) []byte {
 		n := min(len(t), 10)
 
 		total := uint64(0)
-		for k := 0; k < n; k++ {
+		for k := range n {
 			tmp := b58[t[k]]
 			if tmp == 255 {
 				return []byte("")

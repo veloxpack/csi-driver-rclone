@@ -45,6 +45,9 @@ func (params *BeginMoveObjectParams) BatchItem() *pb.BatchRequestItem {
 	}
 }
 
+// IsRetriable returns true if the request can be retried when a kind of connection error happens, otherwise false.
+func (params *BeginMoveObjectParams) IsRetriable() bool { return false }
+
 func newBeginMoveObjectResponse(response *pb.ObjectBeginMoveResponse) BeginMoveObjectResponse {
 	keys := convertKeys(response.SegmentKeys)
 
@@ -113,6 +116,9 @@ func (params *FinishMoveObjectParams) BatchItem() *pb.BatchRequestItem {
 		},
 	}
 }
+
+// IsRetriable returns true if the request can be retried when a kind of connection error happens, otherwise false.
+func (params *FinishMoveObjectParams) IsRetriable() bool { return false }
 
 // FinishMoveObject finishes process of moving object from one key to another.
 func (client *Client) FinishMoveObject(ctx context.Context, params FinishMoveObjectParams) (err error) {

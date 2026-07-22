@@ -211,7 +211,7 @@ func DownloadFileStream(ctx context.Context, cfg *config.Config, fileUUID string
 			return stream, nil
 		}
 
-		adjustIV(iv, startByte/16)
+		iv = AddToIV(iv, int64(startByte/16))
 	}
 
 	// 4) Download the encrypted shard, include the Range header if any
@@ -303,18 +303,6 @@ func getStartByteAndEndByte(rangeHeader string) (int, int, error) {
 	}
 
 	return startByte, endByte, nil
-}
-
-// adjustIV increments the IV based on the given block index.
-func adjustIV(iv []byte, blockIndex int) {
-	for i := 0; i < blockIndex; i++ {
-		for j := len(iv) - 1; j >= 0; j-- {
-			iv[j]++
-			if iv[j] != 0 {
-				break
-			}
-		}
-	}
 }
 
 // hashValidatingReader wraps a reader and validates the hash on Close().

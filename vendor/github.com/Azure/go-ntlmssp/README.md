@@ -4,8 +4,9 @@
 
 Go package that provides NTLM/Negotiate authentication over HTTP
 
-Protocol details from https://msdn.microsoft.com/en-us/library/cc236621.aspx
-Implementation hints from http://davenport.sourceforge.net/ntlm.html
+* NTLM protocol details from https://msdn.microsoft.com/en-us/library/cc236621.aspx
+* NTLM over HTTP details from https://datatracker.ietf.org/doc/html/rfc4559
+* Implementation hints from http://davenport.sourceforge.net/ntlm.html
 
 This package only implements authentication, no key exchange or encryption. It
 only supports Unicode (UTF16LE) encoding of protocol strings, no OEM encoding.
@@ -25,7 +26,7 @@ go get github.com/Azure/go-ntlmssp
 url, user, password := "http://www.example.com/secrets", "robpike", "pw123"
 client := &http.Client{
   Transport: ntlmssp.Negotiator{
-    RoundTripper:&http.Transport{},
+    RoundTripper: &http.Transport{},
   },
 }
 

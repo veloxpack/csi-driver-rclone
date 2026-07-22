@@ -202,9 +202,9 @@ func (protonDrive *ProtonDrive) MoveFolder(ctx context.Context, srcLink *proton.
 func (protonDrive *ProtonDrive) moveLink(ctx context.Context, srcLink *proton.Link, dstParentLink *proton.Link, dstName string) error {
 	// we are moving the srcLink to under dstParentLink, with name dstName
 	req := proton.MoveLinkReq{
-		ParentLinkID:     dstParentLink.LinkID,
-		OriginalHash:     srcLink.Hash,
-		SignatureAddress: protonDrive.signatureAddress,
+		ParentLinkID:       dstParentLink.LinkID,
+		OriginalHash:       srcLink.Hash,
+		NameSignatureEmail: protonDrive.signatureAddress,
 	}
 
 	dstParentKR, err := protonDrive.getLinkKR(ctx, dstParentLink)
@@ -239,7 +239,11 @@ func (protonDrive *ProtonDrive) moveLink(ctx context.Context, srcLink *proton.Li
 		return err
 	}
 	req.NodePassphrase = nodePassphrase
-	req.NodePassphraseSignature = srcLink.NodePassphraseSignature
+
+	// NodePassphraseSignature/SignatureEmail are only required for
+	// anonymously created nodes (matching the official Proton Drive Windows
+	// client). For regular user-owned nodes they are omitted so the server
+	// preserves the existing signature on the link.
 
 	protonDrive.removeLinkIDFromCache(srcLink.LinkID, false)
 

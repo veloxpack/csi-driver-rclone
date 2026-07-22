@@ -4,17 +4,19 @@
 
 package hmacsha512
 
-import "golang.org/x/sys/cpu"
+import (
+	"golang.org/x/sys/cpu"
+)
 
 var useSHA512 = cpu.ARM64.HasSHA512
 
+//go:noescape
+func blockSHA512(dig *digest, p []byte)
+
 func block(dig *digest, p []byte) {
 	if useSHA512 {
-		blockAsm(dig, p)
-		return
+		blockSHA512(dig, p)
+	} else {
+		blockGeneric(dig, p)
 	}
-	blockGeneric(dig, p)
 }
-
-//go:noescape
-func blockAsm(dig *digest, p []byte)

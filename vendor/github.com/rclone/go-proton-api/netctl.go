@@ -267,7 +267,7 @@ func (c *NetCtl) SetCanRead(canRead bool) {
 	defer c.dlock.Unlock()
 
 	for _, conn := range c.conns {
-		conn.Close()
+		_ = conn.Close()
 	}
 
 	c.rlock.Lock()
@@ -282,7 +282,7 @@ func (c *NetCtl) SetReadLimit(limit uint64) {
 	defer c.dlock.Unlock()
 
 	for _, conn := range c.conns {
-		conn.Close()
+		_ = conn.Close()
 	}
 
 	c.rlock.Lock()
@@ -298,7 +298,7 @@ func (c *NetCtl) SetReadSpeed(speed int) {
 	defer c.dlock.Unlock()
 
 	for _, conn := range c.conns {
-		conn.Close()
+		_ = conn.Close()
 	}
 
 	c.rlock.Lock()
@@ -313,7 +313,7 @@ func (c *NetCtl) SetCanWrite(canWrite bool) {
 	defer c.dlock.Unlock()
 
 	for _, conn := range c.conns {
-		conn.Close()
+		_ = conn.Close()
 	}
 
 	c.wlock.Lock()
@@ -328,7 +328,7 @@ func (c *NetCtl) SetWriteLimit(limit uint64) {
 	defer c.dlock.Unlock()
 
 	for _, conn := range c.conns {
-		conn.Close()
+		_ = conn.Close()
 	}
 
 	c.wlock.Lock()
@@ -344,7 +344,7 @@ func (c *NetCtl) SetWriteSpeed(speed int) {
 	defer c.dlock.Unlock()
 
 	for _, conn := range c.conns {
-		conn.Close()
+		_ = conn.Close()
 	}
 
 	c.wlock.Lock()

@@ -579,7 +579,7 @@ func (f *FS) ReadDir(name string) ([]goFs.DirEntry, error) {
 	}
 
 	dirs, err := ReadDirFile{File: (&File{File: &files_sdk.File{Path: name}, FS: f}).Init()}.ReadDir(0)
-	if f.useCache && errors.Is(err, files_sdk.ResponseError{}) {
+	if f.useCache && (err == nil || errors.Is(err, files_sdk.ResponseError{})) {
 		f.cacheDir.Store(cacheName, DirEntryError{dirs, err})
 	}
 	return dirs, err

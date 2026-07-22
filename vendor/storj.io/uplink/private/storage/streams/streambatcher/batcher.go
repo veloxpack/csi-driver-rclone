@@ -28,6 +28,9 @@ type Info struct {
 
 	// Version is object version retrieved from CommitObject batch item.
 	Version []byte
+
+	// IsVersioned is retrieved from CommitObject batch item.
+	IsVersioned bool
 }
 
 // Batcher issues batch items related to a single stream. It aggregates
@@ -113,6 +116,7 @@ func (s *Batcher) Batch(ctx context.Context, batchItems ...metaclient.BatchItem)
 			if commitObject.Object.Status == int32(pb.Object_COMMITTED_VERSIONED) {
 				s.info.Version = commitObject.Object.Version
 			}
+			s.info.IsVersioned = commitObject.Object.IsVersioned()
 		}
 	}
 

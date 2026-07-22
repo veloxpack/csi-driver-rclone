@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -77,6 +78,31 @@ func (p *Part) Err() error {
 	}
 
 	return p.Context.Err()
+}
+
+func (p *Part) Number() int  { return p.number }
+func (p *Part) Off() int64   { return p.off }
+func (p *Part) Len() int64   { return p.len }
+func (p *Part) Bytes() int64 { return p.bytes }
+func (p *Part) ErrorStr() string {
+	if p.error != nil {
+		return p.error.Error()
+	}
+	return ""
+}
+
+func NewPart(number int, off, length, bytes int64, etag, part, errStr string) *Part {
+	p := &Part{
+		number:     number,
+		OffSet:     OffSet{off: off, len: length},
+		bytes:      bytes,
+		EtagsParam: files_sdk.EtagsParam{Etag: etag, Part: part},
+		RWMutex:    &sync.RWMutex{},
+	}
+	if errStr != "" {
+		p.error = errors.New(errStr)
+	}
+	return p
 }
 
 type Parts []*Part

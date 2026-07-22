@@ -6,6 +6,7 @@ package metaclient
 import (
 	"context"
 	"crypto/rand"
+	"reflect"
 
 	"github.com/zeebo/errs"
 
@@ -25,6 +26,9 @@ type EncryptedKeyAndNonce struct {
 // CopyObjectOptions options for CopyObject method.
 type CopyObjectOptions struct {
 	Retention Retention
+	LegalHold bool
+
+	IfNoneMatch []string
 }
 
 // CopyObject atomically copies object to a different bucket or/and key. Source object version can be specified.
@@ -78,15 +82,19 @@ func (db *DB) CopyObject(ctx context.Context, sourceBucket, sourceKey string, so
 	}
 
 	params := FinishCopyObjectParams{
-		StreamID:                     response.StreamID,
-		NewBucket:                    []byte(targetBucket),
-		NewEncryptedObjectKey:        []byte(targetEncKey.Raw()),
-		NewEncryptedMetadataKeyNonce: newMetadataKeyNonce,
-		NewEncryptedMetadataKey:      newMetadataEncryptedKey,
-		NewSegmentKeys:               newKeys,
+		StreamID:              response.StreamID,
+		NewBucket:             []byte(targetBucket),
+		NewEncryptedObjectKey: []byte(targetEncKey.Raw()),
+		NewEncryptedUserData: EncryptedUserData{
+			EncryptedMetadataNonce:        newMetadataKeyNonce,
+			EncryptedMetadataEncryptedKey: newMetadataEncryptedKey,
+		},
+		NewSegmentKeys: newKeys,
 	}
-	if opts != (CopyObjectOptions{}) {
+	if !reflect.DeepEqual(opts, (CopyObjectOptions{})) {
 		params.Retention = opts.Retention
+		params.LegalHold = opts.LegalHold
+		params.IfNoneMatch = opts.IfNoneMatch
 	}
 	obj, err := db.metainfo.FinishCopyObject(ctx, params)
 	if err != nil {

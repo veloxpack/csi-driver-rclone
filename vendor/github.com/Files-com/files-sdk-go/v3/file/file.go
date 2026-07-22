@@ -10,20 +10,22 @@ import (
 )
 
 type JobFile struct {
-	StatusName    string        `json:"status"`
-	TransferBytes int64         `json:"transferred_bytes"`
-	Size          int64         `json:"size_bytes"`
-	LocalPath     string        `json:"local_path"`
-	RemotePath    string        `json:"remote_path"`
-	EndedAt       time.Time     `json:"completed_at"`
-	StartedAt     time.Time     `json:"started_at"`
-	Err           error         `json:"error"`
-	Id            string        `json:"-"`
-	Attempts      int           `json:"attempts"`
-	Mutex         *sync.RWMutex `json:"-"`
-	status.Status `json:"-"`
-	filesSDK.File `json:"-"`
-	*Job          `json:"-"`
+	StatusName          string          `json:"status"`
+	TransferBytes       int64           `json:"transferred_bytes"`
+	Size                int64           `json:"size_bytes"`
+	LocalPath           string          `json:"local_path"`
+	RemotePath          string          `json:"remote_path"`
+	CheckpointResumable UploadResumable `json:"-"`
+	TmpPath             string          `json:"-"`
+	EndedAt             time.Time       `json:"completed_at"`
+	StartedAt           time.Time       `json:"started_at"`
+	Err                 error           `json:"error"`
+	Id                  string          `json:"-"`
+	Attempts            int             `json:"attempts"`
+	Mutex               *sync.RWMutex   `json:"-"`
+	status.Status       `json:"-"`
+	filesSDK.File       `json:"-"`
+	*Job                `json:"-"`
 }
 
 type MashableError struct {

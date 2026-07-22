@@ -65,7 +65,7 @@ func (s SsoStrategy) Identifier() interface{} {
 type SsoStrategyCollection []SsoStrategy
 
 type SsoStrategyListParams struct {
-	SortBy map[string]interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	SortBy interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
 	ListParams
 }
 

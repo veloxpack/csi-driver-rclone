@@ -3,7 +3,6 @@ package proton_api_bridge
 import (
 	"context"
 	"io"
-	"log"
 	"os"
 
 	"github.com/ProtonMail/gopenpgp/v2/crypto"
@@ -30,7 +29,7 @@ func (protonDrive *ProtonDrive) listDirectoriesRecursively(
 
 	var currentPath = ""
 
-	if !(excludeRoot && curDepth == 0) {
+	if !excludeRoot || curDepth != 0 {
 		signatureVerificationKR, err := protonDrive.getSignatureVerificationKeyring([]string{link.NameSignatureEmail, link.SignatureEmail})
 		if err != nil {
 			return err
@@ -53,8 +52,9 @@ func (protonDrive *ProtonDrive) listDirectoriesRecursively(
 		}
 
 		if link.Type == proton.LinkTypeFile {
-			log.Println("Downloading", currentPath)
-			defer log.Println("Completes downloading", currentPath)
+			logger := protonDrive.Config.GetLogger()
+			logger.Debugf("Downloading %s", currentPath)
+			defer logger.Debugf("Completes downloading %s", currentPath)
 
 			reader, _, _, err := protonDrive.DownloadFile(ctx, link, 0)
 			if err != nil {
@@ -70,7 +70,7 @@ func (protonDrive *ProtonDrive) listDirectoriesRecursively(
 				return err
 			}
 		} else /* folder */ {
-			if !(excludeRoot && curDepth == 0) {
+			if !excludeRoot || curDepth != 0 {
 				// log.Println("Creating folder", currentPath)
 				// defer log.Println("Completes creating folder", currentPath)
 

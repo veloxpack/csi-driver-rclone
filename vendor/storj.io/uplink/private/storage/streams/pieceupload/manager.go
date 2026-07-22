@@ -6,6 +6,7 @@ package pieceupload
 import (
 	"context"
 	"io"
+	"slices"
 	"sort"
 	"sync"
 
@@ -45,6 +46,7 @@ type Manager struct {
 	retries    int
 	segmentID  storj.SegmentID
 	limits     []*pb.AddressedOrderLimit
+	tags       []map[string]string
 	next       chan int
 	exchange   chan struct{}
 	done       chan struct{}
@@ -57,7 +59,7 @@ type Manager struct {
 // NewManager returns a new piece upload manager.
 func NewManager(exchanger LimitsExchanger, pieceReader PieceReader, segmentID storj.SegmentID, limits []*pb.AddressedOrderLimit) *Manager {
 	next := make(chan int, len(limits))
-	for num := 0; num < len(limits); num++ {
+	for num := range limits {
 		next <- num
 	}
 	return &Manager{
@@ -65,6 +67,7 @@ func NewManager(exchanger LimitsExchanger, pieceReader PieceReader, segmentID st
 		pieceReader: pieceReader,
 		segmentID:   segmentID,
 		limits:      limits,
+		tags:        collectTags(limits),
 		next:        next,
 		exchange:    make(chan struct{}, 1),
 		done:        make(chan struct{}),
@@ -79,14 +82,21 @@ func NewManager(exchanger LimitsExchanger, pieceReader PieceReader, segmentID st
 // pieces have finished successfully to satisfy the optimal threshold. If
 // NextPiece is unable to exchange limits for failed pieces, it will return
 // an error.
-func (mgr *Manager) NextPiece(ctx context.Context) (_ io.Reader, _ *pb.AddressedOrderLimit, _ func(hash *pb.PieceHash, uploaded bool), err error) {
+func (mgr *Manager) NextPiece(ctx context.Context) (
+	piece io.Reader,
+	limit *pb.AddressedOrderLimit,
+	tags map[string]string,
+	node byte,
+	done func(hash *pb.PieceHash, uploaded bool),
+	err error,
+) {
 	var num int
 	for acquired := false; !acquired; {
 		// If NextPiece is called with a cancelled context, we want to ensure
 		// that we return before hitting the select and possibly picking up
 		// another piece to upload.
 		if err := ctx.Err(); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, 0, nil, err
 		}
 
 		select {
@@ -94,25 +104,25 @@ func (mgr *Manager) NextPiece(ctx context.Context) (_ io.Reader, _ *pb.Addressed
 			acquired = true
 		case <-mgr.exchange:
 			if err := mgr.exchangeLimits(ctx); err != nil {
-				return nil, nil, nil, err
+				return nil, nil, nil, 0, nil, err
 			}
 		case <-ctx.Done():
-			return nil, nil, nil, ctx.Err()
+			return nil, nil, nil, 0, nil, ctx.Err()
 		case <-mgr.done:
-			return nil, nil, nil, ErrDone
+			return nil, nil, nil, 0, nil, ErrDone
 		case <-mgr.xchgFailed:
-			return nil, nil, nil, mgr.xchgError
+			return nil, nil, nil, 0, nil, mgr.xchgError
 		}
 	}
 
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 
-	limit := mgr.limits[num]
-	piece := mgr.pieceReader.PieceReader(num)
+	limit = mgr.limits[num]
+	piece = mgr.pieceReader.PieceReader(num)
 
 	invoked := false
-	done := func(hash *pb.PieceHash, uploaded bool) {
+	done = func(hash *pb.PieceHash, uploaded bool) {
 		mgr.mu.Lock()
 		defer mgr.mu.Unlock()
 
@@ -152,7 +162,7 @@ func (mgr *Manager) NextPiece(ctx context.Context) (_ io.Reader, _ *pb.Addressed
 		close(mgr.done)
 	}
 
-	return piece, limit, done, nil
+	return piece, limit, mgr.tags[num], byte(num), done, nil
 }
 
 // Results returns the results of each piece successfully updated as well as
@@ -161,7 +171,7 @@ func (mgr *Manager) NextPiece(ctx context.Context) (_ io.Reader, _ *pb.Addressed
 func (mgr *Manager) Results() (storj.SegmentID, []*pb.SegmentPieceUploadResult) {
 	mgr.mu.Lock()
 	segmentID := mgr.segmentID
-	results := append([]*pb.SegmentPieceUploadResult(nil), mgr.results...)
+	results := slices.Clone(mgr.results)
 	mgr.mu.Unlock()
 
 	// The satellite expects the results to be sorted by piece number...
@@ -201,9 +211,22 @@ func (mgr *Manager) exchangeLimits(ctx context.Context) (err error) {
 	}
 	mgr.segmentID = segmentID
 	mgr.limits = limits
+	mgr.tags = collectTags(limits)
 	for _, num := range mgr.failed {
 		mgr.next <- num
 	}
 	mgr.failed = mgr.failed[:0]
 	return nil
+}
+
+func collectTags(limits []*pb.AddressedOrderLimit) []map[string]string {
+	tags := make([]map[string]string, len(limits))
+	for i, limit := range limits {
+		nodeTags := make(map[string]string)
+		for k, v := range limit.Tags {
+			nodeTags[k] = string(v)
+		}
+		tags[i] = nodeTags
+	}
+	return tags
 }

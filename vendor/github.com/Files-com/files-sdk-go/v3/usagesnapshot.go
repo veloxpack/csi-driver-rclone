@@ -12,16 +12,16 @@ type UsageSnapshot struct {
 	StartAt                      *time.Time               `json:"start_at,omitempty" path:"start_at,omitempty" url:"start_at,omitempty"`
 	EndAt                        *time.Time               `json:"end_at,omitempty" path:"end_at,omitempty" url:"end_at,omitempty"`
 	HighWaterUserCount           int64                    `json:"high_water_user_count,omitempty" path:"high_water_user_count,omitempty" url:"high_water_user_count,omitempty"`
-	CurrentStorage               string                   `json:"current_storage,omitempty" path:"current_storage,omitempty" url:"current_storage,omitempty"`
-	HighWaterStorage             string                   `json:"high_water_storage,omitempty" path:"high_water_storage,omitempty" url:"high_water_storage,omitempty"`
-	RootStorage                  string                   `json:"root_storage,omitempty" path:"root_storage,omitempty" url:"root_storage,omitempty"`
-	DeletedFilesCountedInMinimum string                   `json:"deleted_files_counted_in_minimum,omitempty" path:"deleted_files_counted_in_minimum,omitempty" url:"deleted_files_counted_in_minimum,omitempty"`
-	DeletedFilesStorage          string                   `json:"deleted_files_storage,omitempty" path:"deleted_files_storage,omitempty" url:"deleted_files_storage,omitempty"`
-	TotalBillableUsage           string                   `json:"total_billable_usage,omitempty" path:"total_billable_usage,omitempty" url:"total_billable_usage,omitempty"`
-	TotalBillableTransferUsage   string                   `json:"total_billable_transfer_usage,omitempty" path:"total_billable_transfer_usage,omitempty" url:"total_billable_transfer_usage,omitempty"`
-	BytesSent                    string                   `json:"bytes_sent,omitempty" path:"bytes_sent,omitempty" url:"bytes_sent,omitempty"`
-	SyncBytesReceived            string                   `json:"sync_bytes_received,omitempty" path:"sync_bytes_received,omitempty" url:"sync_bytes_received,omitempty"`
-	SyncBytesSent                string                   `json:"sync_bytes_sent,omitempty" path:"sync_bytes_sent,omitempty" url:"sync_bytes_sent,omitempty"`
+	CurrentStorage               int64                    `json:"current_storage,omitempty" path:"current_storage,omitempty" url:"current_storage,omitempty"`
+	HighWaterStorage             int64                    `json:"high_water_storage,omitempty" path:"high_water_storage,omitempty" url:"high_water_storage,omitempty"`
+	RootStorage                  int64                    `json:"root_storage,omitempty" path:"root_storage,omitempty" url:"root_storage,omitempty"`
+	DeletedFilesCountedInMinimum int64                    `json:"deleted_files_counted_in_minimum,omitempty" path:"deleted_files_counted_in_minimum,omitempty" url:"deleted_files_counted_in_minimum,omitempty"`
+	DeletedFilesStorage          int64                    `json:"deleted_files_storage,omitempty" path:"deleted_files_storage,omitempty" url:"deleted_files_storage,omitempty"`
+	TotalBillableUsage           int64                    `json:"total_billable_usage,omitempty" path:"total_billable_usage,omitempty" url:"total_billable_usage,omitempty"`
+	TotalBillableTransferUsage   int64                    `json:"total_billable_transfer_usage,omitempty" path:"total_billable_transfer_usage,omitempty" url:"total_billable_transfer_usage,omitempty"`
+	BytesSent                    int64                    `json:"bytes_sent,omitempty" path:"bytes_sent,omitempty" url:"bytes_sent,omitempty"`
+	SyncBytesReceived            int64                    `json:"sync_bytes_received,omitempty" path:"sync_bytes_received,omitempty" url:"sync_bytes_received,omitempty"`
+	SyncBytesSent                int64                    `json:"sync_bytes_sent,omitempty" path:"sync_bytes_sent,omitempty" url:"sync_bytes_sent,omitempty"`
 	UsageByTopLevelDir           []map[string]interface{} `json:"usage_by_top_level_dir,omitempty" path:"usage_by_top_level_dir,omitempty" url:"usage_by_top_level_dir,omitempty"`
 }
 

@@ -1,12 +1,14 @@
-// Copyright (c) 2016, 2018, 2025, Oracle and/or its affiliates.  All rights reserved.
+// Copyright (c) 2016, 2018, 2026, Oracle and/or its affiliates.  All rights reserved.
 // This software is dual-licensed to you under the Universal Permissive License (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl or Apache License 2.0 as shown at http://www.apache.org/licenses/LICENSE-2.0. You may choose either license.
 
 package auth
 
 import (
 	"bytes"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -95,4 +97,14 @@ func GetGenericConfigurationProvider(configProvider common.ConfigurationProvider
 		}
 	}
 	return configProvider, nil
+}
+
+// privateToPublicDERBase64 takes an RSA Private Key and returns a public key in
+// DER format.
+func privateToPublicDERBase64(pk *rsa.PrivateKey) (string, error) {
+	publicBytes, err := x509.MarshalPKIXPublicKey(pk.Public())
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(publicBytes), nil
 }

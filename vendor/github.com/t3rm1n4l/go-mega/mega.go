@@ -124,8 +124,8 @@ type Mega struct {
 	// HTTP Client
 	client *http.Client
 	// Loggers
-	logf   func(format string, v ...interface{})
-	debugf func(format string, v ...interface{})
+	logf   func(format string, v ...any)
+	debugf func(format string, v ...any)
 	// serialize the API requests
 	apiMu sync.Mutex
 	// mutex to protext waitEvents
@@ -369,7 +369,7 @@ func (m *Mega) SetClient(client *http.Client) *Mega {
 }
 
 // discardLogf discards the log messages
-func discardLogf(format string, v ...interface{}) {
+func discardLogf(format string, v ...any) {
 }
 
 // Returns an opaque string representing the session
@@ -391,7 +391,7 @@ func (m *Mega) LoginWithKeys(sessionId string, masterKey []byte) error {
 
 // SetLogger sets the logger for important messages.  By default this
 // is log.Printf.  Use nil to discard the messages.
-func (m *Mega) SetLogger(logf func(format string, v ...interface{})) *Mega {
+func (m *Mega) SetLogger(logf func(format string, v ...any)) *Mega {
 	if logf == nil {
 		logf = discardLogf
 	}
@@ -401,7 +401,7 @@ func (m *Mega) SetLogger(logf func(format string, v ...interface{})) *Mega {
 
 // SetDebugger sets the logger for debug messages.  By default these
 // messages are not output.
-func (m *Mega) SetDebugger(debugf func(format string, v ...interface{})) *Mega {
+func (m *Mega) SetDebugger(debugf func(format string, v ...any)) *Mega {
 	if debugf == nil {
 		debugf = discardLogf
 	}
@@ -1918,8 +1918,9 @@ func (m *Mega) Delete(node *Node, destroy bool) error {
 		return err
 	}
 
-	parent := m.FS.lookup[node.hash]
-	parent.removeChild(node)
+	if node.parent != nil {
+		node.parent.removeChild(node)
+	}
 	delete(m.FS.lookup, node.hash)
 
 	return nil

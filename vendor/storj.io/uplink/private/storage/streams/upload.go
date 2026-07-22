@@ -90,8 +90,9 @@ func (u *Upload) Meta() *Meta {
 	}
 
 	return &Meta{
-		Modified: u.info.CreationDate,
-		Size:     u.info.PlainSize,
-		Version:  u.info.Version,
+		Modified:    u.info.CreationDate,
+		Size:        u.info.PlainSize,
+		Version:     u.info.Version,
+		IsVersioned: u.info.IsVersioned,
 	}
 }

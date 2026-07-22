@@ -167,13 +167,18 @@ func catchRetryAfter(_ *resty.Client, res *resty.Response) (time.Duration, error
 	// Add some jitter to the delay.
 	after += rand.Intn(10)
 
-	logrus.WithFields(logrus.Fields{
-		"pkg":    "go-proton-api",
-		"status": res.StatusCode(),
-		"url":    res.Request.URL,
-		"method": res.Request.Method,
-		"after":  after,
-	}).Warn("Too many requests, retrying after delay")
+	if l := getPkgLogger(); l != nil {
+		l.Warnf("Too many requests, retrying after %ds (status=%d, %s %s)",
+			after, res.StatusCode(), res.Request.Method, res.Request.URL)
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"pkg":    "go-proton-api",
+			"status": res.StatusCode(),
+			"url":    res.Request.URL,
+			"method": res.Request.Method,
+			"after":  after,
+		}).Warn("Too many requests, retrying after delay")
+	}
 
 	return time.Duration(after) * time.Second, nil
 }
@@ -233,7 +238,9 @@ func parseResponse(res *resty.Response, err error) (*resty.Response, error) {
 
 func parseRawAPIError(rawResponse io.ReadCloser) (*APIError, bool) {
 	apiErr := APIError{}
-	defer rawResponse.Close()
+	defer func() {
+		_ = rawResponse.Close()
+	}()
 
 	body, err := io.ReadAll(rawResponse)
 	if err != nil {

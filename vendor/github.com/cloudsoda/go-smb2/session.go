@@ -6,7 +6,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
-	"crypto/rand"
+
 	"crypto/sha256"
 	"crypto/sha512"
 	"fmt"
@@ -18,7 +18,7 @@ import (
 	"github.com/cloudsoda/go-smb2/internal/smb2"
 )
 
-func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error) {
+func sessionSetup(ctx context.Context, conn *conn, i Initiator) (*session, error) {
 	spnego := newSpnegoClient([]Initiator{i})
 
 	outputToken, err := spnego.InitSecContext()
@@ -43,7 +43,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 	req.CreditCharge = 1
 	req.CreditRequestResponse = conn.account.initRequest()
 
-	rr, err := conn.send(req, ctx)
+	rr, err := conn.send(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -81,10 +81,9 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 	}
 
 	s := &session{
-		conn:           conn,
-		treeConnTables: make(map[uint32]*treeConn),
-		sessionFlags:   sessionFlags,
-		sessionId:      p.SessionId(),
+		conn:         conn,
+		sessionFlags: sessionFlags,
+		sessionId:    p.SessionId(),
 	}
 
 	switch conn.dialect {
@@ -115,14 +114,14 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 
 	// We set session before sending packet just for setting hdr.SessionId.
 	// But, we should not permit access from receiver until the session information is completed.
-	conn.session = s
+	conn.session.Store(s)
 
 	if status == erref.STATUS_MORE_PROCESSING_REQUIRED {
 		req.SecurityBuffer = outputToken
 
 		req.CreditRequestResponse = 0
 
-		rr, err = s.send(req, ctx)
+		rr, err = s.send(ctx, req)
 		if err != nil {
 			return nil, err
 		}
@@ -255,14 +254,13 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 	s.sessionFlags = r.SessionFlags()
 
 	// now, allow access from receiver
-	s.enableSession()
+	s.useSession.Store(true)
 
 	return s, nil
 }
 
 type session struct {
 	*conn
-	treeConnTables            map[uint32]*treeConn
 	sessionFlags              uint16
 	sessionId                 uint64
 	preauthIntegrityHashValue [64]byte
@@ -272,6 +270,8 @@ type session struct {
 	encrypter cipher.AEAD
 	decrypter cipher.AEAD
 
+	encryptBuf []byte // reusable ciphertext buffer; safe because conn.m serializes access
+
 	// applicationKey []byte
 }
 
@@ -280,7 +280,7 @@ func (s *session) logoff(ctx context.Context) error {
 
 	req.CreditCharge = 1
 
-	_, err := s.sendRecv(smb2.SMB2_LOGOFF, req, ctx)
+	_, err := s.sendRecv(ctx, smb2.SMB2_LOGOFF, req)
 	if err != nil {
 		return err
 	}
@@ -296,7 +296,7 @@ func (s *session) echo(ctx context.Context) error {
 
 	req.CreditCharge = 1
 
-	res, err := s.sendRecv(smb2.SMB2_ECHO, req, ctx)
+	res, err := s.sendRecv(ctx, smb2.SMB2_ECHO, req)
 	if err != nil {
 		return err
 	}
@@ -309,8 +309,8 @@ func (s *session) echo(ctx context.Context) error {
 	return nil
 }
 
-func (s *session) sendRecv(cmd uint16, req smb2.Packet, ctx context.Context) (res []byte, err error) {
-	rr, err := s.send(req, ctx)
+func (s *session) sendRecv(ctx context.Context, cmd uint16, req smb2.Packet) (res []byte, err error) {
+	rr, err := s.send(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +328,13 @@ func (s *session) recv(rr *requestResponse) (pkt []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if sessionId := smb2.PacketCodec(pkt).SessionId(); sessionId != s.sessionId {
+	// IBM i NetServer (iSeries/AS400) assigns the session ID only in the
+	// STATUS_MORE_PROCESSING_REQUIRED response, while the client's sessionId
+	// is still 0. Adopt the server's session ID in that case.
+	sessionId := smb2.PacketCodec(pkt).SessionId()
+	if s.sessionId == 0 {
+		s.sessionId = sessionId
+	} else if sessionId != s.sessionId {
 		return nil, &InvalidResponseError{fmt.Sprintf("expected session id: %v, got %v", s.sessionId, sessionId)}
 	}
 	return pkt, err
@@ -368,25 +374,20 @@ func (s *session) verify(pkt []byte) (ok bool) {
 	return bytes.Equal(signature, p.Signature())
 }
 
-func (s *session) encrypt(pkt []byte) ([]byte, error) {
-	nonce := make([]byte, s.encrypter.NonceSize())
-
-	_, err := rand.Read(nonce)
-	if err != nil {
-		return nil, err
-	}
-
-	c := make([]byte, 52+len(pkt)+16)
-
+// encrypt encrypts pkt into c. len(c) must equal 52+len(pkt)+16.
+// Returns the wire-ready packet (c re-sliced to exclude the trailing tag).
+func (s *session) encrypt(pkt, c []byte) ([]byte, error) {
 	t := smb2.TransformCodec(c)
 
 	t.SetProtocolId()
-	t.SetNonce(nonce)
+	if err := t.GenerateNonce(s.encrypter.NonceSize()); err != nil {
+		return nil, err
+	}
 	t.SetOriginalMessageSize(uint32(len(pkt)))
 	t.SetFlags(smb2.Encrypted)
 	t.SetSessionId(s.sessionId)
 
-	s.encrypter.Seal(c[:52], nonce, pkt, t.AssociatedData())
+	s.encrypter.Seal(c[:52], t.Nonce(s.encrypter.NonceSize()), pkt, t.AssociatedData())
 
 	t.SetSignature(c[len(c)-16:])
 
@@ -395,14 +396,19 @@ func (s *session) encrypt(pkt []byte) ([]byte, error) {
 	return c, nil
 }
 
-func (s *session) decrypt(pkt []byte) ([]byte, error) {
+// decrypt decrypts an SMB3 transform packet. c must be at least
+// len(EncryptedData)+len(Signature) bytes; decrypt copies the
+// ciphertext and tag into c and decrypts in-place.
+func (s *session) decrypt(pkt, c []byte) ([]byte, error) {
 	t := smb2.TransformCodec(pkt)
 
-	c := append(t.EncryptedData(), t.Signature()...)
+	c = c[:0]
+	c = append(c, t.EncryptedData()...)
+	c = append(c, t.Signature()...)
 
 	return s.decrypter.Open(
 		c[:0],
-		t.Nonce()[:s.decrypter.NonceSize()],
+		t.Nonce(s.decrypter.NonceSize()),
 		c,
 		t.AssociatedData(),
 	)

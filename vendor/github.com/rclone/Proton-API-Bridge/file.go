@@ -122,6 +122,9 @@ func (protonDrive *ProtonDrive) GetActiveRevisionWithAttrs(ctx context.Context, 
 	if err != nil {
 		return nil, nil, err
 	}
+	if revisionXAttrCommon == nil {
+		return &revision, nil, nil
+	}
 
 	modificationTime, err := iso8601.ParseString(revisionXAttrCommon.ModificationTime)
 	if err != nil {

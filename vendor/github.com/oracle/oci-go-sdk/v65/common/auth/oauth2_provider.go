@@ -1,4 +1,4 @@
-// Copyright (c) 2016, 2018, 2025, Oracle and/or its affiliates.  All rights reserved.
+// Copyright (c) 2016, 2018, 2026, Oracle and/or its affiliates.  All rights reserved.
 // This software is dual-licensed to you under the Universal Permissive License (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl or Apache License 2.0 as shown at http://www.apache.org/licenses/LICENSE-2.0. You may choose either license.
 
 package auth
@@ -13,14 +13,14 @@ import (
 // OAuth2ConfigurationProvider provides Oauth2 type authentication
 type OAuth2ConfigurationProvider struct {
 	federationClient   federationClient
-	sessionKeySupplier sessionKeySupplier
+	sessionKeySupplier cacheableSessionKeySupplier
 	region             string
 }
 
 // NewOAuth2ConfigurationProvider builds an OAuth2ConfigurationProvider from an existing config provider, and auth endpoint parameters
 // The config provider can be for instance, resource, or service principals.
 func NewOAuth2ConfigurationProvider(configProvider common.ConfigurationProvider, scope string, targetCompartment string) (common.ConfigurationProvider, error) {
-	sessionKeySupplier := newSessionKeySupplier()
+	sessionKeySupplier := newCacheableSessionKeySupplier()
 	region, err := configProvider.Region()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get region from configProvider: %s", err.Error())

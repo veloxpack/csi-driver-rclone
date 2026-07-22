@@ -17,6 +17,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/eventkit"
+	"storj.io/uplink/internal"
 	"storj.io/uplink/private/metaclient"
 	"storj.io/uplink/private/piecestore"
 )
@@ -60,12 +61,16 @@ func convertKnownErrors(err error, bucket, key string) error {
 	case metaclient.ErrUploadIDInvalid.Has(err):
 		return errwrapf("%w (%q)", ErrUploadIDInvalid, key)
 	case encryption.ErrMissingEncryptionBase.Has(err):
-		return errwrapf("%w (%q)", ErrPermissionDenied, key)
+		// Some of our test harnesses need to be able to distinguish between
+		// client rejection and Satellite rejection.
+		return &joinedErr{main: errwrapf("%w (%q)", ErrPermissionDenied, key), alt: err}
 	case encryption.ErrMissingDecryptionBase.Has(err):
-		return errwrapf("%w (%q)", ErrPermissionDenied, key)
+		// Some of our test harnesses need to be able to distinguish between
+		// client rejection and Satellite rejection.
+		return &joinedErr{main: errwrapf("%w (%q)", ErrPermissionDenied, key), alt: err}
 	case errs2.IsRPC(err, rpcstatus.ResourceExhausted):
 		// TODO is a better way to do this?
-		message := errs.Unwrap(err).Error()
+		message := internal.RootError(err).Error()
 		if strings.HasSuffix(message, "Exceeded Usage Limit") {
 			return packageError.Wrap(rpcstatus.Wrap(rpcstatus.ResourceExhausted, ErrBandwidthLimitExceeded))
 		} else if strings.HasSuffix(message, "Too Many Requests") {
@@ -83,7 +88,7 @@ func convertKnownErrors(err error, bucket, key string) error {
 			objectNotFoundPrefix = "object not found"
 		)
 
-		message := errs.Unwrap(err).Error()
+		message := internal.RootError(err).Error()
 		if strings.HasPrefix(message, bucketNotFoundPrefix) {
 			// remove error prefix + ": " from message
 			bucket := strings.TrimPrefix(message[len(bucketNotFoundPrefix):], ": ")
@@ -103,8 +108,8 @@ func convertKnownErrors(err error, bucket, key string) error {
 	return packageError.Wrap(err)
 }
 
-func errwrapf(format string, err error, args ...interface{}) error {
-	var all []interface{}
+func errwrapf(format string, err error, args ...any) error {
+	var all []any
 	all = append(all, err)
 	all = append(all, args...)
 	return packageError.Wrap(fmt.Errorf(format, all...))
@@ -120,7 +125,7 @@ func (err *joinedErr) Is(target error) bool {
 	return errors.Is(err.main, target) || errors.Is(err.alt, target)
 }
 
-func (err *joinedErr) As(target interface{}) bool {
+func (err *joinedErr) As(target any) bool {
 	if errors.As(err.main, target) {
 		return true
 	}

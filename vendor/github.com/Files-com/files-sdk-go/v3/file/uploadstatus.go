@@ -73,6 +73,10 @@ func (u *UploadStatus) RemotePath() string {
 	return u.remotePath
 }
 
+func (u *UploadStatus) CheckpointResumable() UploadResumable {
+	return u.UploadResumable
+}
+
 func (u *UploadStatus) Status() status.Status {
 	u.Mutex.RLock()
 	defer u.Mutex.RUnlock()

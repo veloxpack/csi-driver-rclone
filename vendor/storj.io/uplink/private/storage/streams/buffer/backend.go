@@ -24,7 +24,7 @@ const (
 
 var (
 	standardPool = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			// TODO: this pool approach is a bit of a bandaid - it would be good to
 			// rework this logic to not require this large allocation at all.
 			return new([standardMaxEncryptedSegmentSize]byte)
@@ -32,7 +32,7 @@ var (
 	}
 
 	chunkPool = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return new([chunkSize]byte)
 		},
 	}
@@ -187,7 +187,7 @@ func (u *ChunkBackend) Close() error {
 	chunks := u.chunks
 	u.chunks = nil
 	u.closed = true
-	for i := 0; i < len(chunks); i++ {
+	for i := range chunks {
 		chunk := chunks[i].Load()
 		if chunk == nil {
 			break
