@@ -9,7 +9,7 @@ require (
 	github.com/rclone/rclone v1.74.4
 	github.com/stretchr/testify v1.11.1
 	github.com/unknwon/goconfig v1.0.0
-	golang.org/x/sys v0.46.0
+	golang.org/x/sys v0.47.0
 	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	k8s.io/apimachinery v0.36.2
