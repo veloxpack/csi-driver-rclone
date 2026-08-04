@@ -62,6 +62,23 @@ This patch system solves this problem by:
 
 **Status**: Comprehensive workaround for concurrent multi-mount scenarios. Temporary until upstream fix or upgrade to newer go-fuse version.
 
+### vfs-refresh-all-duplicate-vfs.patch
+
+**File**: `vendor/github.com/rclone/rclone/vfs/rc.go`
+
+**Issue**: [#88](https://github.com/veloxpack/csi-driver-rclone/issues/88) — RC `vfs/refresh` and `vfs/forget` fail for RWX PVCs with `error: more than one VFS active with name "<remote>:"`.
+
+**Root Cause**: `vfs-disable-reuse.patch` (issue #69) makes every CSI mount create its own `*VFS`. Because all mounts run inside the single node-plugin process, rclone's process-global `active[configName]` map (keyed by `fs.ConfigString`) accumulates one entry per mount for the same remote. rclone's `getVFS()` name resolver in `rc.go` rejects any lookup that matches more than one VFS, so every `vfs/*` command against a remote with 2+ mounts on the node errors out.
+
+**Fix**: Add a `getVFSes()` resolver that returns **all** VFSes matching the requested name (or every active VFS when `fs` is omitted) instead of erroring on duplicates, and rewrite `rcRefresh`/`rcForget` to iterate over them:
+- `vfs/refresh` refreshes the directory cache of every matching VFS; per-path results are merged, preferring an error status over `OK` so a failure on any mount is surfaced.
+- `vfs/forget` forgets the paths on every matching VFS; the returned `forgotten` list is de-duplicated.
+- `getVFS()` is left unchanged and still backs the value-returning endpoints (`vfs/stats`, `vfs/queue`, `vfs/queue-set-expiry`, `vfs/poll-interval`), which cannot meaningfully aggregate across duplicates.
+
+This matches RWX semantics: refreshing/forgetting a remote should apply to every mount of that remote on the node. The `vfs-disable-reuse` behavior (issues #69/#54) is preserved.
+
+**Status**: Workaround until upstream rclone tolerates duplicate-named VFSes, or the driver moves to a one-rclone-process-per-mount model (which would remove the need for both this patch and `vfs-disable-reuse.patch`).
+
 ## Usage
 
 ### Automatic Application (Recommended)
