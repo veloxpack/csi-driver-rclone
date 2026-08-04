@@ -2,11 +2,13 @@
 #
 # Quick Start:
 #   skaffold dev                    # Default profile (no metrics, no RC)
+#   skaffold dev -p custom-ca       # Custom CA for private backends
 #   skaffold dev -p metrics-full    # Full monitoring stack
 #   skaffold dev -p rc-service      # RC API with Service
 #
 # Available Profiles:
 #   default            - Basic CSI driver (no metrics, no RC)
+#   custom-ca          - Mount a custom CA for private storage backends
 #   metrics            - Metrics endpoint only
 #   metrics-service    - Metrics + Service
 #   metrics-prometheus - Metrics + Service + ServiceMonitor (requires Prometheus Operator)
@@ -58,6 +60,16 @@ profiles:
       kustomize:
         paths:
           - deploy/overlays/default
+
+  # Custom CA profile — mounts a private CA into the driver pods
+  # Prerequisites: Create csi-rclone-custom-ca ConfigMap with ca.crt key:
+  #   kubectl create configmap csi-rclone-custom-ca \
+  #     --from-file=ca.crt=/path/to/ca.crt -n veloxpack
+  - name: custom-ca
+    manifests:
+      kustomize:
+        paths:
+          - deploy/overlays/custom-ca
 
   # Basic metrics profile — enables metrics endpoint only (no Service, ServiceMonitor, or Dashboard)
   # Useful for manual scraping or custom metrics collection

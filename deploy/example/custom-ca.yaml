@@ -1,0 +1,314 @@
+---
+# Custom Certificate Authority Example — MinIO with TLS
+#
+# This example adds TLS to the same MinIO setup used in minio-deploy.yaml and
+# configures the CSI driver to trust the private CA. This is a common pattern
+# for any S3-compatible (or other) backend running behind a private CA.
+#
+# The rclone container (which embeds rclone as a library) makes the TLS
+# connection to the backend. The CSI gRPC channel between kubelet and the
+# driver is a local unix socket — it does not use these certificates.
+#
+# Two trust mechanisms are available (this example uses ca_cert):
+#   1. ca_cert StorageClass/Secret parameter — rclone-native, per-volume
+#   2. SSL_CERT_FILE env var — process-wide, preserves system CA pool
+#
+# NOTE: when ca_cert is set, rclone builds a fresh cert pool containing ONLY
+# that CA (it does NOT append to the system pool). SSL_CERT_FILE preserves the
+# full system trust store.
+#
+# Quick start:
+#   # 1. Generate a self-signed CA + MinIO server cert (see below)
+#   # 2. kubectl apply -f deploy/example/custom-ca.yaml
+#   # 3. Deploy the driver with the custom-ca overlay:
+#   #      kubectl apply -k deploy/overlays/custom-ca
+#   #    or with Skaffold:
+#   #      skaffold dev -p custom-ca
+
+# ---------------------------------------------------------------------------
+# Step 1: TLS certificates
+# ---------------------------------------------------------------------------
+# Generate a self-signed CA and server certificate for MinIO:
+#
+#   # Create CA key and certificate
+#   openssl genrsa -out ca.key 4096
+#   openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 \
+#     -subj "/CN=minio-ca" -out ca.crt
+#
+#   # Create server key and CSR
+#   openssl genrsa -out tls.key 2048
+#   openssl req -new -key tls.key -subj "/CN=minio.default.svc" \
+#     -addext "subjectAltName=DNS:minio,DNS:minio.default,DNS:minio.default.svc" \
+#     -out tls.csr
+#
+#   # Sign with CA
+#   openssl x509 -req -in tls.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+#     -days 3650 -sha256 \
+#     -extfile <(printf "subjectAltName=DNS:minio,DNS:minio.default,DNS:minio.default.svc") \
+#     -out tls.crt
+#
+#   # Create Kubernetes resources
+#   kubectl create secret tls minio-tls --cert=tls.crt --key=tls.key
+#   kubectl create configmap csi-rclone-custom-ca --from-file=ca.crt=ca.crt -n veloxpack
+
+# ConfigMap with the CA certificate (mounted into the CSI driver pods by the
+# custom-ca kustomize component or Helm extraVolumes).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: csi-rclone-custom-ca
+  namespace: veloxpack
+data:
+  ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    <replace with your CA certificate in PEM format>
+    -----END CERTIFICATE-----
+---
+# TLS Secret for MinIO server certificate.
+# Prefer creating via: kubectl create secret tls minio-tls --cert=tls.crt --key=tls.key
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-tls
+  namespace: default
+type: kubernetes.io/tls
+data:
+  tls.crt: <base64-encoded server certificate>
+  tls.key: <base64-encoded server key>
+
+# ---------------------------------------------------------------------------
+# Step 2: MinIO deployment with TLS
+# ---------------------------------------------------------------------------
+# Same as minio-deploy.yaml but with --certs-dir and TLS volume mounted.
+# An init container copies the TLS secret into a writable emptyDir because
+# MinIO needs to create a CAs/ subdirectory inside --certs-dir at startup.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app: minio
+  name: my-minio-cred
+  namespace: default
+stringData:
+  accesskey: admin
+  secretkey: password
+type: Opaque
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: minio
+  name: minio
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+      - name: copy-certs
+        image: busybox
+        command: ["sh", "-c", "cp /tls-secret/public.crt /certs/public.crt && cp /tls-secret/private.key /certs/private.key"]
+        volumeMounts:
+        - name: tls-secret
+          mountPath: /tls-secret
+          readOnly: true
+        - name: certs
+          mountPath: /certs
+      containers:
+      - command:
+        - minio
+        - server
+        - --console-address
+        - :9001
+        - --certs-dir
+        - /etc/minio/certs
+        - /data
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: admin
+        - name: MINIO_SECRET_KEY
+          value: password
+        image: quay.io/minio/minio:RELEASE.2022-11-17T23-20-09Z@sha256:b2a98df34c3e8d605a5e96f0bc1657dd440a5bd53d95465a7b342e736da9c6cf
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - mkdir
+              - -p
+              - /data/mybucket
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        name: main
+        ports:
+        - containerPort: 9000
+          name: api
+        - containerPort: 9001
+          name: console
+        readinessProbe:
+          httpGet:
+            path: /minio/health/ready
+            port: 9000
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - name: certs
+          mountPath: /etc/minio/certs
+      volumes:
+      - name: tls-secret
+        secret:
+          secretName: minio-tls
+          items:
+          - key: tls.crt
+            path: public.crt
+          - key: tls.key
+            path: private.key
+      - name: certs
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: minio
+  name: minio
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    app: minio
+  ports:
+    - name: api
+      protocol: TCP
+      port: 9000
+      targetPort: 9000
+    - name: console
+      protocol: TCP
+      port: 9001
+      targetPort: 9001
+
+# ---------------------------------------------------------------------------
+# Step 3: Verify with rclone CLI (optional, before deploying to Kubernetes)
+# ---------------------------------------------------------------------------
+# rclone supports --ca-cert in three equivalent ways. Use any of them to
+# confirm your CA and credentials work before creating Kubernetes resources.
+#
+# Option A — CLI flag (--ca-cert):
+#   rclone lsd minio: --ca-cert ca.crt \
+#     --s3-provider Minio \
+#     --s3-endpoint https://minio.default.svc:9000 \
+#     --s3-access-key-id admin \
+#     --s3-secret-access-key password
+#
+# Option B — environment variable (RCLONE_CA_CERT):
+#   export RCLONE_CA_CERT=ca.crt
+#   rclone ls minio:mybucket \
+#     --s3-provider Minio \
+#     --s3-endpoint https://minio.default.svc:9000 \
+#     --s3-access-key-id admin \
+#     --s3-secret-access-key password
+#
+# Option C — rclone config file (ca_cert under the remote section):
+#   # ~/.config/rclone/rclone.conf
+#   [minio]
+#   type = s3
+#   provider = Minio
+#   endpoint = https://minio.default.svc:9000
+#   access_key_id = admin
+#   secret_access_key = password
+#   ca_cert = /path/to/ca.crt
+#
+#   rclone ls minio:mybucket
+#
+# All three are equivalent. In this CSI driver, ca_cert is set as a
+# StorageClass or Secret parameter (see Step 4) — the driver forwards it
+# to rclone's global config at mount time.
+
+# ---------------------------------------------------------------------------
+# Step 4: CSI driver resources
+# ---------------------------------------------------------------------------
+---
+# StorageClass with ca_cert pointing to the CA file mounted into the driver
+# pods by the custom-ca kustomize component (or Helm extraVolumes).
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-minio-tls
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  remote: "minio"
+  remotePath: "mybucket"
+  ca_cert: /etc/rclone/ca/ca.crt
+  csi.storage.k8s.io/provisioner-secret-name: "rclone-minio-tls-secret"
+  csi.storage.k8s.io/provisioner-secret-namespace: "default"
+  csi.storage.k8s.io/node-publish-secret-name: "rclone-minio-tls-secret"
+  csi.storage.k8s.io/node-publish-secret-namespace: "default"
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+---
+# Rclone credentials pointing at the TLS-enabled MinIO endpoint.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rclone-minio-tls-secret
+  namespace: default
+type: Opaque
+stringData:
+  remote: "minio"
+  remotePath: "mybucket"
+  configData: |
+    [minio]
+    type = s3
+    provider = Minio
+    endpoint = https://minio.default.svc:9000
+    access_key_id = admin
+    secret_access_key = password
+
+# ---------------------------------------------------------------------------
+# Step 5: Consumer workload
+# ---------------------------------------------------------------------------
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-minio-tls-example
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: rclone-minio-tls
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-minio-tls-example
+  namespace: default
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: minio-storage
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: minio-storage
+    persistentVolumeClaim:
+      claimName: pvc-minio-tls-example

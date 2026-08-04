@@ -12,6 +12,23 @@ This directory contains Kustomize overlays for different deployment scenarios.
 kubectl apply -k deploy/overlays/default
 ```
 
+### Custom CA Overlay
+
+- **`custom-ca/`** - Mount a custom Certificate Authority for private storage backends
+
+```bash
+# 1. Create the CA ConfigMap
+kubectl create configmap csi-rclone-custom-ca \
+  --from-file=ca.crt=/path/to/ca.crt -n veloxpack
+
+# 2. Deploy
+kubectl apply -k deploy/overlays/custom-ca
+```
+
+See `deploy/example/custom-ca.yaml` for a full walkthrough (StorageClass with `ca_cert`, Secret, PVC, Pod).
+
+---
+
 ### Metrics Overlays (Modular)
 
 Choose the overlay that matches your monitoring setup:
@@ -183,6 +200,7 @@ components:
 
 | Overlay | Metrics Endpoint | Service | ServiceMonitor | Dashboard | Requirements |
 |---------|-----------------|---------|----------------|-----------|--------------|
+| `custom-ca` | ❌ | ❌ | ❌ | ❌ | ConfigMap `csi-rclone-custom-ca` |
 | `default` | ❌ | ❌ | ❌ | ❌ | None |
 | `metrics` | ✅ | ❌ | ❌ | ❌ | None |
 | `metrics-service` | ✅ | ✅ | ❌ | ❌ | None |

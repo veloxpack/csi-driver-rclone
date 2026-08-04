@@ -64,6 +64,31 @@ controller:
   affinity: {}
   nodeSelector: {}
   priorityClassName: system-cluster-critical
+  # Additional command-line arguments for the driver binary.
+  # NOTE: only the driver's own flags are valid here. rclone options such as
+  # ca_cert / no_check_certificate are set as StorageClass/Secret parameters,
+  # not here (see the Custom Certificate Authority section in
+  # docs/install-rclone-csi-driver.md).
+  extraArgs: {}
+  # Additional environment variables for the rclone container.
+  # Trust a custom CA via the standard OpenSSL/Go env var (the file must be
+  # placed in the pod via extraVolumes/extraVolumeMounts below):
+  #   extraEnv:
+  #     - name: SSL_CERT_FILE
+  #       value: /etc/rclone/ca/ca.crt
+  extraEnv: []
+  # Additional volumes for the controller pod (e.g. mount a CA from a ConfigMap/Secret).
+  # extraVolumes:
+  #   - name: custom-ca
+  #     configMap:
+  #       name: my-custom-ca
+  extraVolumes: []
+  # Additional volume mounts for the rclone container.
+  # extraVolumeMounts:
+  #   - name: custom-ca
+  #     mountPath: /etc/rclone/ca
+  #     readOnly: true
+  extraVolumeMounts: []
   tolerations:
     - key: "node-role.kubernetes.io/master"
       operator: "Exists"
@@ -211,9 +236,35 @@ node:
       headless: true
       annotations: {}
 
-  # Additional command-line arguments.
+  # Additional command-line arguments for the driver binary.
   # Example: helm template ./charts --set node.extraArgs.metrics-addr=":5572"
+  # NOTE: only the driver's own flags are valid here (metrics-*, rc-*, etc.).
+  # rclone options such as ca_cert / no_check_certificate are NOT flags here —
+  # set them as StorageClass/Secret parameters instead (see the Custom
+  # Certificate Authority section in docs/install-rclone-csi-driver.md).
   extraArgs: {}
+
+  # Additional environment variables for the rclone container.
+  # Trust a custom CA via the standard OpenSSL/Go env var (the file must be
+  # placed in the pod via extraVolumes/extraVolumeMounts below):
+  #   extraEnv:
+  #     - name: SSL_CERT_FILE
+  #       value: /etc/rclone/ca/ca.crt
+  extraEnv: []
+
+  # Additional volumes for the node pod (e.g. mount a CA from a ConfigMap/Secret).
+  # extraVolumes:
+  #   - name: custom-ca
+  #     configMap:
+  #       name: my-custom-ca
+  extraVolumes: []
+
+  # Additional volume mounts for the rclone container.
+  # extraVolumeMounts:
+  #   - name: custom-ca
+  #     mountPath: /etc/rclone/ca
+  #     readOnly: true
+  extraVolumeMounts: []
 
   # Cache directory mount configuration
   # This allows mounting a host path for the rclone cache directory, useful for:

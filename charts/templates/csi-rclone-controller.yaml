@@ -109,6 +109,9 @@ spec:
             - "-v={{ .Values.controller.logLevel }}"
             - "--nodeid=$(NODE_ID)"
             - "--endpoint=$(CSI_ENDPOINT)"
+            {{- range $key, $value := .Values.controller.extraArgs }}
+            - "--{{ $key }}={{ $value }}"
+            {{- end }}
           env:
             - name: NODE_ID
               valueFrom:
@@ -116,6 +119,9 @@ spec:
                   fieldPath: spec.nodeName
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
+            {{- with .Values.controller.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           livenessProbe:
             failureThreshold: 5
             httpGet:
@@ -131,6 +137,9 @@ spec:
               mountPropagation: "Bidirectional"
             - mountPath: /csi
               name: socket-dir
+            {{- with .Values.controller.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           resources:
             {{- toYaml .Values.controller.resources.rclone | nindent 12 }}
       volumes:
@@ -140,3 +149,6 @@ spec:
             type: Directory
         - name: socket-dir
           emptyDir: {}
+        {{- with .Values.controller.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}

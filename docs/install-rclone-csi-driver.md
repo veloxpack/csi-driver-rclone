@@ -151,6 +151,74 @@ parameters:
   csi.storage.k8s.io/node-publish-secret-namespace: "default"
 ```
 
+### 3. Custom Certificate Authority (Optional)
+
+The `rclone` container runs the CSI driver, which embeds rclone as a library. The
+TLS connection to your storage backend is made by that embedded rclone code, so a
+private/internal CA must be trusted by rclone (the CSI gRPC socket between kubelet
+and the driver is a local unix socket and does not use these certificates).
+
+There are two steps: (1) place the CA file inside the driver pods, and (2) tell
+rclone to trust it.
+
+**1. Mount the CA into the pods.** Create a ConfigMap (or Secret) with your CA in
+the driver's namespace, then mount it via `extraVolumes`/`extraVolumeMounts` on
+both the `node` and `controller` components (the controller also mounts rclone
+during provisioning):
+
+```bash
+kubectl -n <driver-namespace> create configmap my-custom-ca \
+  --from-file=ca.crt=/path/to/ca.crt
+```
+
+```yaml
+# values.yaml
+node: &caMount
+  extraVolumes:
+    - name: custom-ca
+      configMap:
+        name: my-custom-ca
+  extraVolumeMounts:
+    - name: custom-ca
+      mountPath: /etc/rclone/ca
+      readOnly: true
+
+controller: *caMount
+```
+
+**2. Tell rclone to trust it**, using either of:
+
+- **StorageClass / Secret parameter** (rclone-native, applied per volume). The
+  driver forwards any parameter that matches a global rclone option, so set
+  `ca_cert` to the mounted file path:
+
+  ```yaml
+  apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    name: rclone-csi
+  provisioner: rclone.csi.veloxpack.io
+  parameters:
+    remote: "webdav"
+    remotePath: "/"
+    ca_cert: /etc/rclone/ca/ca.crt
+  ```
+
+- **`SSL_CERT_FILE` environment variable** (applies to all mounts on the pod),
+  set via `extraEnv` on `node` and `controller`:
+
+  ```yaml
+  node:
+    extraEnv:
+      - name: SSL_CERT_FILE
+        value: /etc/rclone/ca/ca.crt
+  ```
+
+> As a last resort for a fully internal/trusted network, TLS verification can be
+> disabled entirely by setting the StorageClass parameter
+> `no_check_certificate: "true"`. This is insecure and should be avoided when a
+> CA can be mounted.
+
 ## Testing the Installation
 
 ### 1. Create a Test PVC

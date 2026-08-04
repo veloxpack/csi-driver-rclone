@@ -1,0 +1,7 @@
+namespace: veloxpack
+
+resources:
+  - ../../base
+
+components:
+  - ../../components/custom-ca

@@ -96,6 +96,31 @@ This is a template directory that you can copy and customize for your specific n
 
 ---
 
+### `custom-ca/`
+
+Mounts a custom Certificate Authority into the driver pods.
+
+**What it does:** Adds a volume from ConfigMap `csi-rclone-custom-ca`, mounts it at `/etc/rclone/ca`, and sets `SSL_CERT_FILE` on the rclone container — on both the node DaemonSet and controller Deployment.
+
+**Prerequisites:**
+- Create a ConfigMap named `csi-rclone-custom-ca` with a `ca.crt` key:
+
+```bash
+kubectl create configmap csi-rclone-custom-ca \
+  --from-file=ca.crt=/path/to/ca.crt \
+  -n veloxpack
+```
+
+**Usage in your overlay:**
+```yaml
+components:
+  - ../../components/custom-ca
+```
+
+**See also:** `deploy/example/custom-ca.yaml` for a full end-to-end example with StorageClass, Secret, PVC, and Pod.
+
+---
+
 ### `rc-basic/`
 
 Enables the rclone Remote Control (RC) API on every node pod.

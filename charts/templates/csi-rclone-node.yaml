@@ -161,6 +161,9 @@ spec:
               value: {{ .Values.node.rc.basicAuth.password | quote }}
               {{- end }}
             {{- end }}
+            {{- with .Values.node.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           livenessProbe:
             failureThreshold: 5
             httpGet:
@@ -179,6 +182,9 @@ spec:
             {{- if .Values.node.cache.enabled }}
             - name: rclone-cache
               mountPath: {{ .Values.node.cache.mountPath }}
+            {{- end }}
+            {{- with .Values.node.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
             {{- end }}
           resources:
             {{- toYaml .Values.node.resources.rclone | nindent 12 }}
@@ -202,4 +208,7 @@ spec:
           hostPath:
             path: {{ .Values.node.cache.hostPath }}
             type: DirectoryOrCreate
+        {{- end }}
+        {{- with .Values.node.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
         {{- end }}

@@ -1,0 +1,46 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+patches:
+  - target:
+      kind: DaemonSet
+      name: csi-rclone-node
+    patch: |-
+      - op: add
+        path: /spec/template/spec/volumes/-
+        value:
+          name: custom-ca
+          configMap:
+            name: csi-rclone-custom-ca
+      - op: add
+        path: /spec/template/spec/containers/2/volumeMounts/-
+        value:
+          name: custom-ca
+          mountPath: /etc/rclone/ca
+          readOnly: true
+      - op: add
+        path: /spec/template/spec/containers/2/env/-
+        value:
+          name: SSL_CERT_FILE
+          value: /etc/rclone/ca/ca.crt
+  - target:
+      kind: Deployment
+      name: csi-rclone-controller
+    patch: |-
+      - op: add
+        path: /spec/template/spec/volumes/-
+        value:
+          name: custom-ca
+          configMap:
+            name: csi-rclone-custom-ca
+      - op: add
+        path: /spec/template/spec/containers/2/volumeMounts/-
+        value:
+          name: custom-ca
+          mountPath: /etc/rclone/ca
+          readOnly: true
+      - op: add
+        path: /spec/template/spec/containers/2/env/-
+        value:
+          name: SSL_CERT_FILE
+          value: /etc/rclone/ca/ca.crt

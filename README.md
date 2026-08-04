@@ -211,6 +211,38 @@ Ephemeral volumes allow you to define storage configuration directly in Pod spec
 - Pod-specific configurations
 - Simplified deployment manifests
 
+**With Custom Certificate Authority:**
+
+If your storage backend uses a private or self-signed CA:
+
+```bash
+# 1. Create a ConfigMap with your CA certificate
+kubectl create configmap csi-rclone-custom-ca \
+  --from-file=ca.crt=/path/to/ca.crt -n veloxpack
+
+# 2. Install with CA mounted into the driver pods
+helm upgrade --install csi-rclone oci://ghcr.io/veloxpack/charts/csi-driver-rclone \
+  --namespace veloxpack --create-namespace \
+  -f - <<EOF
+node: &caMount
+  extraVolumes:
+    - name: custom-ca
+      configMap:
+        name: csi-rclone-custom-ca
+  extraVolumeMounts:
+    - name: custom-ca
+      mountPath: /etc/rclone/ca
+      readOnly: true
+controller: *caMount
+EOF
+```
+
+Then tell rclone to trust the CA using one of:
+- **StorageClass parameter**: `ca_cert: /etc/rclone/ca/ca.crt` (per-volume, rclone-native)
+- **Environment variable**: set `SSL_CERT_FILE` via `extraEnv` (process-wide, preserves system CAs)
+
+See [Custom Certificate Authority](./docs/install-rclone-csi-driver.md#3-custom-certificate-authority-optional) for full details and the [custom CA example](./deploy/example/custom-ca.yaml) for a complete MinIO-with-TLS walkthrough.
+
 Verify the installation:
 
 ```bash
@@ -252,6 +284,21 @@ kubectl apply -k deploy/components/rc-basic
 kubectl apply -k deploy/components/rc-service
 ```
 
+**Custom Certificate Authority with kustomize:**
+
+If your storage backend uses a private or self-signed CA (e.g. internal Nextcloud, MinIO):
+
+```bash
+# Create a ConfigMap with your CA certificate
+kubectl create configmap csi-rclone-custom-ca \
+  --from-file=ca.crt=/path/to/ca.crt -n veloxpack
+
+# Deploy with custom CA overlay
+kubectl apply -k deploy/overlays/custom-ca
+```
+
+Then set `ca_cert: /etc/rclone/ca/ca.crt` in your StorageClass parameters so rclone trusts the CA. See the [custom CA example](./deploy/example/custom-ca.yaml) for a full walkthrough.
+
 For detailed manual installation options and overlays, see the [manual installation guide](./docs/install-rclone-csi-driver.md).
 
 ### Driver parameters
@@ -260,6 +307,7 @@ Please refer to [`rclone.csi.veloxpack.io` driver parameters](./docs/driver-para
 ### Examples
  - [Basic usage](./deploy/example/README.md)
  - [Ephemeral/Inline Volumes](./deploy/example/README-EPHEMERAL.md)
+ - [Custom Certificate Authority](./deploy/example/custom-ca.yaml)
  - [S3 Storage](./deploy/example/storageclass-s3.yaml)
  - [Google Cloud Storage](./deploy/example/storageclass-gcs.yaml)
  - [Azure Blob Storage](./deploy/example/storageclass-azure.yaml)
@@ -310,6 +358,7 @@ Skaffold will:
 | Profile | Description | Port Forwards | Use Case |
 |---------|-------------|---------------|----------|
 | `default` | Basic CSI driver | None | Development without metrics |
+| `custom-ca` | Custom CA for private backends | None | Private/self-signed CA testing |
 | `metrics` | Metrics endpoint only | None | Testing metrics collection |
 | `metrics-service` | Metrics + Service | :5572 | Service-based scraping |
 | `metrics-prometheus` | Full Prometheus integration | :5572, :9090 | Prometheus development |
@@ -323,6 +372,9 @@ skaffold dev -p metrics-full
 # Access: http://localhost:5572/metrics (metrics)
 #         http://localhost:9090 (Prometheus)
 #         http://localhost:3000 (Grafana - admin/prom-operator)
+
+# Custom CA for private storage backends
+skaffold dev -p custom-ca
 
 # Just metrics endpoint
 skaffold dev -p metrics
