@@ -102,6 +102,11 @@ node:
   dnsPolicy: ClusterFirstWithHostNet  # available values: Default, ClusterFirstWithHostNet, ClusterFirst
   maxUnavailable: 1
   logLevel: 5
+  # mountTimeout bounds how long NodePublishVolume waits for a mount to complete
+  # before returning and reaping it in the background, so a stuck mount can never
+  # permanently hold a volume lock. Empty uses the driver default (90s). Keep this
+  # below the kubelet NodePublishVolume timeout (~120s). Accepts a Go duration (e.g. 90s, 2m).
+  mountTimeout: ""
   livenessProbe:
     healthPort: 29653
   affinity: {}

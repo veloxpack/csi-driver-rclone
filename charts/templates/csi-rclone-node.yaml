@@ -101,6 +101,9 @@ spec:
             - "-v={{ .Values.node.logLevel }}"
             - "--nodeid=$(NODE_ID)"
             - "--endpoint=$(CSI_ENDPOINT)"
+            {{- if .Values.node.mountTimeout }}
+            - "--mount-timeout={{ .Values.node.mountTimeout }}"
+            {{- end }}
             {{- if .Values.node.metrics.enabled }}
             - "--metrics-addr={{ .Values.node.metrics.addr }}"
             - "--metrics-path={{ .Values.node.metrics.path }}"

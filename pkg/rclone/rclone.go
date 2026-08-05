@@ -19,6 +19,7 @@ package rclone
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/rclone/rclone/fs"
@@ -45,18 +46,23 @@ type DriverOptions struct {
 	NodeID     string
 	DriverName string
 	Endpoint   string
+	// MountTimeout bounds how long NodePublishVolume waits for a mount to complete
+	// before returning (releasing its volume lock) and reaping the mount in the
+	// background. Zero falls back to defaultMountTimeout.
+	MountTimeout time.Duration
 }
 
 // Driver is the main driver structure
 type Driver struct {
-	name        string
-	nodeID      string
-	version     string
-	endpoint    string
-	ns          *NodeServer
-	cscap       []*csi.ControllerServiceCapability
-	nscap       []*csi.NodeServiceCapability
-	volumeLocks *VolumeLocks
+	name         string
+	nodeID       string
+	version      string
+	endpoint     string
+	mountTimeout time.Duration
+	ns           *NodeServer
+	cscap        []*csi.ControllerServiceCapability
+	nscap        []*csi.NodeServiceCapability
+	volumeLocks  *VolumeLocks
 }
 
 // NewDriver creates a new driver instance
@@ -67,10 +73,11 @@ func NewDriver(options *DriverOptions) *Driver {
 	InitRcloneLogging()
 
 	d := &Driver{
-		name:     options.DriverName,
-		version:  driverVersion,
-		nodeID:   options.NodeID,
-		endpoint: options.Endpoint,
+		name:         options.DriverName,
+		version:      driverVersion,
+		nodeID:       options.NodeID,
+		endpoint:     options.Endpoint,
+		mountTimeout: options.MountTimeout,
 	}
 
 	d.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{

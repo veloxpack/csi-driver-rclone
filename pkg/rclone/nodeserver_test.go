@@ -19,7 +19,10 @@ package rclone
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/stretchr/testify/assert"
@@ -189,6 +192,99 @@ func TestNodeServerMountContext(t *testing.T) {
 	// Verify it was deleted
 	mc = ns.getMountContext(targetPath)
 	assert.Nil(t, mc)
+}
+
+// TestPrepareTargetDirectoryAlreadyMounted verifies the idempotency fix: an
+// already-mounted, accessible target reports alreadyMounted=true so NodePublishVolume
+// can return a no-op success instead of trying to mount again (issue #86).
+func TestPrepareTargetDirectoryAlreadyMounted(t *testing.T) {
+	ns, err := getTestNodeServer()
+	assert.NoError(t, err)
+
+	// The fake mounter treats any path containing "false_is_likely" as already mounted.
+	base := t.TempDir()
+	targetPath := filepath.Join(base, "false_is_likely_mount")
+	assert.NoError(t, os.MkdirAll(targetPath, 0755))
+
+	alreadyMounted, err := ns.prepareTargetDirectory(targetPath, testVolumeID)
+	assert.NoError(t, err)
+	assert.True(t, alreadyMounted, "an accessible already-mounted target must report alreadyMounted=true")
+}
+
+// TestPrepareTargetDirectoryFreshPath verifies a not-yet-mounted target reports
+// alreadyMounted=false so the caller proceeds to mount.
+func TestPrepareTargetDirectoryFreshPath(t *testing.T) {
+	ns, err := getTestNodeServer()
+	assert.NoError(t, err)
+
+	// Default fake mounter behavior: the path is not a mount point.
+	targetPath := t.TempDir()
+
+	alreadyMounted, err := ns.prepareTargetDirectory(targetPath, testVolumeID)
+	assert.NoError(t, err)
+	assert.False(t, alreadyMounted, "a fresh/unmounted target must report alreadyMounted=false")
+}
+
+// TestMountTimeoutDefault verifies the mount timeout falls back to the default when unset
+// and honors an explicit configuration.
+func TestMountTimeoutDefault(t *testing.T) {
+	ns, err := getTestNodeServer()
+	assert.NoError(t, err)
+
+	assert.Equal(t, defaultMountTimeout, ns.mountTimeout(), "zero MountTimeout must fall back to the default")
+
+	ns.Driver.mountTimeout = 5 * time.Second
+	assert.Equal(t, 5*time.Second, ns.mountTimeout(), "configured MountTimeout must be honored")
+}
+
+// TestReapOrphanMountReleasesLockOnFailure verifies that when a handed-off mount ultimately
+// fails, the reaper releases the volume lock so future retries can proceed (issue #86).
+func TestReapOrphanMountReleasesLockOnFailure(t *testing.T) {
+	ns, err := getTestNodeServer()
+	assert.NoError(t, err)
+
+	lockKey := testVolumeID + "-/mnt/target"
+	assert.True(t, ns.Driver.volumeLocks.TryAcquire(lockKey))
+
+	resultCh := make(chan mountResult, 1)
+	resultCh <- mountResult{err: errors.New("mount failed")}
+
+	ns.reapOrphanMount(resultCh, filepath.Join(t.TempDir(), "unmounted"), nil, lockKey)
+
+	// After reaping, the lock must be free again.
+	assert.True(t, ns.Driver.volumeLocks.TryAcquire(lockKey), "reaper must release the lock after a failed orphan mount")
+}
+
+// TestReapOrphanMountReleasesLockOnSuccess verifies that when a handed-off mount actually
+// came up, the reaper tears it down (bounded) and still releases the lock.
+func TestReapOrphanMountReleasesLockOnSuccess(t *testing.T) {
+	ns, err := getTestNodeServer()
+	assert.NoError(t, err)
+
+	lockKey := testVolumeID + "-/mnt/target-ok"
+	assert.True(t, ns.Driver.volumeLocks.TryAcquire(lockKey))
+
+	targetPath := t.TempDir()
+	cancelled := false
+	resultCh := make(chan mountResult, 1)
+	// mountPoint is nil (forceUnmountBounded does not dereference it); cancel records invocation.
+	resultCh <- mountResult{cancel: func() { cancelled = true }}
+
+	done := make(chan struct{})
+	go func() {
+		ns.reapOrphanMount(resultCh, targetPath, nil, lockKey)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(gracefulUnmountTimeout + 5*time.Second):
+		t.Fatal("reapOrphanMount did not complete within the bounded time")
+	}
+
+	assert.True(t, cancelled, "reaper must cancel the mount context before detaching")
+	assert.True(t, ns.Driver.volumeLocks.TryAcquire(lockKey),
+		"reaper must release the lock after tearing down an orphan mount")
 }
 
 func TestUnimplementedNodeMethods(t *testing.T) {
