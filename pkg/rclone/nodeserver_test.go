@@ -287,6 +287,77 @@ func TestReapOrphanMountReleasesLockOnSuccess(t *testing.T) {
 		"reaper must release the lock after tearing down an orphan mount")
 }
 
+func TestPrepareTargetDirectory(t *testing.T) {
+	ns, err := getTestNodeServer()
+	assert.NoError(t, err)
+
+	t.Run("not a mount point returns not-mounted", func(t *testing.T) {
+		// fakeMounter.IsLikelyNotMountPoint returns (true, nil) for a plain path.
+		targetPath := filepath.Join(t.TempDir(), "target")
+		assert.NoError(t, os.MkdirAll(targetPath, 0755))
+
+		alreadyMounted, err := ns.prepareTargetDirectory(targetPath, testVolumeID)
+		assert.NoError(t, err)
+		assert.False(t, alreadyMounted)
+	})
+
+	t.Run("healthy existing mount is idempotent", func(t *testing.T) {
+		// "false_is_likely" makes the fake mounter report an existing mount point,
+		// and a real, readable directory makes isMountHealthy report it healthy.
+		targetPath := filepath.Join(t.TempDir(), "false_is_likely")
+		assert.NoError(t, os.MkdirAll(targetPath, 0755))
+
+		alreadyMounted, err := ns.prepareTargetDirectory(targetPath, testVolumeID)
+		assert.NoError(t, err)
+		assert.True(t, alreadyMounted)
+	})
+
+	t.Run("IsLikelyNotMountPoint error is surfaced", func(t *testing.T) {
+		// "error_is_likely" makes the fake mounter return a generic error.
+		targetPath := filepath.Join(t.TempDir(), "error_is_likely")
+		assert.NoError(t, os.MkdirAll(targetPath, 0755))
+
+		alreadyMounted, err := ns.prepareTargetDirectory(targetPath, testVolumeID)
+		assert.Error(t, err)
+		assert.False(t, alreadyMounted)
+		assert.Equal(t, codes.Internal, status.Code(err))
+	})
+}
+
+func TestNodePublishVolumeIdempotent(t *testing.T) {
+	ns, err := getTestNodeServer()
+	assert.NoError(t, err)
+
+	// A healthy, already-mounted target ("false_is_likely" + real readable dir) must
+	// short-circuit to success without attempting to remount. Regression test for #74.
+	targetPath := filepath.Join(t.TempDir(), "false_is_likely")
+	assert.NoError(t, os.MkdirAll(targetPath, 0755))
+
+	req := &csi.NodePublishVolumeRequest{
+		VolumeId:   testVolumeID,
+		TargetPath: targetPath,
+		VolumeCapability: &csi.VolumeCapability{
+			AccessType: &csi.VolumeCapability_Mount{
+				Mount: &csi.VolumeCapability_MountVolume{},
+			},
+		},
+		VolumeContext: map[string]string{
+			paramRemote:      "test-remote",
+			paramBackendType: "s3",
+		},
+	}
+
+	resp, err := ns.NodePublishVolume(context.Background(), req)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+
+	// A second publish for the same volume+target must also succeed (idempotent),
+	// not return codes.Aborted.
+	resp, err = ns.NodePublishVolume(context.Background(), req)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+}
+
 func TestUnimplementedNodeMethods(t *testing.T) {
 	ns, err := getTestNodeServer()
 	assert.NoError(t, err)

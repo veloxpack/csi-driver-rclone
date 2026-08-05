@@ -308,42 +308,50 @@ func extractPublishParams(params map[string]string) (*publishVolumeParams, error
 
 // prepareTargetDirectory ensures the target directory exists and reports whether a
 // healthy mount already exists there. It returns (alreadyMounted, err):
-//   - (true, nil):  target is already mounted and accessible -> caller should treat
-//     NodePublishVolume as an idempotent no-op success (per the CSI spec).
-//   - (false, nil): target is ready to be mounted (freshly created, never mounted, or
-//     a corrupted mount that was recovered by unmounting).
-//   - (false, err): an unrecoverable error occurred.
+//   - (true, nil)  the target already holds a healthy mount; the caller should treat
+//     NodePublishVolume as idempotent and return success without remounting.
+//   - (false, nil) the target is ready to be mounted (created if missing, or a stale/
+//     corrupted mount was cleaned up so it can be remounted).
+//   - (false, err) preparation failed and publishing should abort.
 func (ns *NodeServer) prepareTargetDirectory(targetPath string, volumeID string) (bool, error) {
 	notMnt, err := ns.mounter.IsLikelyNotMountPoint(targetPath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		switch {
+		case os.IsNotExist(err):
 			if err := os.MkdirAll(targetPath, 0755); err != nil {
 				return false, status.Error(codes.Internal, err.Error())
 			}
 			notMnt = true
-		} else {
+		case mount.IsCorruptedMnt(err):
+			// A stale FUSE mount is left behind after a driver/node-plugin restart
+			// ("transport endpoint is not connected"). Clean it up so we can remount.
+			klog.Warningf("Target path %s is a corrupted mount (err: %v), cleaning up before remount", targetPath, err)
+			if cerr := ns.mounter.Unmount(targetPath); cerr != nil {
+				klog.Errorf("Failed to unmount corrupted mount point %s: %v", targetPath, cerr)
+				return false, status.Errorf(codes.Internal, "corrupted mount could not be cleaned up: %v", cerr)
+			}
+			klog.V(2).Infof("Successfully unmounted corrupted mount point %s, will remount", targetPath)
+			notMnt = true
+		default:
 			return false, status.Error(codes.Internal, err.Error())
 		}
 	}
 
-	// If already mounted, verify the mount is healthy and treat it as an idempotent success.
+	// Already a mount point: verify it is healthy before treating it as idempotent.
 	if !notMnt {
-		klog.V(2).Infof("Target path %s is already mounted", targetPath)
-
-		if _, err := os.ReadDir(targetPath); err == nil {
+		healthy, msg := ns.isMountHealthy(targetPath)
+		if healthy {
 			klog.V(4).Infof("Volume %s already mounted to %s and accessible", volumeID, targetPath)
 			return true, nil
 		}
 
-		// Mount appears to exist but is not accessible - recover by unmounting and remounting.
-		klog.Warningf("Mount point %s appears mounted but is not accessible (err: %v), attempting recovery", targetPath, err)
-
-		if err := ns.mounter.Unmount(targetPath); err != nil {
-			klog.Errorf("Failed to unmount corrupted mount point %s: %v", targetPath, err)
-			return false, status.Errorf(codes.Internal, "corrupted mount could not be cleaned up: %v", err)
+		// Mount exists but is unhealthy/inaccessible - clean it up and remount.
+		klog.Warningf("Mount point %s appears mounted but is not healthy (%s), attempting recovery", targetPath, msg)
+		if cerr := ns.mounter.Unmount(targetPath); cerr != nil {
+			klog.Errorf("Failed to unmount corrupted mount point %s: %v", targetPath, cerr)
+			return false, status.Errorf(codes.Internal, "corrupted mount could not be cleaned up: %v", cerr)
 		}
-
-		klog.V(2).Infof("Successfully unmounted corrupted mount point %s, will remount", targetPath)
+		klog.V(2).Infof("Successfully unmounted unhealthy mount point %s, will remount", targetPath)
 	}
 
 	// Ensure target directory has correct permissions
@@ -906,14 +914,15 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, err
 	}
 
-	// Prepare target directory and check if already mounted
+	// Prepare target directory and check if already mounted. When the target already
+	// holds a healthy mount, publishing is idempotent: return success immediately so the
+	// volume lock is released quickly instead of remounting on top of the existing mount.
 	alreadyMounted, err := ns.prepareTargetDirectory(targetPath, volumeID)
 	if err != nil {
 		return nil, err
 	}
 	if alreadyMounted {
-		// Already mounted and healthy: NodePublishVolume is idempotent, return success.
-		klog.V(2).Infof("Volume %s already mounted at %s, returning idempotent success", volumeID, targetPath)
+		klog.V(2).Infof("Volume %s already mounted at %s, returning success (idempotent)", volumeID, targetPath)
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
