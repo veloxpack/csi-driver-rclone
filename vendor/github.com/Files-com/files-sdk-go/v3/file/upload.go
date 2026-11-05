@@ -84,6 +84,7 @@ func UploadWithProvidedMtimePtr(providedMtime *time.Time) UploadOption {
 func UploadWithManager(manager lib.ConcurrencyManagerWithSubWorker) UploadOption {
 	return func(params uploadIO) (uploadIO, error) {
 		params.Manager = manager
+		params.managerSet = true
 		return params, nil
 	}
 }
@@ -175,13 +176,18 @@ func (c *Client) UploadRetry(job Job, opts ...files_sdk.RequestResponseOption) *
 	newJob := job.ClearStatuses()
 	return c.Uploader(
 		UploaderParams{
-			Sync:           newJob.Sync,
-			LocalPath:      newJob.LocalPath,
-			RemotePath:     newJob.RemotePath,
-			EventsReporter: newJob.EventsReporter,
-			Manager:        newJob.Manager,
-			RetryPolicy:    newJob.RetryPolicy.(RetryPolicy),
-			Ignore:         newJob.Params.(UploaderParams).Ignore,
+			Sync:                                 newJob.Sync,
+			LocalPath:                            newJob.LocalPath,
+			RemotePath:                           newJob.RemotePath,
+			EventsReporter:                       newJob.EventsReporter,
+			Manager:                              newJob.Manager,
+			RetryPolicy:                          newJob.RetryPolicy.(RetryPolicy),
+			Ignore:                               newJob.Params.(UploaderParams).Ignore,
+			Include:                              newJob.Params.(UploaderParams).Include,
+			SyncAfterActions:                     newJob.Params.(UploaderParams).SyncAfterActions,
+			AdaptiveConcurrency:                  newJob.Params.(UploaderParams).AdaptiveConcurrency,
+			AdaptiveConcurrencyUseSDKDefaultCaps: newJob.Params.(UploaderParams).AdaptiveConcurrencyUseSDKDefaultCaps,
+			AdaptiveUploadV2TargetClassifier:     newJob.Params.(UploaderParams).AdaptiveUploadV2TargetClassifier,
 		},
 		opts...,
 	)
@@ -204,6 +210,8 @@ type UploaderParams struct {
 	DryRun bool
 	// NoOverwrite do not overwrite existing files.
 	NoOverwrite bool
+	// SyncAfterActions optionally run source cleanup/move actions after sync comparison.
+	SyncAfterActions SyncAfterActions
 	// PriorResumable restores mid-upload state so the upload continues from where it left off.
 	PriorResumable UploadResumable
 	// PriorJobCheckpoint restores folder-level upload state on resume.
@@ -217,6 +225,34 @@ type UploaderParams struct {
 	*Job
 	config        files_sdk.Config
 	PreserveTimes bool
+	// AdaptiveConcurrency explicitly opts this upload job into the upload V2
+	// engine. Existing SDK callers remain on the V1 path unless this is true.
+	// Any configured concurrent connection limit is used as a maximum cap, not
+	// a fixed target.
+	AdaptiveConcurrency bool
+	// AdaptiveConcurrencyUseSDKDefaultCaps keeps SDK V2 concurrency caps and
+	// shared adaptive learning when Manager is present only for job scheduling.
+	// When false and Manager is provided, V2 treats that Manager as an explicit
+	// isolated cap.
+	AdaptiveConcurrencyUseSDKDefaultCaps bool
+	// AdaptiveUploadV2TargetClassifier optionally overrides the SDK's upload V2
+	// target classifier. Custom targets use default SDK transfer behavior but
+	// keep separate adaptive manager cache entries and telemetry target labels.
+	AdaptiveUploadV2TargetClassifier UploadV2TargetClassifier
+	// AdaptiveUploadReadyRunwaySet applies the ready-runway values below. When
+	// false, V2 uses its built-in defaults.
+	AdaptiveUploadReadyRunwaySet bool
+	// AdaptiveUploadReadyRunwayParts controls how many upload parts V2 may
+	// prepare ahead of admitted HTTP concurrency. Zero disables the runway.
+	AdaptiveUploadReadyRunwayParts int
+	// AdaptiveUploadReadyRunwayBytes caps the extra queued bytes for prepared
+	// runway parts. Zero leaves queued runway bytes uncapped.
+	AdaptiveUploadReadyRunwayBytes int64
+	// AdaptiveUploadV2TuningSet applies V2 tuning overrides below.
+	// When false, V2 uses built-in defaults.
+	AdaptiveUploadV2TuningSet bool
+	// AdaptiveUploadV2Tuning holds opt-in V2 transfer tuning.
+	AdaptiveUploadV2Tuning UploadV2Tuning
 }
 
 func expand(path string) (string, error) {
@@ -257,9 +293,13 @@ func (c *Client) Uploader(params UploaderParams, opts ...files_sdk.RequestRespon
 		} else {
 			params.LocalPath = absolutePath
 		}
+		job.Params = params
+		job.LocalPath = params.LocalPath
+		job.RemotePath = params.RemotePath
 
-		uploader(files_sdk.ContextOption(opts), c, params).CodeStart()
+		uploader(files_sdk.ContextOption(opts), c, params, opts...).CodeStart()
 	}
+	registerSyncAfterActions(job, params.SyncAfterActions, params.DryRun, c.Config, opts...)
 
 	return job
 }

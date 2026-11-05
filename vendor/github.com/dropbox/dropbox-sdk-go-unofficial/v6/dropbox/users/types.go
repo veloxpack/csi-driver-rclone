@@ -85,6 +85,43 @@ func NewBasicAccount(AccountId string, Name *Name, Email string, EmailVerified b
 	return s
 }
 
+// DistinctMemberHomeValue : The value for `UserFeature.distinct_member_home`.
+type DistinctMemberHomeValue struct {
+	dropbox.Tagged
+	// Enabled : When this value is True, the user have distinct home and root
+	// ns. When the value is False the user's home ns and root ns are the same.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// Valid tag values for DistinctMemberHomeValue
+const (
+	DistinctMemberHomeValueEnabled = "enabled"
+	DistinctMemberHomeValueOther   = "other"
+)
+
+// UnmarshalJSON deserializes into a DistinctMemberHomeValue instance
+func (u *DistinctMemberHomeValue) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+		// Enabled : When this value is True, the user have distinct home and
+		// root ns. When the value is False the user's home ns and root ns are
+		// the same.
+		Enabled bool `json:"enabled,omitempty"`
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "enabled":
+		u.Enabled = w.Enabled
+
+	}
+	return nil
+}
+
 // FileLockingValue : The value for `UserFeature.file_locking`.
 type FileLockingValue struct {
 	dropbox.Tagged
@@ -259,15 +296,19 @@ type FullTeam struct {
 	SharingPolicies *team_policies.TeamSharingPolicies `json:"sharing_policies"`
 	// OfficeAddinPolicy : Team policy governing the use of the Office Add-In.
 	OfficeAddinPolicy *team_policies.OfficeAddInPolicy `json:"office_addin_policy"`
+	// TopLevelContentPolicy : Team policy governing whether members can edit
+	// team folders at the top level of the team space.
+	TopLevelContentPolicy *team_policies.TopLevelContentPolicy `json:"top_level_content_policy"`
 }
 
 // NewFullTeam returns a new FullTeam instance
-func NewFullTeam(Id string, Name string, SharingPolicies *team_policies.TeamSharingPolicies, OfficeAddinPolicy *team_policies.OfficeAddInPolicy) *FullTeam {
+func NewFullTeam(Id string, Name string, SharingPolicies *team_policies.TeamSharingPolicies, OfficeAddinPolicy *team_policies.OfficeAddInPolicy, TopLevelContentPolicy *team_policies.TopLevelContentPolicy) *FullTeam {
 	s := new(FullTeam)
 	s.Id = Id
 	s.Name = Name
 	s.SharingPolicies = SharingPolicies
 	s.OfficeAddinPolicy = OfficeAddinPolicy
+	s.TopLevelContentPolicy = TopLevelContentPolicy
 	return s
 }
 
@@ -490,6 +531,42 @@ func NewSpaceUsage(Used uint64, Allocation *SpaceAllocation) *SpaceUsage {
 	return s
 }
 
+// TeamSharedDropboxValue : The value for `UserFeature.team_shared_dropbox`.
+type TeamSharedDropboxValue struct {
+	dropbox.Tagged
+	// Enabled : When this value is True, the user have a shared team root. When
+	// the value is False the user have distinct root.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// Valid tag values for TeamSharedDropboxValue
+const (
+	TeamSharedDropboxValueEnabled = "enabled"
+	TeamSharedDropboxValueOther   = "other"
+)
+
+// UnmarshalJSON deserializes into a TeamSharedDropboxValue instance
+func (u *TeamSharedDropboxValue) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+		// Enabled : When this value is True, the user have a shared team root.
+		// When the value is False the user have distinct root.
+		Enabled bool `json:"enabled,omitempty"`
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "enabled":
+		u.Enabled = w.Enabled
+
+	}
+	return nil
+}
+
 // TeamSpaceAllocation : has no documentation (yet)
 type TeamSpaceAllocation struct {
 	// Used : The total space currently used by the user's team (bytes).
@@ -527,9 +604,11 @@ type UserFeature struct {
 
 // Valid tag values for UserFeature
 const (
-	UserFeaturePaperAsFiles = "paper_as_files"
-	UserFeatureFileLocking  = "file_locking"
-	UserFeatureOther        = "other"
+	UserFeaturePaperAsFiles       = "paper_as_files"
+	UserFeatureFileLocking        = "file_locking"
+	UserFeatureTeamSharedDropbox  = "team_shared_dropbox"
+	UserFeatureDistinctMemberHome = "distinct_member_home"
+	UserFeatureOther              = "other"
 )
 
 // UserFeatureValue : Values that correspond to entries in `UserFeature`.
@@ -539,13 +618,19 @@ type UserFeatureValue struct {
 	PaperAsFiles *PaperAsFilesValue `json:"paper_as_files,omitempty"`
 	// FileLocking : has no documentation (yet)
 	FileLocking *FileLockingValue `json:"file_locking,omitempty"`
+	// TeamSharedDropbox : has no documentation (yet)
+	TeamSharedDropbox *TeamSharedDropboxValue `json:"team_shared_dropbox,omitempty"`
+	// DistinctMemberHome : has no documentation (yet)
+	DistinctMemberHome *DistinctMemberHomeValue `json:"distinct_member_home,omitempty"`
 }
 
 // Valid tag values for UserFeatureValue
 const (
-	UserFeatureValuePaperAsFiles = "paper_as_files"
-	UserFeatureValueFileLocking  = "file_locking"
-	UserFeatureValueOther        = "other"
+	UserFeatureValuePaperAsFiles       = "paper_as_files"
+	UserFeatureValueFileLocking        = "file_locking"
+	UserFeatureValueTeamSharedDropbox  = "team_shared_dropbox"
+	UserFeatureValueDistinctMemberHome = "distinct_member_home"
+	UserFeatureValueOther              = "other"
 )
 
 // UnmarshalJSON deserializes into a UserFeatureValue instance
@@ -556,6 +641,10 @@ func (u *UserFeatureValue) UnmarshalJSON(body []byte) error {
 		PaperAsFiles *PaperAsFilesValue `json:"paper_as_files,omitempty"`
 		// FileLocking : has no documentation (yet)
 		FileLocking *FileLockingValue `json:"file_locking,omitempty"`
+		// TeamSharedDropbox : has no documentation (yet)
+		TeamSharedDropbox *TeamSharedDropboxValue `json:"team_shared_dropbox,omitempty"`
+		// DistinctMemberHome : has no documentation (yet)
+		DistinctMemberHome *DistinctMemberHomeValue `json:"distinct_member_home,omitempty"`
 	}
 	var w wrap
 	var err error
@@ -569,6 +658,12 @@ func (u *UserFeatureValue) UnmarshalJSON(body []byte) error {
 
 	case "file_locking":
 		u.FileLocking = w.FileLocking
+
+	case "team_shared_dropbox":
+		u.TeamSharedDropbox = w.TeamSharedDropbox
+
+	case "distinct_member_home":
+		u.DistinctMemberHome = w.DistinctMemberHome
 
 	}
 	return nil

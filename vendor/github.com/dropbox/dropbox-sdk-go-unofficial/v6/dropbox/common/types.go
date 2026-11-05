@@ -27,6 +27,22 @@ import (
 	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox"
 )
 
+// DropboxDuration : has no documentation (yet)
+type DropboxDuration struct {
+	// Seconds : has no documentation (yet)
+	Seconds int64 `json:"seconds"`
+	// Nanos : has no documentation (yet)
+	Nanos int32 `json:"nanos"`
+}
+
+// NewDropboxDuration returns a new DropboxDuration instance
+func NewDropboxDuration(Seconds int64, Nanos int32) *DropboxDuration {
+	s := new(DropboxDuration)
+	s.Seconds = Seconds
+	s.Nanos = Nanos
+	return s
+}
+
 // PathRoot : has no documentation (yet)
 type PathRoot struct {
 	dropbox.Tagged
@@ -121,7 +137,8 @@ func (u *PathRootError) UnmarshalJSON(body []byte) error {
 type RootInfo struct {
 	// RootNamespaceId : The namespace ID for user's root namespace. It will be
 	// the namespace ID of the shared team root if the user is member of a team
-	// with a separate team root. Otherwise it will be same as
+	// with a separate team root, or the user root if user is member of a team
+	// with separate distinct roots for users. Otherwise it will be the same as
 	// `RootInfo.home_namespace_id`.
 	RootNamespaceId string `json:"root_namespace_id"`
 	// HomeNamespaceId : The namespace ID for user's home namespace.
@@ -222,6 +239,9 @@ func NewTeamRootInfo(RootNamespaceId string, HomeNamespaceId string, HomePath st
 // member of a team and the team does not have a separate root namespace.
 type UserRootInfo struct {
 	RootInfo
+	// HomePath : The path for user's home directory under the distinct user
+	// root.
+	HomePath string `json:"home_path,omitempty"`
 }
 
 // NewUserRootInfo returns a new UserRootInfo instance

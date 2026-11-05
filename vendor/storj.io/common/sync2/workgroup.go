@@ -14,14 +14,13 @@ type WorkGroup struct {
 	mu   sync.Mutex
 	cond sync.Cond
 
-	initialized bool
-	closed      bool
-	workers     int
+	closed  bool
+	workers int
 }
 
 // init initializes work group.
 func (group *WorkGroup) init() {
-	if !group.initialized {
+	if group.cond.L == nil {
 		group.cond.L = &group.mu
 	}
 }

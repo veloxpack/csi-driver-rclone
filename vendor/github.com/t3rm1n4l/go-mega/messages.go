@@ -199,12 +199,13 @@ type FSEvent struct {
 	} `json:"t"`
 	Owner string `json:"ou"`
 
-	N    string `json:"n"`
-	User string `json:"u"`
-	Attr string `json:"at"`
-	Key  string `json:"k"`
-	Ts   int64  `json:"ts"`
-	I    string `json:"i"`
+	N     string `json:"n"`
+	User  string `json:"u"`
+	Attr  string `json:"at"`
+	Key   string `json:"k"`
+	Ts    int64  `json:"ts"`
+	I     string `json:"i"`
+	Moved int    `json:"m"`
 }
 
 // Events is received from a poll of the server to read the events

@@ -104,8 +104,8 @@ func (throttle *Throttle) Fail(err error) {
 	defer throttle.mu.Unlock()
 
 	throttle.errs = append(throttle.errs, err)
-	throttle.consumer.Signal()
-	throttle.producer.Signal()
+	throttle.consumer.Broadcast()
+	throttle.producer.Broadcast()
 }
 
 // must hold mutex when calling this.

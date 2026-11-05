@@ -35,10 +35,10 @@
 // associated properties can't be accessed by any app other than the app that
 // created them, and even then, only when the app is linked with the owner of
 // the template (either a user or team).  User-owned templates are accessed via
-// the user-auth file_properties/templates/*_for_user endpoints, while
+// the user-auth `file_properties/templates/*_for_user` endpoints, while
 // team-owned templates are accessed via the team-auth
-// file_properties/templates/*_for_team endpoints. Properties associated with
-// either type of template can be accessed via the user-auth properties/*
+// `file_properties/templates/*_for_team` endpoints. Properties associated with
+// either type of template can be accessed via the user-auth `properties/*`
 // endpoints.  Finally, properties can be accessed from a number of endpoints
 // that return metadata, including `files/get_metadata`, and
 // `files/list_folder`. Properties can also be added during upload, using
@@ -56,7 +56,7 @@ type AddPropertiesArg struct {
 	// Path : A unique identifier for the file or folder.
 	Path string `json:"path"`
 	// PropertyGroups : The property groups which are to be added to a Dropbox
-	// file. No two groups in the input should  refer to the same template.
+	// file. No two groups in the input should refer to the same template.
 	PropertyGroups []*PropertyGroup `json:"property_groups"`
 }
 
@@ -438,7 +438,7 @@ type OverwritePropertyGroupArg struct {
 	// Path : A unique identifier for the file or folder.
 	Path string `json:"path"`
 	// PropertyGroups : The property groups "snapshot" updates to force apply.
-	// No two groups in the input should  refer to the same template.
+	// No two groups in the input should refer to the same template.
 	PropertyGroups []*PropertyGroup `json:"property_groups"`
 }
 
@@ -646,8 +646,7 @@ type PropertyFieldTemplate struct {
 	// Description : Description of the property field. Property field
 	// descriptions can be up to 1024 bytes.
 	Description string `json:"description"`
-	// Type : Data type of the value of this property field. This type will be
-	// enforced upon property creation and modifications.
+	// Type : has no documentation (yet)
 	Type *PropertyType `json:"type"`
 }
 
@@ -680,13 +679,13 @@ func NewPropertyGroup(TemplateId string, Fields []*PropertyField) *PropertyGroup
 	return s
 }
 
-// PropertyGroupUpdate : has no documentation (yet)
+// PropertyGroupUpdate : Property routes
 type PropertyGroupUpdate struct {
 	// TemplateId : A unique identifier for a property template.
 	TemplateId string `json:"template_id"`
 	// AddOrUpdateFields : Property fields to update. If the property field
-	// already exists, it is updated. If the property field doesn't exist, the
-	// property group is added.
+	// already exists, it is updated. If the property field doesn't exist, it
+	// will be created as long as the property group already exists.
 	AddOrUpdateFields []*PropertyField `json:"add_or_update_fields,omitempty"`
 	// RemoveFields : Property fields to remove (by name), provided they exist.
 	RemoveFields []string `json:"remove_fields,omitempty"`

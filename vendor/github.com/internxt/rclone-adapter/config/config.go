@@ -1,9 +1,11 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/internxt/rclone-adapter/endpoints"
@@ -15,6 +17,8 @@ const (
 	DefaultMaxConcurrency   = 6
 	MaxThumbnailSourceSize  = 50 * 1024 * 1024
 	ClientName              = "rclone-adapter"
+
+	DefaultFileLimitsTTL = 1 * time.Hour
 )
 
 type Config struct {
@@ -25,7 +29,47 @@ type Config struct {
 	BasicAuthHeader    string            `json:"basic_auth_header,omitempty"`
 	HTTPClient         *http.Client      `json:"-"` // Centralized HTTP client with proper timeouts
 	Endpoints          *endpoints.Config `json:"-"` // Centralized API endpoint management
+	FileLimits         *FileLimitsCache  `json:"-"` // Cached account upload limits
 	SkipHashValidation bool              `json:"skip_hash_validation,omitempty"`
+}
+
+// FileLimitsCache holds the account's MaxUploadFileSize with a TTL refresh
+type FileLimitsCache struct {
+	mu                sync.Mutex
+	maxUploadFileSize int64
+	fetchedAt         time.Time
+	populated         bool
+	ttl               time.Duration
+}
+
+// NewFileLimitsCache returns a cache with the default TTL.
+func NewFileLimitsCache() *FileLimitsCache {
+	return &FileLimitsCache{ttl: DefaultFileLimitsTTL}
+}
+
+// GetOrFetch returns the cached MaxUploadFileSize, refreshing via fetchFn
+// when the cache is empty or stale
+func (c *FileLimitsCache) GetOrFetch(ctx context.Context, fetchFn func(context.Context) (int64, error)) (maxUploadFileSize int64, ok bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.populated && time.Since(c.fetchedAt) < c.ttl {
+		return c.maxUploadFileSize, true
+	}
+	v, err := fetchFn(ctx)
+	if err != nil {
+		return 0, false
+	}
+	c.maxUploadFileSize = v
+	c.fetchedAt = time.Now()
+	c.populated = true
+	return c.maxUploadFileSize, true
+}
+
+// Invalidate clears the cache so the next GetOrFetch will refetch.
+func (c *FileLimitsCache) Invalidate() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.populated = false
 }
 
 func NewDefaultToken(token string) *Config {
@@ -44,6 +88,9 @@ func (c *Config) ApplyDefaults() {
 	}
 	if c.Endpoints == nil {
 		c.Endpoints = endpoints.Default()
+	}
+	if c.FileLimits == nil {
+		c.FileLimits = NewFileLimitsCache()
 	}
 }
 

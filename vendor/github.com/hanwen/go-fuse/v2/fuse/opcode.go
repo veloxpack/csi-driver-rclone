@@ -60,11 +60,12 @@ const (
 	_OP_LSEEK           = uint32(46) // protocol version 24
 	_OP_COPY_FILE_RANGE = uint32(47) // protocol version 28.
 
-	_OP_SETUPMAPPING  = 48
-	_OP_REMOVEMAPPING = 49
-	_OP_SYNCFS        = 50
-	_OP_TMPFILE       = 51
-	_OP_STATX         = 52
+	_OP_SETUPMAPPING       = 48
+	_OP_REMOVEMAPPING      = 49
+	_OP_SYNCFS             = 50
+	_OP_TMPFILE            = 51
+	_OP_STATX              = 52
+	_OP_COPY_FILE_RANGE_64 = 53
 
 	// The following entries don't have to be compatible across Go-FUSE versions.
 	_OP_NOTIFY_INVAL_ENTRY    = uint32(100)
@@ -72,8 +73,9 @@ const (
 	_OP_NOTIFY_STORE_CACHE    = uint32(102)
 	_OP_NOTIFY_RETRIEVE_CACHE = uint32(103)
 	_OP_NOTIFY_DELETE         = uint32(104) // protocol version 18
+	_OP_NOTIFY_PRUNE          = uint32(105) // protocol version 45
 
-	_OPCODE_COUNT = uint32(105)
+	_OPCODE_COUNT = uint32(106)
 
 	// Constants from Linux kernel fs/fuse/fuse_i.h
 	// Default MaxPages value in all kernel versions
@@ -100,7 +102,8 @@ func doInit(server *protocolServer, req *request) {
 	kernelFlags := input.Flags64()
 	server.kernelSettings = *input
 	kernelFlags &= (CAP_ASYNC_READ | CAP_BIG_WRITES | CAP_FILE_OPS |
-		CAP_READDIRPLUS | CAP_NO_OPEN_SUPPORT | CAP_PARALLEL_DIROPS | CAP_MAX_PAGES | CAP_RENAME_SWAP | CAP_PASSTHROUGH | CAP_ALLOW_IDMAP)
+		CAP_READDIRPLUS | CAP_NO_OPEN_SUPPORT | CAP_PARALLEL_DIROPS | CAP_MAX_PAGES | CAP_RENAME_SWAP | CAP_PASSTHROUGH | CAP_ALLOW_IDMAP |
+		server.opts.ExtraCapabilities)
 
 	if server.opts.EnableLocks {
 		kernelFlags |= CAP_FLOCK_LOCKS | CAP_POSIX_LOCKS
@@ -111,18 +114,6 @@ func doInit(server *protocolServer, req *request) {
 	if server.opts.EnableAcl {
 		kernelFlags |= CAP_POSIX_ACL
 	}
-	if server.opts.SyncRead {
-		// Clear CAP_ASYNC_READ
-		kernelFlags &= ^uint64(CAP_ASYNC_READ)
-	}
-	if server.opts.DisableReadDirPlus {
-		// Clear CAP_READDIRPLUS
-		kernelFlags &= ^uint64(CAP_READDIRPLUS)
-	}
-	if !server.opts.IDMappedMount {
-		// Clear CAP_ALLOW_IDMAP
-		kernelFlags &= ^uint64(CAP_ALLOW_IDMAP)
-	}
 
 	if server.opts.ExplicitDataCacheControl {
 		// we don't want CAP_AUTO_INVAL_DATA even if we cannot go into fully explicit mode
@@ -130,6 +121,8 @@ func doInit(server *protocolServer, req *request) {
 	} else {
 		kernelFlags |= input.Flags64() & CAP_AUTO_INVAL_DATA
 	}
+
+	kernelFlags = kernelFlags &^ server.opts.DisabledCapabilities
 
 	// maxPages is the maximum request size we want the kernel to use, in units of
 	// memory pages (usually 4kiB). Linux v4.19 and older ignore this and always use
@@ -266,8 +259,6 @@ func doGetXAttr(server *protocolServer, req *request) {
 	}
 
 	input := (*GetXAttrIn)(req.inData())
-	out := (*GetXAttrOut)(req.outData())
-
 	var n uint32
 	switch req.inHeader().Opcode {
 	case _OP_GETXATTR:
@@ -278,9 +269,13 @@ func doGetXAttr(server *protocolServer, req *request) {
 		req.status = ENOSYS
 	}
 
-	if input.Size == 0 && req.status == ERANGE {
-		// For input.size==0, returning ERANGE is an error.
-		req.status = OK
+	if input.Size == 0 {
+		if req.status == ERANGE {
+			// For input.size==0, returning ERANGE is an error.
+			req.status = OK
+		}
+
+		out := (*GetXAttrOut)(req.outData())
 		out.Size = n
 	} else if req.status.Ok() {
 		// ListXAttr called with an empty buffer returns the current size of
@@ -288,7 +283,6 @@ func doGetXAttr(server *protocolServer, req *request) {
 		if len(req.outPayload) > 0 {
 			req.outPayload = req.outPayload[:n]
 		}
-		out.Size = n
 	} else {
 		req.outPayload = req.outPayload[:0]
 	}
@@ -310,11 +304,15 @@ func doForget(server *protocolServer, req *request) {
 // doBatchForget - forget a list of NodeIds
 func doBatchForget(server *protocolServer, req *request) {
 	in := (*_BatchForgetIn)(req.inData())
-	wantBytes := uintptr(in.Count) * unsafe.Sizeof(_ForgetOne{})
-	if uintptr(len(req.inPayload)) < wantBytes {
+	gotCount := len(req.inPayload) / int(unsafe.Sizeof(_ForgetOne{}))
+	if int(in.Count) > gotCount {
 		// We have no return value to complain, so log an error.
-		server.opts.Logger.Printf("Too few bytes for batch forget. Got %d bytes, want %d (%d entries)",
-			len(req.inPayload), wantBytes, in.Count)
+		server.opts.Logger.Printf("Too few bytes for batch forget. Got %d bytes enough for %d entries (want %d entries)",
+			len(req.inPayload), gotCount, in.Count)
+	}
+	in.Count = uint32(gotCount)
+	if in.Count == 0 {
+		return
 	}
 
 	forgets := unsafe.Slice((*_ForgetOne)(unsafe.Pointer(&req.inPayload[0])), in.Count)
@@ -366,11 +364,6 @@ func doLink(server *protocolServer, req *request) {
 func doRead(server *protocolServer, req *request) {
 	in := (*ReadIn)(req.inData())
 	req.readResult, req.status = server.fileSystem.Read(req.cancel, in, req.outPayload)
-	if fd, ok := req.readResult.(*readResultFd); ok {
-		req.fdData = fd
-	} else if req.readResult != nil && req.status.Ok() {
-		req.outPayload, req.status = req.readResult.Bytes(req.outPayload)
-	}
 }
 
 func doFlush(server *protocolServer, req *request) {
@@ -395,6 +388,10 @@ func doFsyncDir(server *protocolServer, req *request) {
 
 func doSetXAttr(server *protocolServer, req *request) {
 	i := bytes.IndexByte(req.inPayload, 0)
+	if i < 0 {
+		req.status = EINVAL
+		return
+	}
 	req.status = server.fileSystem.SetXAttr(req.cancel, (*SetXAttrIn)(req.inData()), string(req.inPayload[:i]), req.inPayload[i+1:])
 }
 
@@ -492,15 +489,17 @@ type operationFunc func(*protocolServer, *request)
 type castPointerFunc func(unsafe.Pointer) interface{}
 
 type operationHandler struct {
+	OpCode     int
 	Name       string
 	Func       operationFunc
 	InputSize  uintptr
 	OutputSize uintptr
 
-	InType      interface{}
-	OutType     interface{}
-	FileNames   int
-	FileNameOut bool
+	InType        interface{}
+	OutType       interface{}
+	FileNames     int
+	FileNameOut   bool
+	SuppressReply bool
 }
 
 var operationHandlers []*operationHandler
@@ -526,12 +525,18 @@ var maxInputSize uintptr
 func init() {
 	operationHandlers = make([]*operationHandler, _OPCODE_COUNT)
 	for i := range operationHandlers {
-		operationHandlers[i] = &operationHandler{Name: fmt.Sprintf("OPCODE-%d", i)}
+		operationHandlers[i] = &operationHandler{
+			OpCode: i,
+			Name:   fmt.Sprintf("OPCODE-%d", i),
+		}
 	}
 
 	fileOps := []uint32{_OP_READLINK, _OP_NOTIFY_INVAL_ENTRY, _OP_NOTIFY_DELETE}
 	for _, op := range fileOps {
 		operationHandlers[op].FileNameOut = true
+	}
+	for _, op := range []uint32{_OP_FORGET, _OP_BATCH_FORGET, _OP_NOTIFY_REPLY} {
+		operationHandlers[op].SuppressReply = true
 	}
 
 	for op, v := range map[uint32]string{
@@ -589,6 +594,7 @@ func init() {
 		_OP_REMOVEMAPPING:         "REMOVEMAPPING",
 		_OP_SYNCFS:                "SYNCFS",
 		_OP_TMPFILE:               "TMPFILE",
+		_OP_COPY_FILE_RANGE_64:    "COPY_FILE_RANGE_64",
 	} {
 		operationHandlers[op].Name = v
 	}
@@ -662,6 +668,7 @@ func init() {
 		_OP_NOTIFY_INVAL_INODE:    NotifyInvalInodeOut{},
 		_OP_NOTIFY_RETRIEVE_CACHE: NotifyRetrieveOut{},
 		_OP_NOTIFY_STORE_CACHE:    NotifyStoreOut{},
+		_OP_NOTIFY_PRUNE:          NotifyPruneOut{},
 		_OP_OPEN:                  OpenOut{},
 		_OP_OPENDIR:               OpenOut{},
 		_OP_POLL:                  _PollOut{},
@@ -669,6 +676,7 @@ func init() {
 		_OP_STATFS:                StatfsOut{},
 		_OP_SYMLINK:               EntryOut{},
 		_OP_WRITE:                 WriteOut{},
+		_OP_COPY_FILE_RANGE_64:    CopyFileRangeOut{},
 	} {
 		operationHandlers[op].OutType = f
 		operationHandlers[op].OutputSize = typSize(f)
@@ -676,43 +684,44 @@ func init() {
 
 	// Inputs.
 	for op, f := range map[uint32]interface{}{
-		_OP_ACCESS:          AccessIn{},
-		_OP_BATCH_FORGET:    _BatchForgetIn{},
-		_OP_BMAP:            _BmapIn{},
-		_OP_COPY_FILE_RANGE: CopyFileRangeIn{},
-		_OP_CREATE:          CreateIn{},
-		_OP_FALLOCATE:       FallocateIn{},
-		_OP_FLUSH:           FlushIn{},
-		_OP_FORGET:          ForgetIn{},
-		_OP_FSYNC:           FsyncIn{},
-		_OP_FSYNCDIR:        FsyncIn{},
-		_OP_GETATTR:         GetAttrIn{},
-		_OP_GETLK:           LkIn{},
-		_OP_GETXATTR:        GetXAttrIn{},
-		_OP_INIT:            InitIn{},
-		_OP_INTERRUPT:       InterruptIn{},
-		_OP_IOCTL:           IoctlIn{},
-		_OP_LINK:            LinkIn{},
-		_OP_LISTXATTR:       GetXAttrIn{},
-		_OP_LSEEK:           LseekIn{},
-		_OP_MKDIR:           MkdirIn{},
-		_OP_MKNOD:           MknodIn{},
-		_OP_NOTIFY_REPLY:    NotifyRetrieveIn{},
-		_OP_OPEN:            OpenIn{},
-		_OP_OPENDIR:         OpenIn{},
-		_OP_POLL:            _PollIn{},
-		_OP_READ:            ReadIn{},
-		_OP_READDIR:         ReadIn{},
-		_OP_READDIRPLUS:     ReadIn{},
-		_OP_RELEASE:         ReleaseIn{},
-		_OP_RELEASEDIR:      ReleaseIn{},
-		_OP_RENAME2:         RenameIn{},
-		_OP_RENAME:          Rename1In{},
-		_OP_SETATTR:         SetAttrIn{},
-		_OP_SETLK:           LkIn{},
-		_OP_SETLKW:          LkIn{},
-		_OP_SETXATTR:        SetXAttrIn{},
-		_OP_WRITE:           WriteIn{},
+		_OP_ACCESS:             AccessIn{},
+		_OP_BATCH_FORGET:       _BatchForgetIn{},
+		_OP_BMAP:               _BmapIn{},
+		_OP_COPY_FILE_RANGE:    CopyFileRangeIn{},
+		_OP_CREATE:             CreateIn{},
+		_OP_FALLOCATE:          FallocateIn{},
+		_OP_FLUSH:              FlushIn{},
+		_OP_FORGET:             ForgetIn{},
+		_OP_FSYNC:              FsyncIn{},
+		_OP_FSYNCDIR:           FsyncIn{},
+		_OP_GETATTR:            GetAttrIn{},
+		_OP_GETLK:              LkIn{},
+		_OP_GETXATTR:           GetXAttrIn{},
+		_OP_INIT:               InitIn{},
+		_OP_INTERRUPT:          InterruptIn{},
+		_OP_IOCTL:              IoctlIn{},
+		_OP_LINK:               LinkIn{},
+		_OP_LISTXATTR:          GetXAttrIn{},
+		_OP_LSEEK:              LseekIn{},
+		_OP_MKDIR:              MkdirIn{},
+		_OP_MKNOD:              MknodIn{},
+		_OP_NOTIFY_REPLY:       NotifyRetrieveIn{},
+		_OP_OPEN:               OpenIn{},
+		_OP_OPENDIR:            OpenIn{},
+		_OP_POLL:               _PollIn{},
+		_OP_READ:               ReadIn{},
+		_OP_READDIR:            ReadIn{},
+		_OP_READDIRPLUS:        ReadIn{},
+		_OP_RELEASE:            ReleaseIn{},
+		_OP_RELEASEDIR:         ReleaseIn{},
+		_OP_RENAME2:            RenameIn{},
+		_OP_RENAME:             Rename1In{},
+		_OP_SETATTR:            SetAttrIn{},
+		_OP_SETLK:              LkIn{},
+		_OP_SETLKW:             LkIn{},
+		_OP_SETXATTR:           SetXAttrIn{},
+		_OP_WRITE:              WriteIn{},
+		_OP_COPY_FILE_RANGE_64: CopyFileRangeIn{},
 	} {
 		operationHandlers[op].InType = f
 		sz := typSize(f)
@@ -746,10 +755,9 @@ func init() {
 
 func checkFixedBufferSize() {
 	var r requestAlloc
-	sizeOfOutHeader := unsafe.Sizeof(OutHeader{})
 	for code, h := range operationHandlers {
-		if h.OutputSize+sizeOfOutHeader > unsafe.Sizeof(r.outBuf) {
-			log.Panicf("request output buffer too small: code %v, sz %d + %d %v", code, h.OutputSize, sizeOfOutHeader, h)
+		if h.OutputSize > unsafe.Sizeof(r.outDataInline) {
+			log.Panicf("request output buffer too small: code %v, sz %d %v", code, h.OutputSize, h)
 		}
 	}
 }

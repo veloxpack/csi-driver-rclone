@@ -7,19 +7,22 @@ import (
 )
 
 type Group struct {
-	Id                int64  `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
-	Name              string `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
-	AllowedIps        string `json:"allowed_ips,omitempty" path:"allowed_ips,omitempty" url:"allowed_ips,omitempty"`
-	AdminIds          string `json:"admin_ids,omitempty" path:"admin_ids,omitempty" url:"admin_ids,omitempty"`
-	Notes             string `json:"notes,omitempty" path:"notes,omitempty" url:"notes,omitempty"`
-	UserIds           string `json:"user_ids,omitempty" path:"user_ids,omitempty" url:"user_ids,omitempty"`
-	Usernames         string `json:"usernames,omitempty" path:"usernames,omitempty" url:"usernames,omitempty"`
-	FtpPermission     *bool  `json:"ftp_permission,omitempty" path:"ftp_permission,omitempty" url:"ftp_permission,omitempty"`
-	SftpPermission    *bool  `json:"sftp_permission,omitempty" path:"sftp_permission,omitempty" url:"sftp_permission,omitempty"`
-	DavPermission     *bool  `json:"dav_permission,omitempty" path:"dav_permission,omitempty" url:"dav_permission,omitempty"`
-	RestapiPermission *bool  `json:"restapi_permission,omitempty" path:"restapi_permission,omitempty" url:"restapi_permission,omitempty"`
-	SiteId            int64  `json:"site_id,omitempty" path:"site_id,omitempty" url:"site_id,omitempty"`
-	WorkspaceId       int64  `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
+	Id                            int64  `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	Name                          string `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
+	AllowedIps                    string `json:"allowed_ips,omitempty" path:"allowed_ips,omitempty" url:"allowed_ips,omitempty"`
+	AdminIds                      string `json:"admin_ids,omitempty" path:"admin_ids,omitempty" url:"admin_ids,omitempty"`
+	Notes                         string `json:"notes,omitempty" path:"notes,omitempty" url:"notes,omitempty"`
+	UserIds                       string `json:"user_ids,omitempty" path:"user_ids,omitempty" url:"user_ids,omitempty"`
+	Usernames                     string `json:"usernames,omitempty" path:"usernames,omitempty" url:"usernames,omitempty"`
+	AiAssistantPersonalityId      int64  `json:"ai_assistant_personality_id,omitempty" path:"ai_assistant_personality_id,omitempty" url:"ai_assistant_personality_id,omitempty"`
+	FtpPermission                 *bool  `json:"ftp_permission,omitempty" path:"ftp_permission,omitempty" url:"ftp_permission,omitempty"`
+	SftpPermission                *bool  `json:"sftp_permission,omitempty" path:"sftp_permission,omitempty" url:"sftp_permission,omitempty"`
+	DavPermission                 *bool  `json:"dav_permission,omitempty" path:"dav_permission,omitempty" url:"dav_permission,omitempty"`
+	RestapiPermission             *bool  `json:"restapi_permission,omitempty" path:"restapi_permission,omitempty" url:"restapi_permission,omitempty"`
+	DesktopConfigurationProfileId int64  `json:"desktop_configuration_profile_id,omitempty" path:"desktop_configuration_profile_id,omitempty" url:"desktop_configuration_profile_id,omitempty"`
+	IntegrationCentricProfileId   int64  `json:"integration_centric_profile_id,omitempty" path:"integration_centric_profile_id,omitempty" url:"integration_centric_profile_id,omitempty"`
+	SiteId                        int64  `json:"site_id,omitempty" path:"site_id,omitempty" url:"site_id,omitempty"`
+	WorkspaceId                   int64  `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 }
 
 func (g Group) Identifier() interface{} {
@@ -42,29 +45,35 @@ type GroupFindParams struct {
 }
 
 type GroupCreateParams struct {
-	Notes             string `url:"notes,omitempty" json:"notes,omitempty" path:"notes"`
-	UserIds           string `url:"user_ids,omitempty" json:"user_ids,omitempty" path:"user_ids"`
-	AdminIds          string `url:"admin_ids,omitempty" json:"admin_ids,omitempty" path:"admin_ids"`
-	FtpPermission     *bool  `url:"ftp_permission,omitempty" json:"ftp_permission,omitempty" path:"ftp_permission"`
-	SftpPermission    *bool  `url:"sftp_permission,omitempty" json:"sftp_permission,omitempty" path:"sftp_permission"`
-	DavPermission     *bool  `url:"dav_permission,omitempty" json:"dav_permission,omitempty" path:"dav_permission"`
-	RestapiPermission *bool  `url:"restapi_permission,omitempty" json:"restapi_permission,omitempty" path:"restapi_permission"`
-	AllowedIps        string `url:"allowed_ips,omitempty" json:"allowed_ips,omitempty" path:"allowed_ips"`
-	Name              string `url:"name" json:"name" path:"name"`
-	WorkspaceId       int64  `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
+	Notes                         string `url:"notes,omitempty" json:"notes,omitempty" path:"notes"`
+	UserIds                       string `url:"user_ids,omitempty" json:"user_ids,omitempty" path:"user_ids"`
+	AdminIds                      string `url:"admin_ids,omitempty" json:"admin_ids,omitempty" path:"admin_ids"`
+	AiAssistantPersonalityId      int64  `url:"ai_assistant_personality_id,omitempty" json:"ai_assistant_personality_id,omitempty" path:"ai_assistant_personality_id"`
+	FtpPermission                 *bool  `url:"ftp_permission,omitempty" json:"ftp_permission,omitempty" path:"ftp_permission"`
+	SftpPermission                *bool  `url:"sftp_permission,omitempty" json:"sftp_permission,omitempty" path:"sftp_permission"`
+	DavPermission                 *bool  `url:"dav_permission,omitempty" json:"dav_permission,omitempty" path:"dav_permission"`
+	RestapiPermission             *bool  `url:"restapi_permission,omitempty" json:"restapi_permission,omitempty" path:"restapi_permission"`
+	DesktopConfigurationProfileId int64  `url:"desktop_configuration_profile_id,omitempty" json:"desktop_configuration_profile_id,omitempty" path:"desktop_configuration_profile_id"`
+	IntegrationCentricProfileId   int64  `url:"integration_centric_profile_id,omitempty" json:"integration_centric_profile_id,omitempty" path:"integration_centric_profile_id"`
+	AllowedIps                    string `url:"allowed_ips,omitempty" json:"allowed_ips,omitempty" path:"allowed_ips"`
+	Name                          string `url:"name" json:"name" path:"name"`
+	WorkspaceId                   int64  `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
 }
 
 type GroupUpdateParams struct {
-	Id                int64  `url:"-,omitempty" json:"-,omitempty" path:"id"`
-	Notes             string `url:"notes,omitempty" json:"notes,omitempty" path:"notes"`
-	UserIds           string `url:"user_ids,omitempty" json:"user_ids,omitempty" path:"user_ids"`
-	AdminIds          string `url:"admin_ids,omitempty" json:"admin_ids,omitempty" path:"admin_ids"`
-	FtpPermission     *bool  `url:"ftp_permission,omitempty" json:"ftp_permission,omitempty" path:"ftp_permission"`
-	SftpPermission    *bool  `url:"sftp_permission,omitempty" json:"sftp_permission,omitempty" path:"sftp_permission"`
-	DavPermission     *bool  `url:"dav_permission,omitempty" json:"dav_permission,omitempty" path:"dav_permission"`
-	RestapiPermission *bool  `url:"restapi_permission,omitempty" json:"restapi_permission,omitempty" path:"restapi_permission"`
-	AllowedIps        string `url:"allowed_ips,omitempty" json:"allowed_ips,omitempty" path:"allowed_ips"`
-	Name              string `url:"name,omitempty" json:"name,omitempty" path:"name"`
+	Id                            int64  `url:"-,omitempty" json:"-,omitempty" path:"id"`
+	Notes                         string `url:"notes,omitempty" json:"notes,omitempty" path:"notes"`
+	UserIds                       string `url:"user_ids,omitempty" json:"user_ids,omitempty" path:"user_ids"`
+	AdminIds                      string `url:"admin_ids,omitempty" json:"admin_ids,omitempty" path:"admin_ids"`
+	AiAssistantPersonalityId      int64  `url:"ai_assistant_personality_id,omitempty" json:"ai_assistant_personality_id,omitempty" path:"ai_assistant_personality_id"`
+	FtpPermission                 *bool  `url:"ftp_permission,omitempty" json:"ftp_permission,omitempty" path:"ftp_permission"`
+	SftpPermission                *bool  `url:"sftp_permission,omitempty" json:"sftp_permission,omitempty" path:"sftp_permission"`
+	DavPermission                 *bool  `url:"dav_permission,omitempty" json:"dav_permission,omitempty" path:"dav_permission"`
+	RestapiPermission             *bool  `url:"restapi_permission,omitempty" json:"restapi_permission,omitempty" path:"restapi_permission"`
+	DesktopConfigurationProfileId int64  `url:"desktop_configuration_profile_id,omitempty" json:"desktop_configuration_profile_id,omitempty" path:"desktop_configuration_profile_id"`
+	IntegrationCentricProfileId   int64  `url:"integration_centric_profile_id,omitempty" json:"integration_centric_profile_id,omitempty" path:"integration_centric_profile_id"`
+	AllowedIps                    string `url:"allowed_ips,omitempty" json:"allowed_ips,omitempty" path:"allowed_ips"`
+	Name                          string `url:"name,omitempty" json:"name,omitempty" path:"name"`
 }
 
 type GroupDeleteParams struct {

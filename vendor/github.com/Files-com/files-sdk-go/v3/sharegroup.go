@@ -7,11 +7,11 @@ import (
 )
 
 type ShareGroup struct {
-	Id      int64                    `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
-	Name    string                   `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
-	Notes   string                   `json:"notes,omitempty" path:"notes,omitempty" url:"notes,omitempty"`
-	UserId  int64                    `json:"user_id,omitempty" path:"user_id,omitempty" url:"user_id,omitempty"`
-	Members []map[string]interface{} `json:"members,omitempty" path:"members,omitempty" url:"members,omitempty"`
+	Id      int64              `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	Name    string             `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
+	Notes   string             `json:"notes,omitempty" path:"notes,omitempty" url:"notes,omitempty"`
+	UserId  int64              `json:"user_id,omitempty" path:"user_id,omitempty" url:"user_id,omitempty"`
+	Members []ShareGroupMember `json:"members,omitempty" path:"members,omitempty" url:"members,omitempty"`
 }
 
 func (s ShareGroup) Identifier() interface{} {

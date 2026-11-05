@@ -49,11 +49,14 @@ func (w *Walk[T]) Walk(parentCtx context.Context) *IterChan[T] {
 				break
 			}
 			if dir := w.Queue.Pop(); dir != "" {
-				if waitGroup.WaitWithContext(parentCtx) {
+				if waitGroup.WaitWithContext(it.Context) {
 					go func() {
 						err := w.walkDir(it.Context, dir, it)
-						if err != nil && !errors.Is(err, context.Canceled) {
-							it.SendError <- err
+						if err != nil && !isWalkShutdownError(it.Context, err) {
+							select {
+							case <-it.Context.Done():
+							case it.SendError <- err:
+							}
 						}
 						waitGroup.Done()
 					}()
@@ -62,11 +65,17 @@ func (w *Walk[T]) Walk(parentCtx context.Context) *IterChan[T] {
 
 			if w.Len() == 0 {
 				for {
-					if waitGroup.WaitForADone() {
+					if waitGroup.WaitForADoneWithContext(it.Context) {
 						if w.Len() != 0 {
 							break
 						}
 					} else {
+						if it.Context.Err() != nil {
+							return
+						}
+						if w.Len() != 0 {
+							break
+						}
 						return
 					}
 				}
@@ -79,7 +88,7 @@ func (w *Walk[T]) Walk(parentCtx context.Context) *IterChan[T] {
 func (w *Walk[T]) walkDir(ctx context.Context, dir string, it *IterChan[T]) error {
 	return fs.WalkDir(w.FS, dir, func(path string, d fs.DirEntry, err error) error {
 		if ctx.Err() != nil {
-			return nil
+			return ctx.Err()
 		}
 		if err != nil {
 			if err := w.send(ctx, d, path, it, err); err != nil {
@@ -119,13 +128,20 @@ func (w *Walk[T]) walkDir(ctx context.Context, dir string, it *IterChan[T]) erro
 	})
 }
 
+func isWalkShutdownError(ctx context.Context, err error) bool {
+	if errors.Is(err, context.Canceled) {
+		return true
+	}
+	return ctx.Err() != nil && errors.Is(err, context.DeadlineExceeded)
+}
+
 func (w *Walk[T]) send(ctx context.Context, d fs.DirEntry, path string, it *IterChan[T], err error) error {
 	toSend, err := w.WalkFile(d, path, err)
 	if err == nil {
 		select {
 		case <-ctx.Done():
-		default:
-			it.Send <- toSend
+			return ctx.Err()
+		case it.Send <- toSend:
 		}
 		return nil
 	} else {

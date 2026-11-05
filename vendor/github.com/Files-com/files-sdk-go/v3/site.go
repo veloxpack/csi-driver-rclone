@@ -12,6 +12,7 @@ type Site struct {
 	Id                                       int64       `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
 	Name                                     string      `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
 	AdditionalTextFileTypes                  []string    `json:"additional_text_file_types,omitempty" path:"additional_text_file_types,omitempty" url:"additional_text_file_types,omitempty"`
+	AiFeatureAvailability                    interface{} `json:"ai_feature_availability,omitempty" path:"ai_feature_availability,omitempty" url:"ai_feature_availability,omitempty"`
 	Allowed2faMethodSms                      *bool       `json:"allowed_2fa_method_sms,omitempty" path:"allowed_2fa_method_sms,omitempty" url:"allowed_2fa_method_sms,omitempty"`
 	Allowed2faMethodTotp                     *bool       `json:"allowed_2fa_method_totp,omitempty" path:"allowed_2fa_method_totp,omitempty" url:"allowed_2fa_method_totp,omitempty"`
 	Allowed2faMethodWebauthn                 *bool       `json:"allowed_2fa_method_webauthn,omitempty" path:"allowed_2fa_method_webauthn,omitempty" url:"allowed_2fa_method_webauthn,omitempty"`
@@ -34,6 +35,7 @@ type Site struct {
 	BundleExpiration                         int64       `json:"bundle_expiration,omitempty" path:"bundle_expiration,omitempty" url:"bundle_expiration,omitempty"`
 	BundleNotFoundMessage                    string      `json:"bundle_not_found_message,omitempty" path:"bundle_not_found_message,omitempty" url:"bundle_not_found_message,omitempty"`
 	BundlePasswordRequired                   *bool       `json:"bundle_password_required,omitempty" path:"bundle_password_required,omitempty" url:"bundle_password_required,omitempty"`
+	BundlesDefaultOwnedByPrimaryGroup        *bool       `json:"bundles_default_owned_by_primary_group,omitempty" path:"bundles_default_owned_by_primary_group,omitempty" url:"bundles_default_owned_by_primary_group,omitempty"`
 	BundleRecipientBlacklistDomains          []string    `json:"bundle_recipient_blacklist_domains,omitempty" path:"bundle_recipient_blacklist_domains,omitempty" url:"bundle_recipient_blacklist_domains,omitempty"`
 	BundleRecipientBlacklistFreeEmailDomains *bool       `json:"bundle_recipient_blacklist_free_email_domains,omitempty" path:"bundle_recipient_blacklist_free_email_domains,omitempty" url:"bundle_recipient_blacklist_free_email_domains,omitempty"`
 	BundleRegistrationNotifications          string      `json:"bundle_registration_notifications,omitempty" path:"bundle_registration_notifications,omitempty" url:"bundle_registration_notifications,omitempty"`
@@ -68,10 +70,12 @@ type Site struct {
 	DesktopAppSessionLifetime                int64       `json:"desktop_app_session_lifetime,omitempty" path:"desktop_app_session_lifetime,omitempty" url:"desktop_app_session_lifetime,omitempty"`
 	LegacyChecksumsMode                      *bool       `json:"legacy_checksums_mode,omitempty" path:"legacy_checksums_mode,omitempty" url:"legacy_checksums_mode,omitempty"`
 	MigrateRemoteServerSyncToSync            *bool       `json:"migrate_remote_server_sync_to_sync,omitempty" path:"migrate_remote_server_sync_to_sync,omitempty" url:"migrate_remote_server_sync_to_sync,omitempty"`
+	McpDcrEnabled                            *bool       `json:"mcp_dcr_enabled,omitempty" path:"mcp_dcr_enabled,omitempty" url:"mcp_dcr_enabled,omitempty"`
 	MobileApp                                *bool       `json:"mobile_app,omitempty" path:"mobile_app,omitempty" url:"mobile_app,omitempty"`
 	MobileAppSessionIpPinning                *bool       `json:"mobile_app_session_ip_pinning,omitempty" path:"mobile_app_session_ip_pinning,omitempty" url:"mobile_app_session_ip_pinning,omitempty"`
 	MobileAppSessionLifetime                 int64       `json:"mobile_app_session_lifetime,omitempty" path:"mobile_app_session_lifetime,omitempty" url:"mobile_app_session_lifetime,omitempty"`
 	DisallowedCountries                      string      `json:"disallowed_countries,omitempty" path:"disallowed_countries,omitempty" url:"disallowed_countries,omitempty"`
+	DisableAllAiFeatures                     *bool       `json:"disable_all_ai_features,omitempty" path:"disable_all_ai_features,omitempty" url:"disable_all_ai_features,omitempty"`
 	DisableFilesCertificateGeneration        *bool       `json:"disable_files_certificate_generation,omitempty" path:"disable_files_certificate_generation,omitempty" url:"disable_files_certificate_generation,omitempty"`
 	DisableNotifications                     *bool       `json:"disable_notifications,omitempty" path:"disable_notifications,omitempty" url:"disable_notifications,omitempty"`
 	DisablePasswordReset                     *bool       `json:"disable_password_reset,omitempty" path:"disable_password_reset,omitempty" url:"disable_password_reset,omitempty"`
@@ -84,6 +88,14 @@ type Site struct {
 	NonSsoGroupsAllowed                      *bool       `json:"non_sso_groups_allowed,omitempty" path:"non_sso_groups_allowed,omitempty" url:"non_sso_groups_allowed,omitempty"`
 	NonSsoUsersAllowed                       *bool       `json:"non_sso_users_allowed,omitempty" path:"non_sso_users_allowed,omitempty" url:"non_sso_users_allowed,omitempty"`
 	FolderPermissionsGroupsOnly              *bool       `json:"folder_permissions_groups_only,omitempty" path:"folder_permissions_groups_only,omitempty" url:"folder_permissions_groups_only,omitempty"`
+	GroupAdminsCanAddUsers                   *bool       `json:"group_admins_can_add_users,omitempty" path:"group_admins_can_add_users,omitempty" url:"group_admins_can_add_users,omitempty"`
+	GroupAdminsCanManageGroupMemberships     *bool       `json:"group_admins_can_manage_group_memberships,omitempty" path:"group_admins_can_manage_group_memberships,omitempty" url:"group_admins_can_manage_group_memberships,omitempty"`
+	GroupAdminsCanDeleteUsers                *bool       `json:"group_admins_can_delete_users,omitempty" path:"group_admins_can_delete_users,omitempty" url:"group_admins_can_delete_users,omitempty"`
+	GroupAdminsCanEnableDisableUsers         *bool       `json:"group_admins_can_enable_disable_users,omitempty" path:"group_admins_can_enable_disable_users,omitempty" url:"group_admins_can_enable_disable_users,omitempty"`
+	GroupAdminsCanModifyUsers                *bool       `json:"group_admins_can_modify_users,omitempty" path:"group_admins_can_modify_users,omitempty" url:"group_admins_can_modify_users,omitempty"`
+	GroupAdminsCanBypassUserLifecycleRules   *bool       `json:"group_admins_can_bypass_user_lifecycle_rules,omitempty" path:"group_admins_can_bypass_user_lifecycle_rules,omitempty" url:"group_admins_can_bypass_user_lifecycle_rules,omitempty"`
+	GroupAdminsCanResetPasswords             *bool       `json:"group_admins_can_reset_passwords,omitempty" path:"group_admins_can_reset_passwords,omitempty" url:"group_admins_can_reset_passwords,omitempty"`
+	GroupAdminsCanSetUserPassword            *bool       `json:"group_admins_can_set_user_password,omitempty" path:"group_admins_can_set_user_password,omitempty" url:"group_admins_can_set_user_password,omitempty"`
 	Hipaa                                    *bool       `json:"hipaa,omitempty" path:"hipaa,omitempty" url:"hipaa,omitempty"`
 	Icon128                                  Image       `json:"icon128,omitempty" path:"icon128,omitempty" url:"icon128,omitempty"`
 	Icon16                                   Image       `json:"icon16,omitempty" path:"icon16,omitempty" url:"icon16,omitempty"`
@@ -136,6 +148,7 @@ type Site struct {
 	PreventRootPermissionsForNonSiteAdmins   *bool       `json:"prevent_root_permissions_for_non_site_admins,omitempty" path:"prevent_root_permissions_for_non_site_admins,omitempty" url:"prevent_root_permissions_for_non_site_admins,omitempty"`
 	ProtocolAccessGroupsOnly                 *bool       `json:"protocol_access_groups_only,omitempty" path:"protocol_access_groups_only,omitempty" url:"protocol_access_groups_only,omitempty"`
 	Require2fa                               *bool       `json:"require_2fa,omitempty" path:"require_2fa,omitempty" url:"require_2fa,omitempty"`
+	Require2faExemptAllSsoUsers              *bool       `json:"require_2fa_exempt_all_sso_users,omitempty" path:"require_2fa_exempt_all_sso_users,omitempty" url:"require_2fa_exempt_all_sso_users,omitempty"`
 	Require2faStopTime                       *time.Time  `json:"require_2fa_stop_time,omitempty" path:"require_2fa_stop_time,omitempty" url:"require_2fa_stop_time,omitempty"`
 	RevokeBundleAccessOnDisableOrDelete      *bool       `json:"revoke_bundle_access_on_disable_or_delete,omitempty" path:"revoke_bundle_access_on_disable_or_delete,omitempty" url:"revoke_bundle_access_on_disable_or_delete,omitempty"`
 	Require2faUserType                       string      `json:"require_2fa_user_type,omitempty" path:"require_2fa_user_type,omitempty" url:"require_2fa_user_type,omitempty"`
@@ -178,6 +191,7 @@ type Site struct {
 	UserRequestsNotifyAdmins                 *bool       `json:"user_requests_notify_admins,omitempty" path:"user_requests_notify_admins,omitempty" url:"user_requests_notify_admins,omitempty"`
 	UsersCanCreateApiKeys                    *bool       `json:"users_can_create_api_keys,omitempty" path:"users_can_create_api_keys,omitempty" url:"users_can_create_api_keys,omitempty"`
 	UsersCanCreateSshKeys                    *bool       `json:"users_can_create_ssh_keys,omitempty" path:"users_can_create_ssh_keys,omitempty" url:"users_can_create_ssh_keys,omitempty"`
+	UsernameDisplay                          string      `json:"username_display,omitempty" path:"username_display,omitempty" url:"username_display,omitempty"`
 	WelcomeCustomText                        string      `json:"welcome_custom_text,omitempty" path:"welcome_custom_text,omitempty" url:"welcome_custom_text,omitempty"`
 	EmailFooterCustomText                    string      `json:"email_footer_custom_text,omitempty" path:"email_footer_custom_text,omitempty" url:"email_footer_custom_text,omitempty"`
 	WelcomeEmailCc                           string      `json:"welcome_email_cc,omitempty" path:"welcome_email_cc,omitempty" url:"welcome_email_cc,omitempty"`
@@ -185,7 +199,6 @@ type Site struct {
 	WelcomeEmailEnabled                      *bool       `json:"welcome_email_enabled,omitempty" path:"welcome_email_enabled,omitempty" url:"welcome_email_enabled,omitempty"`
 	WelcomeScreen                            string      `json:"welcome_screen,omitempty" path:"welcome_screen,omitempty" url:"welcome_screen,omitempty"`
 	WindowsModeFtp                           *bool       `json:"windows_mode_ftp,omitempty" path:"windows_mode_ftp,omitempty" url:"windows_mode_ftp,omitempty"`
-	GroupAdminsCanSetUserPassword            *bool       `json:"group_admins_can_set_user_password,omitempty" path:"group_admins_can_set_user_password,omitempty" url:"group_admins_can_set_user_password,omitempty"`
 }
 
 func (s Site) Identifier() interface{} {
@@ -229,9 +242,13 @@ type SiteUpdateParams struct {
 	MotdUseForFtp                            *bool       `url:"motd_use_for_ftp,omitempty" json:"motd_use_for_ftp,omitempty" path:"motd_use_for_ftp"`
 	MotdUseForSftp                           *bool       `url:"motd_use_for_sftp,omitempty" json:"motd_use_for_sftp,omitempty" path:"motd_use_for_sftp"`
 	LeftNavigationVisibility                 interface{} `url:"left_navigation_visibility,omitempty" json:"left_navigation_visibility,omitempty" path:"left_navigation_visibility"`
+	DisableAllAiFeatures                     *bool       `url:"disable_all_ai_features,omitempty" json:"disable_all_ai_features,omitempty" path:"disable_all_ai_features"`
+	AiFeatureAvailability                    interface{} `url:"ai_feature_availability,omitempty" json:"ai_feature_availability,omitempty" path:"ai_feature_availability"`
+	McpDcrEnabled                            *bool       `url:"mcp_dcr_enabled,omitempty" json:"mcp_dcr_enabled,omitempty" path:"mcp_dcr_enabled"`
 	AdditionalTextFileTypes                  []string    `url:"additional_text_file_types,omitempty" json:"additional_text_file_types,omitempty" path:"additional_text_file_types"`
 	BundleRequireNote                        *bool       `url:"bundle_require_note,omitempty" json:"bundle_require_note,omitempty" path:"bundle_require_note"`
 	BundleSendSharedReceipts                 *bool       `url:"bundle_send_shared_receipts,omitempty" json:"bundle_send_shared_receipts,omitempty" path:"bundle_send_shared_receipts"`
+	BundlesDefaultOwnedByPrimaryGroup        *bool       `url:"bundles_default_owned_by_primary_group,omitempty" json:"bundles_default_owned_by_primary_group,omitempty" path:"bundles_default_owned_by_primary_group"`
 	CalculateFileChecksumsCrc32              *bool       `url:"calculate_file_checksums_crc32,omitempty" json:"calculate_file_checksums_crc32,omitempty" path:"calculate_file_checksums_crc32"`
 	CalculateFileChecksumsMd5                *bool       `url:"calculate_file_checksums_md5,omitempty" json:"calculate_file_checksums_md5,omitempty" path:"calculate_file_checksums_md5"`
 	CalculateFileChecksumsSha1               *bool       `url:"calculate_file_checksums_sha1,omitempty" json:"calculate_file_checksums_sha1,omitempty" path:"calculate_file_checksums_sha1"`
@@ -239,6 +256,7 @@ type SiteUpdateParams struct {
 	LegacyChecksumsMode                      *bool       `url:"legacy_checksums_mode,omitempty" json:"legacy_checksums_mode,omitempty" path:"legacy_checksums_mode"`
 	MigrateRemoteServerSyncToSync            *bool       `url:"migrate_remote_server_sync_to_sync,omitempty" json:"migrate_remote_server_sync_to_sync,omitempty" path:"migrate_remote_server_sync_to_sync"`
 	As2MessageRetentionDays                  int64       `url:"as2_message_retention_days,omitempty" json:"as2_message_retention_days,omitempty" path:"as2_message_retention_days"`
+	UsernameDisplay                          string      `url:"username_display,omitempty" json:"username_display,omitempty" path:"username_display"`
 	SessionExpiryMinutes                     int64       `url:"session_expiry_minutes,omitempty" json:"session_expiry_minutes,omitempty" path:"session_expiry_minutes"`
 	SslRequired                              *bool       `url:"ssl_required,omitempty" json:"ssl_required,omitempty" path:"ssl_required"`
 	SftpInsecureCiphers                      *bool       `url:"sftp_insecure_ciphers,omitempty" json:"sftp_insecure_ciphers,omitempty" path:"sftp_insecure_ciphers"`
@@ -300,6 +318,13 @@ type SiteUpdateParams struct {
 	ProtocolAccessGroupsOnly                 *bool       `url:"protocol_access_groups_only,omitempty" json:"protocol_access_groups_only,omitempty" path:"protocol_access_groups_only"`
 	RevokeBundleAccessOnDisableOrDelete      *bool       `url:"revoke_bundle_access_on_disable_or_delete,omitempty" json:"revoke_bundle_access_on_disable_or_delete,omitempty" path:"revoke_bundle_access_on_disable_or_delete"`
 	BundleWatermarkValue                     interface{} `url:"bundle_watermark_value,omitempty" json:"bundle_watermark_value,omitempty" path:"bundle_watermark_value"`
+	GroupAdminsCanAddUsers                   *bool       `url:"group_admins_can_add_users,omitempty" json:"group_admins_can_add_users,omitempty" path:"group_admins_can_add_users"`
+	GroupAdminsCanManageGroupMemberships     *bool       `url:"group_admins_can_manage_group_memberships,omitempty" json:"group_admins_can_manage_group_memberships,omitempty" path:"group_admins_can_manage_group_memberships"`
+	GroupAdminsCanDeleteUsers                *bool       `url:"group_admins_can_delete_users,omitempty" json:"group_admins_can_delete_users,omitempty" path:"group_admins_can_delete_users"`
+	GroupAdminsCanEnableDisableUsers         *bool       `url:"group_admins_can_enable_disable_users,omitempty" json:"group_admins_can_enable_disable_users,omitempty" path:"group_admins_can_enable_disable_users"`
+	GroupAdminsCanModifyUsers                *bool       `url:"group_admins_can_modify_users,omitempty" json:"group_admins_can_modify_users,omitempty" path:"group_admins_can_modify_users"`
+	GroupAdminsCanBypassUserLifecycleRules   *bool       `url:"group_admins_can_bypass_user_lifecycle_rules,omitempty" json:"group_admins_can_bypass_user_lifecycle_rules,omitempty" path:"group_admins_can_bypass_user_lifecycle_rules"`
+	GroupAdminsCanResetPasswords             *bool       `url:"group_admins_can_reset_passwords,omitempty" json:"group_admins_can_reset_passwords,omitempty" path:"group_admins_can_reset_passwords"`
 	GroupAdminsCanSetUserPassword            *bool       `url:"group_admins_can_set_user_password,omitempty" json:"group_admins_can_set_user_password,omitempty" path:"group_admins_can_set_user_password"`
 	BundleRecipientBlacklistFreeEmailDomains *bool       `url:"bundle_recipient_blacklist_free_email_domains,omitempty" json:"bundle_recipient_blacklist_free_email_domains,omitempty" path:"bundle_recipient_blacklist_free_email_domains"`
 	BundleRecipientBlacklistDomains          []string    `url:"bundle_recipient_blacklist_domains,omitempty" json:"bundle_recipient_blacklist_domains,omitempty" path:"bundle_recipient_blacklist_domains"`
@@ -312,6 +337,7 @@ type SiteUpdateParams struct {
 	Allowed2faMethodStatic                   *bool       `url:"allowed_2fa_method_static,omitempty" json:"allowed_2fa_method_static,omitempty" path:"allowed_2fa_method_static"`
 	Allowed2faMethodBypassForFtpSftpDav      *bool       `url:"allowed_2fa_method_bypass_for_ftp_sftp_dav,omitempty" json:"allowed_2fa_method_bypass_for_ftp_sftp_dav,omitempty" path:"allowed_2fa_method_bypass_for_ftp_sftp_dav"`
 	Require2fa                               *bool       `url:"require_2fa,omitempty" json:"require_2fa,omitempty" path:"require_2fa"`
+	Require2faExemptAllSsoUsers              *bool       `url:"require_2fa_exempt_all_sso_users,omitempty" json:"require_2fa_exempt_all_sso_users,omitempty" path:"require_2fa_exempt_all_sso_users"`
 	Require2faUserType                       string      `url:"require_2fa_user_type,omitempty" json:"require_2fa_user_type,omitempty" path:"require_2fa_user_type"`
 	Color2Top                                string      `url:"color2_top,omitempty" json:"color2_top,omitempty" path:"color2_top"`
 	Color2Left                               string      `url:"color2_left,omitempty" json:"color2_left,omitempty" path:"color2_left"`
@@ -364,6 +390,7 @@ type SiteUpdateParams struct {
 	Disable2faWithDelay                      *bool       `url:"disable_2fa_with_delay,omitempty" json:"disable_2fa_with_delay,omitempty" path:"disable_2fa_with_delay"`
 	LdapPasswordChange                       string      `url:"ldap_password_change,omitempty" json:"ldap_password_change,omitempty" path:"ldap_password_change"`
 	LdapPasswordChangeConfirmation           string      `url:"ldap_password_change_confirmation,omitempty" json:"ldap_password_change_confirmation,omitempty" path:"ldap_password_change_confirmation"`
+	RedirectOldSubdomain                     *bool       `url:"redirect_old_subdomain,omitempty" json:"redirect_old_subdomain,omitempty" path:"redirect_old_subdomain"`
 	SmtpPassword                             string      `url:"smtp_password,omitempty" json:"smtp_password,omitempty" path:"smtp_password"`
 }
 

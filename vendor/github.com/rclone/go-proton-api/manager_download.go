@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 )
 
 func (m *Manager) DownloadAndVerify(ctx context.Context, kr *crypto.KeyRing, url, sig string) ([]byte, error) {
@@ -18,11 +18,7 @@ func (m *Manager) DownloadAndVerify(ctx context.Context, kr *crypto.KeyRing, url
 		return nil, err
 	}
 
-	if err := kr.VerifyDetached(
-		crypto.NewPlainMessage(fb),
-		crypto.NewPGPSignature(sb),
-		crypto.GetUnixTime(),
-	); err != nil {
+	if err := verifyDetached(kr, fb, sb, 0); err != nil {
 		return nil, err
 	}
 

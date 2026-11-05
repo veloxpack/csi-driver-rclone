@@ -42,6 +42,39 @@ func (x ListDirection) String() string {
 	return proto.EnumName(ListDirection_name, int32(x))
 }
 
+type ObjectChecksumAlgorithm int32
+
+const (
+	ObjectChecksumAlgorithm_NONE      ObjectChecksumAlgorithm = 0
+	ObjectChecksumAlgorithm_CRC32     ObjectChecksumAlgorithm = 1
+	ObjectChecksumAlgorithm_CRC32C    ObjectChecksumAlgorithm = 2
+	ObjectChecksumAlgorithm_CRC64NVME ObjectChecksumAlgorithm = 3
+	ObjectChecksumAlgorithm_SHA1      ObjectChecksumAlgorithm = 4
+	ObjectChecksumAlgorithm_SHA256    ObjectChecksumAlgorithm = 5
+)
+
+var ObjectChecksumAlgorithm_name = map[int32]string{
+	0: "NONE",
+	1: "CRC32",
+	2: "CRC32C",
+	3: "CRC64NVME",
+	4: "SHA1",
+	5: "SHA256",
+}
+
+var ObjectChecksumAlgorithm_value = map[string]int32{
+	"NONE":      0,
+	"CRC32":     1,
+	"CRC32C":    2,
+	"CRC64NVME": 3,
+	"SHA1":      4,
+	"SHA256":    5,
+}
+
+func (x ObjectChecksumAlgorithm) String() string {
+	return proto.EnumName(ObjectChecksumAlgorithm_name, int32(x))
+}
+
 type Retention_Mode int32
 
 const (
@@ -2108,19 +2141,21 @@ func (m *Retention) GetRetainUntil() time.Time {
 }
 
 type Object struct {
-	Bucket                        []byte        `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
-	EncryptedObjectKey            []byte        `protobuf:"bytes,2,opt,name=encrypted_object_key,json=encryptedObjectKey,proto3" json:"encrypted_object_key,omitempty"`
-	Version                       int32         `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
-	ObjectVersion                 []byte        `protobuf:"bytes,19,opt,name=object_version,json=objectVersion,proto3" json:"object_version,omitempty"`
-	Status                        Object_Status `protobuf:"varint,4,opt,name=status,proto3,enum=metainfo.Object_Status" json:"status,omitempty"`
-	StreamId                      StreamID      `protobuf:"bytes,5,opt,name=stream_id,json=streamId,proto3,customtype=StreamID" json:"stream_id"`
-	CreatedAt                     time.Time     `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3,stdtime" json:"created_at"`
-	StatusAt                      time.Time     `protobuf:"bytes,7,opt,name=status_at,json=statusAt,proto3,stdtime" json:"status_at"`
-	ExpiresAt                     time.Time     `protobuf:"bytes,8,opt,name=expires_at,json=expiresAt,proto3,stdtime" json:"expires_at"`
-	EncryptedMetadataNonce        Nonce         `protobuf:"bytes,9,opt,name=encrypted_metadata_nonce,json=encryptedMetadataNonce,proto3,customtype=Nonce" json:"encrypted_metadata_nonce"`
-	EncryptedMetadata             []byte        `protobuf:"bytes,10,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`
-	EncryptedMetadataEncryptedKey []byte        `protobuf:"bytes,17,opt,name=encrypted_metadata_encrypted_key,json=encryptedMetadataEncryptedKey,proto3" json:"encrypted_metadata_encrypted_key,omitempty"`
-	EncryptedEtag                 []byte        `protobuf:"bytes,22,opt,name=encrypted_etag,json=encryptedEtag,proto3" json:"encrypted_etag,omitempty"`
+	Bucket                        []byte                  `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	EncryptedObjectKey            []byte                  `protobuf:"bytes,2,opt,name=encrypted_object_key,json=encryptedObjectKey,proto3" json:"encrypted_object_key,omitempty"`
+	Version                       int32                   `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
+	ObjectVersion                 []byte                  `protobuf:"bytes,19,opt,name=object_version,json=objectVersion,proto3" json:"object_version,omitempty"`
+	Status                        Object_Status           `protobuf:"varint,4,opt,name=status,proto3,enum=metainfo.Object_Status" json:"status,omitempty"`
+	StreamId                      StreamID                `protobuf:"bytes,5,opt,name=stream_id,json=streamId,proto3,customtype=StreamID" json:"stream_id"`
+	CreatedAt                     time.Time               `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3,stdtime" json:"created_at"`
+	ExpiresAt                     time.Time               `protobuf:"bytes,8,opt,name=expires_at,json=expiresAt,proto3,stdtime" json:"expires_at"`
+	EncryptedMetadataNonce        Nonce                   `protobuf:"bytes,9,opt,name=encrypted_metadata_nonce,json=encryptedMetadataNonce,proto3,customtype=Nonce" json:"encrypted_metadata_nonce"`
+	EncryptedMetadata             []byte                  `protobuf:"bytes,10,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`
+	EncryptedMetadataEncryptedKey []byte                  `protobuf:"bytes,17,opt,name=encrypted_metadata_encrypted_key,json=encryptedMetadataEncryptedKey,proto3" json:"encrypted_metadata_encrypted_key,omitempty"`
+	EncryptedEtag                 []byte                  `protobuf:"bytes,22,opt,name=encrypted_etag,json=encryptedEtag,proto3" json:"encrypted_etag,omitempty"`
+	ChecksumAlgorithm             ObjectChecksumAlgorithm `protobuf:"varint,23,opt,name=checksum_algorithm,json=checksumAlgorithm,proto3,enum=metainfo.ObjectChecksumAlgorithm" json:"checksum_algorithm,omitempty"`
+	IsChecksumComposite           bool                    `protobuf:"varint,24,opt,name=is_checksum_composite,json=isChecksumComposite,proto3" json:"is_checksum_composite,omitempty"`
+	EncryptedChecksum             []byte                  `protobuf:"bytes,25,opt,name=encrypted_checksum,json=encryptedChecksum,proto3" json:"encrypted_checksum,omitempty"`
 	// fixed_segment_size is 0 for migrated objects.
 	FixedSegmentSize     int64                 `protobuf:"varint,11,opt,name=fixed_segment_size,json=fixedSegmentSize,proto3" json:"fixed_segment_size,omitempty"`
 	RedundancyScheme     *RedundancyScheme     `protobuf:"bytes,12,opt,name=redundancy_scheme,json=redundancyScheme,proto3" json:"redundancy_scheme,omitempty"`
@@ -2206,13 +2241,6 @@ func (m *Object) GetCreatedAt() time.Time {
 	return time.Time{}
 }
 
-func (m *Object) GetStatusAt() time.Time {
-	if m != nil {
-		return m.StatusAt
-	}
-	return time.Time{}
-}
-
 func (m *Object) GetExpiresAt() time.Time {
 	if m != nil {
 		return m.ExpiresAt
@@ -2237,6 +2265,27 @@ func (m *Object) GetEncryptedMetadataEncryptedKey() []byte {
 func (m *Object) GetEncryptedEtag() []byte {
 	if m != nil {
 		return m.EncryptedEtag
+	}
+	return nil
+}
+
+func (m *Object) GetChecksumAlgorithm() ObjectChecksumAlgorithm {
+	if m != nil {
+		return m.ChecksumAlgorithm
+	}
+	return ObjectChecksumAlgorithm_NONE
+}
+
+func (m *Object) GetIsChecksumComposite() bool {
+	if m != nil {
+		return m.IsChecksumComposite
+	}
+	return false
+}
+
+func (m *Object) GetEncryptedChecksum() []byte {
+	if m != nil {
+		return m.EncryptedChecksum
 	}
 	return nil
 }
@@ -2305,22 +2354,25 @@ func (m *Object) GetPlainSize() int64 {
 }
 
 type BeginObjectRequest struct {
-	Header                        *RequestHeader        `protobuf:"bytes,15,opt,name=header,proto3" json:"header,omitempty"`
-	Bucket                        []byte                `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
-	EncryptedObjectKey            []byte                `protobuf:"bytes,2,opt,name=encrypted_object_key,json=encryptedObjectKey,proto3" json:"encrypted_object_key,omitempty"`
-	Version                       int32                 `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
-	ExpiresAt                     time.Time             `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3,stdtime" json:"expires_at"`
-	RedundancyScheme              *RedundancyScheme     `protobuf:"bytes,7,opt,name=redundancy_scheme,json=redundancyScheme,proto3" json:"redundancy_scheme,omitempty"`
-	EncryptionParameters          *EncryptionParameters `protobuf:"bytes,8,opt,name=encryption_parameters,json=encryptionParameters,proto3" json:"encryption_parameters,omitempty"`
-	EncryptedMetadataNonce        Nonce                 `protobuf:"bytes,9,opt,name=encrypted_metadata_nonce,json=encryptedMetadataNonce,proto3,customtype=Nonce" json:"encrypted_metadata_nonce"`
-	EncryptedMetadata             []byte                `protobuf:"bytes,10,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`
-	EncryptedMetadataEncryptedKey []byte                `protobuf:"bytes,11,opt,name=encrypted_metadata_encrypted_key,json=encryptedMetadataEncryptedKey,proto3" json:"encrypted_metadata_encrypted_key,omitempty"`
-	EncryptedEtag                 []byte                `protobuf:"bytes,14,opt,name=encrypted_etag,json=encryptedEtag,proto3" json:"encrypted_etag,omitempty"`
-	Retention                     *Retention            `protobuf:"bytes,12,opt,name=retention,proto3" json:"retention,omitempty"`
-	LegalHold                     bool                  `protobuf:"varint,13,opt,name=legal_hold,json=legalHold,proto3" json:"legal_hold,omitempty"`
-	XXX_NoUnkeyedLiteral          struct{}              `json:"-"`
-	XXX_unrecognized              []byte                `json:"-"`
-	XXX_sizecache                 int32                 `json:"-"`
+	Header                        *RequestHeader          `protobuf:"bytes,15,opt,name=header,proto3" json:"header,omitempty"`
+	Bucket                        []byte                  `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	EncryptedObjectKey            []byte                  `protobuf:"bytes,2,opt,name=encrypted_object_key,json=encryptedObjectKey,proto3" json:"encrypted_object_key,omitempty"`
+	Version                       int32                   `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
+	ExpiresAt                     time.Time               `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3,stdtime" json:"expires_at"`
+	RedundancyScheme              *RedundancyScheme       `protobuf:"bytes,7,opt,name=redundancy_scheme,json=redundancyScheme,proto3" json:"redundancy_scheme,omitempty"`
+	EncryptionParameters          *EncryptionParameters   `protobuf:"bytes,8,opt,name=encryption_parameters,json=encryptionParameters,proto3" json:"encryption_parameters,omitempty"`
+	EncryptedMetadataNonce        Nonce                   `protobuf:"bytes,9,opt,name=encrypted_metadata_nonce,json=encryptedMetadataNonce,proto3,customtype=Nonce" json:"encrypted_metadata_nonce"`
+	EncryptedMetadata             []byte                  `protobuf:"bytes,10,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`
+	EncryptedMetadataEncryptedKey []byte                  `protobuf:"bytes,11,opt,name=encrypted_metadata_encrypted_key,json=encryptedMetadataEncryptedKey,proto3" json:"encrypted_metadata_encrypted_key,omitempty"`
+	EncryptedEtag                 []byte                  `protobuf:"bytes,14,opt,name=encrypted_etag,json=encryptedEtag,proto3" json:"encrypted_etag,omitempty"`
+	ChecksumAlgorithm             ObjectChecksumAlgorithm `protobuf:"varint,16,opt,name=checksum_algorithm,json=checksumAlgorithm,proto3,enum=metainfo.ObjectChecksumAlgorithm" json:"checksum_algorithm,omitempty"`
+	IsChecksumComposite           bool                    `protobuf:"varint,17,opt,name=is_checksum_composite,json=isChecksumComposite,proto3" json:"is_checksum_composite,omitempty"`
+	EncryptedChecksum             []byte                  `protobuf:"bytes,18,opt,name=encrypted_checksum,json=encryptedChecksum,proto3" json:"encrypted_checksum,omitempty"`
+	Retention                     *Retention              `protobuf:"bytes,12,opt,name=retention,proto3" json:"retention,omitempty"`
+	LegalHold                     bool                    `protobuf:"varint,13,opt,name=legal_hold,json=legalHold,proto3" json:"legal_hold,omitempty"`
+	XXX_NoUnkeyedLiteral          struct{}                `json:"-"`
+	XXX_unrecognized              []byte                  `json:"-"`
+	XXX_sizecache                 int32                   `json:"-"`
 }
 
 func (m *BeginObjectRequest) Reset()         { *m = BeginObjectRequest{} }
@@ -2415,6 +2467,27 @@ func (m *BeginObjectRequest) GetEncryptedEtag() []byte {
 	return nil
 }
 
+func (m *BeginObjectRequest) GetChecksumAlgorithm() ObjectChecksumAlgorithm {
+	if m != nil {
+		return m.ChecksumAlgorithm
+	}
+	return ObjectChecksumAlgorithm_NONE
+}
+
+func (m *BeginObjectRequest) GetIsChecksumComposite() bool {
+	if m != nil {
+		return m.IsChecksumComposite
+	}
+	return false
+}
+
+func (m *BeginObjectRequest) GetEncryptedChecksum() []byte {
+	if m != nil {
+		return m.EncryptedChecksum
+	}
+	return nil
+}
+
 func (m *BeginObjectRequest) GetRetention() *Retention {
 	if m != nil {
 		return m.Retention
@@ -2505,15 +2578,18 @@ type CommitObjectRequest struct {
 	// message which can lead to overriding existing metadata. We need to have flag where default (false)
 	// value will be backward compatible with old uplinks, default false means metadata will be always
 	// set by older uplinks.
-	SkipOverrideEncryptedMetadata bool     `protobuf:"varint,5,opt,name=skip_override_encrypted_metadata,json=skipOverrideEncryptedMetadata,proto3" json:"skip_override_encrypted_metadata,omitempty"`
-	EncryptedMetadataNonce        Nonce    `protobuf:"bytes,2,opt,name=encrypted_metadata_nonce,json=encryptedMetadataNonce,proto3,customtype=Nonce" json:"encrypted_metadata_nonce"`
-	EncryptedMetadata             []byte   `protobuf:"bytes,3,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`
-	EncryptedMetadataEncryptedKey []byte   `protobuf:"bytes,4,opt,name=encrypted_metadata_encrypted_key,json=encryptedMetadataEncryptedKey,proto3" json:"encrypted_metadata_encrypted_key,omitempty"`
-	EncryptedEtag                 []byte   `protobuf:"bytes,7,opt,name=encrypted_etag,json=encryptedEtag,proto3" json:"encrypted_etag,omitempty"`
-	IfNoneMatch                   []string `protobuf:"bytes,6,rep,name=if_none_match,json=ifNoneMatch,proto3" json:"if_none_match,omitempty"`
-	XXX_NoUnkeyedLiteral          struct{} `json:"-"`
-	XXX_unrecognized              []byte   `json:"-"`
-	XXX_sizecache                 int32    `json:"-"`
+	SkipOverrideEncryptedMetadata bool                    `protobuf:"varint,5,opt,name=skip_override_encrypted_metadata,json=skipOverrideEncryptedMetadata,proto3" json:"skip_override_encrypted_metadata,omitempty"`
+	EncryptedMetadataNonce        Nonce                   `protobuf:"bytes,2,opt,name=encrypted_metadata_nonce,json=encryptedMetadataNonce,proto3,customtype=Nonce" json:"encrypted_metadata_nonce"`
+	EncryptedMetadata             []byte                  `protobuf:"bytes,3,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`
+	EncryptedMetadataEncryptedKey []byte                  `protobuf:"bytes,4,opt,name=encrypted_metadata_encrypted_key,json=encryptedMetadataEncryptedKey,proto3" json:"encrypted_metadata_encrypted_key,omitempty"`
+	EncryptedEtag                 []byte                  `protobuf:"bytes,7,opt,name=encrypted_etag,json=encryptedEtag,proto3" json:"encrypted_etag,omitempty"`
+	ChecksumAlgorithm             ObjectChecksumAlgorithm `protobuf:"varint,8,opt,name=checksum_algorithm,json=checksumAlgorithm,proto3,enum=metainfo.ObjectChecksumAlgorithm" json:"checksum_algorithm,omitempty"`
+	IsChecksumComposite           bool                    `protobuf:"varint,9,opt,name=is_checksum_composite,json=isChecksumComposite,proto3" json:"is_checksum_composite,omitempty"`
+	EncryptedChecksum             []byte                  `protobuf:"bytes,10,opt,name=encrypted_checksum,json=encryptedChecksum,proto3" json:"encrypted_checksum,omitempty"`
+	IfNoneMatch                   []string                `protobuf:"bytes,6,rep,name=if_none_match,json=ifNoneMatch,proto3" json:"if_none_match,omitempty"`
+	XXX_NoUnkeyedLiteral          struct{}                `json:"-"`
+	XXX_unrecognized              []byte                  `json:"-"`
+	XXX_sizecache                 int32                   `json:"-"`
 }
 
 func (m *CommitObjectRequest) Reset()         { *m = CommitObjectRequest{} }
@@ -2569,6 +2645,27 @@ func (m *CommitObjectRequest) GetEncryptedMetadataEncryptedKey() []byte {
 func (m *CommitObjectRequest) GetEncryptedEtag() []byte {
 	if m != nil {
 		return m.EncryptedEtag
+	}
+	return nil
+}
+
+func (m *CommitObjectRequest) GetChecksumAlgorithm() ObjectChecksumAlgorithm {
+	if m != nil {
+		return m.ChecksumAlgorithm
+	}
+	return ObjectChecksumAlgorithm_NONE
+}
+
+func (m *CommitObjectRequest) GetIsChecksumComposite() bool {
+	if m != nil {
+		return m.IsChecksumComposite
+	}
+	return false
+}
+
+func (m *CommitObjectRequest) GetEncryptedChecksum() []byte {
+	if m != nil {
+		return m.EncryptedChecksum
 	}
 	return nil
 }
@@ -3429,18 +3526,20 @@ func (m *ListObjectsResponse) GetMore() bool {
 }
 
 type ObjectListItem struct {
-	EncryptedObjectKey            []byte        `protobuf:"bytes,1,opt,name=encrypted_object_key,json=encryptedObjectKey,proto3" json:"encrypted_object_key,omitempty"`
-	Version                       int32         `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
-	ObjectVersion                 []byte        `protobuf:"bytes,12,opt,name=object_version,json=objectVersion,proto3" json:"object_version,omitempty"`
-	Status                        Object_Status `protobuf:"varint,3,opt,name=status,proto3,enum=metainfo.Object_Status" json:"status,omitempty"`
-	IsLatest                      bool          `protobuf:"varint,13,opt,name=is_latest,json=isLatest,proto3" json:"is_latest,omitempty"`
-	CreatedAt                     time.Time     `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3,stdtime" json:"created_at"`
-	StatusAt                      time.Time     `protobuf:"bytes,5,opt,name=status_at,json=statusAt,proto3,stdtime" json:"status_at"`
-	ExpiresAt                     time.Time     `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3,stdtime" json:"expires_at"`
-	EncryptedMetadataNonce        Nonce         `protobuf:"bytes,7,opt,name=encrypted_metadata_nonce,json=encryptedMetadataNonce,proto3,customtype=Nonce" json:"encrypted_metadata_nonce"`
-	EncryptedMetadataEncryptedKey []byte        `protobuf:"bytes,11,opt,name=encrypted_metadata_encrypted_key,json=encryptedMetadataEncryptedKey,proto3" json:"encrypted_metadata_encrypted_key,omitempty"`
-	EncryptedMetadata             []byte        `protobuf:"bytes,8,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`
-	EncryptedEtag                 []byte        `protobuf:"bytes,14,opt,name=encrypted_etag,json=encryptedEtag,proto3" json:"encrypted_etag,omitempty"`
+	EncryptedObjectKey            []byte                  `protobuf:"bytes,1,opt,name=encrypted_object_key,json=encryptedObjectKey,proto3" json:"encrypted_object_key,omitempty"`
+	Version                       int32                   `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
+	ObjectVersion                 []byte                  `protobuf:"bytes,12,opt,name=object_version,json=objectVersion,proto3" json:"object_version,omitempty"`
+	Status                        Object_Status           `protobuf:"varint,3,opt,name=status,proto3,enum=metainfo.Object_Status" json:"status,omitempty"`
+	IsLatest                      bool                    `protobuf:"varint,13,opt,name=is_latest,json=isLatest,proto3" json:"is_latest,omitempty"`
+	CreatedAt                     time.Time               `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3,stdtime" json:"created_at"`
+	ExpiresAt                     time.Time               `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3,stdtime" json:"expires_at"`
+	EncryptedMetadataNonce        Nonce                   `protobuf:"bytes,7,opt,name=encrypted_metadata_nonce,json=encryptedMetadataNonce,proto3,customtype=Nonce" json:"encrypted_metadata_nonce"`
+	EncryptedMetadataEncryptedKey []byte                  `protobuf:"bytes,11,opt,name=encrypted_metadata_encrypted_key,json=encryptedMetadataEncryptedKey,proto3" json:"encrypted_metadata_encrypted_key,omitempty"`
+	EncryptedMetadata             []byte                  `protobuf:"bytes,8,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`
+	EncryptedEtag                 []byte                  `protobuf:"bytes,14,opt,name=encrypted_etag,json=encryptedEtag,proto3" json:"encrypted_etag,omitempty"`
+	ChecksumAlgorithm             ObjectChecksumAlgorithm `protobuf:"varint,15,opt,name=checksum_algorithm,json=checksumAlgorithm,proto3,enum=metainfo.ObjectChecksumAlgorithm" json:"checksum_algorithm,omitempty"`
+	IsChecksumComposite           bool                    `protobuf:"varint,16,opt,name=is_checksum_composite,json=isChecksumComposite,proto3" json:"is_checksum_composite,omitempty"`
+	EncryptedChecksum             []byte                  `protobuf:"bytes,17,opt,name=encrypted_checksum,json=encryptedChecksum,proto3" json:"encrypted_checksum,omitempty"`
 	// plain_size is 0 for migrated objects.
 	PlainSize            int64     `protobuf:"varint,10,opt,name=plain_size,json=plainSize,proto3" json:"plain_size,omitempty"`
 	StreamId             *StreamID `protobuf:"bytes,9,opt,name=stream_id,json=streamId,proto3,customtype=StreamID" json:"stream_id,omitempty"`
@@ -3513,13 +3612,6 @@ func (m *ObjectListItem) GetCreatedAt() time.Time {
 	return time.Time{}
 }
 
-func (m *ObjectListItem) GetStatusAt() time.Time {
-	if m != nil {
-		return m.StatusAt
-	}
-	return time.Time{}
-}
-
 func (m *ObjectListItem) GetExpiresAt() time.Time {
 	if m != nil {
 		return m.ExpiresAt
@@ -3548,6 +3640,27 @@ func (m *ObjectListItem) GetEncryptedEtag() []byte {
 	return nil
 }
 
+func (m *ObjectListItem) GetChecksumAlgorithm() ObjectChecksumAlgorithm {
+	if m != nil {
+		return m.ChecksumAlgorithm
+	}
+	return ObjectChecksumAlgorithm_NONE
+}
+
+func (m *ObjectListItem) GetIsChecksumComposite() bool {
+	if m != nil {
+		return m.IsChecksumComposite
+	}
+	return false
+}
+
+func (m *ObjectListItem) GetEncryptedChecksum() []byte {
+	if m != nil {
+		return m.EncryptedChecksum
+	}
+	return nil
+}
+
 func (m *ObjectListItem) GetPlainSize() int64 {
 	if m != nil {
 		return m.PlainSize
@@ -3568,10 +3681,13 @@ type ObjectListItemIncludes struct {
 	// It also includes key and nonce needed to decrypt the information.
 	// This is used to support etag in a backwards compatible way, because we cannot backfill etag
 	// information from metadata to etag on the satellite side due to encryption.
-	IncludeEtagOrCustomMetadata bool     `protobuf:"varint,4,opt,name=include_etag_or_custom_metadata,json=includeEtagOrCustomMetadata,proto3" json:"include_etag_or_custom_metadata,omitempty"`
-	XXX_NoUnkeyedLiteral        struct{} `json:"-"`
-	XXX_unrecognized            []byte   `json:"-"`
-	XXX_sizecache               int32    `json:"-"`
+	IncludeEtagOrCustomMetadata bool `protobuf:"varint,4,opt,name=include_etag_or_custom_metadata,json=includeEtagOrCustomMetadata,proto3" json:"include_etag_or_custom_metadata,omitempty"`
+	// include_checksum indicates that the object's checksum algorithm, checksum type,
+	// and checksum value should be included.
+	IncludeChecksum      bool     `protobuf:"varint,5,opt,name=include_checksum,json=includeChecksum,proto3" json:"include_checksum,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ObjectListItemIncludes) Reset()         { *m = ObjectListItemIncludes{} }
@@ -3620,6 +3736,13 @@ func (m *ObjectListItemIncludes) GetIncludeEtag() bool {
 func (m *ObjectListItemIncludes) GetIncludeEtagOrCustomMetadata() bool {
 	if m != nil {
 		return m.IncludeEtagOrCustomMetadata
+	}
+	return false
+}
+
+func (m *ObjectListItemIncludes) GetIncludeChecksum() bool {
+	if m != nil {
+		return m.IncludeChecksum
 	}
 	return false
 }
@@ -4207,22 +4330,227 @@ func (m *GetObjectIPsResponse) GetPlacementConstraint() uint32 {
 	return 0
 }
 
-type UpdateObjectMetadataRequest struct {
-	Header                        *RequestHeader `protobuf:"bytes,15,opt,name=header,proto3" json:"header,omitempty"`
-	Bucket                        []byte         `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
-	EncryptedObjectKey            []byte         `protobuf:"bytes,2,opt,name=encrypted_object_key,json=encryptedObjectKey,proto3" json:"encrypted_object_key,omitempty"`
-	Version                       int32          `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
-	ObjectVersion                 []byte         `protobuf:"bytes,8,opt,name=object_version,json=objectVersion,proto3" json:"object_version,omitempty"`
-	StreamId                      StreamID       `protobuf:"bytes,7,opt,name=stream_id,json=streamId,proto3,customtype=StreamID" json:"stream_id"`
-	EncryptedMetadataNonce        Nonce          `protobuf:"bytes,4,opt,name=encrypted_metadata_nonce,json=encryptedMetadataNonce,proto3,customtype=Nonce" json:"encrypted_metadata_nonce"`
-	EncryptedMetadata             []byte         `protobuf:"bytes,5,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`
-	EncryptedMetadataEncryptedKey []byte         `protobuf:"bytes,6,opt,name=encrypted_metadata_encrypted_key,json=encryptedMetadataEncryptedKey,proto3" json:"encrypted_metadata_encrypted_key,omitempty"`
-	SetEncryptedEtag              bool           `protobuf:"varint,9,opt,name=set_encrypted_etag,json=setEncryptedEtag,proto3" json:"set_encrypted_etag,omitempty"`
-	// optional
-	EncryptedEtag        []byte   `protobuf:"bytes,10,opt,name=encrypted_etag,json=encryptedEtag,proto3" json:"encrypted_etag,omitempty"`
+type GetPendingObjectMetadataRequest struct {
+	Header               *RequestHeader `protobuf:"bytes,15,opt,name=header,proto3" json:"header,omitempty"`
+	Bucket               []byte         `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	EncryptedObjectKey   []byte         `protobuf:"bytes,2,opt,name=encrypted_object_key,json=encryptedObjectKey,proto3" json:"encrypted_object_key,omitempty"`
+	StreamId             StreamID       `protobuf:"bytes,3,opt,name=stream_id,json=streamId,proto3,customtype=StreamID" json:"stream_id"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
+}
+
+func (m *GetPendingObjectMetadataRequest) Reset()         { *m = GetPendingObjectMetadataRequest{} }
+func (m *GetPendingObjectMetadataRequest) String() string { return proto.CompactTextString(m) }
+func (*GetPendingObjectMetadataRequest) ProtoMessage()    {}
+
+func (m *GetPendingObjectMetadataRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetPendingObjectMetadataRequest.Unmarshal(m, b)
+}
+func (m *GetPendingObjectMetadataRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetPendingObjectMetadataRequest.Marshal(b, m, deterministic)
+}
+func (m *GetPendingObjectMetadataRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetPendingObjectMetadataRequest.Merge(m, src)
+}
+func (m *GetPendingObjectMetadataRequest) XXX_Size() int {
+	return xxx_messageInfo_GetPendingObjectMetadataRequest.Size(m)
+}
+func (m *GetPendingObjectMetadataRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetPendingObjectMetadataRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetPendingObjectMetadataRequest proto.InternalMessageInfo
+
+func (m *GetPendingObjectMetadataRequest) GetHeader() *RequestHeader {
+	if m != nil {
+		return m.Header
+	}
+	return nil
+}
+
+func (m *GetPendingObjectMetadataRequest) GetBucket() []byte {
+	if m != nil {
+		return m.Bucket
+	}
+	return nil
+}
+
+func (m *GetPendingObjectMetadataRequest) GetEncryptedObjectKey() []byte {
+	if m != nil {
+		return m.EncryptedObjectKey
+	}
+	return nil
+}
+
+type GetPendingObjectMetadataResponse struct {
+	EncryptedMetadataNonce        Nonce                   `protobuf:"bytes,1,opt,name=encrypted_metadata_nonce,json=encryptedMetadataNonce,proto3,customtype=Nonce" json:"encrypted_metadata_nonce"`
+	EncryptedMetadataEncryptedKey []byte                  `protobuf:"bytes,2,opt,name=encrypted_metadata_encrypted_key,json=encryptedMetadataEncryptedKey,proto3" json:"encrypted_metadata_encrypted_key,omitempty"`
+	EncryptedMetadata             []byte                  `protobuf:"bytes,3,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`
+	EncryptedEtag                 []byte                  `protobuf:"bytes,4,opt,name=encrypted_etag,json=encryptedEtag,proto3" json:"encrypted_etag,omitempty"`
+	ChecksumAlgorithm             ObjectChecksumAlgorithm `protobuf:"varint,5,opt,name=checksum_algorithm,json=checksumAlgorithm,proto3,enum=metainfo.ObjectChecksumAlgorithm" json:"checksum_algorithm,omitempty"`
+	IsChecksumComposite           bool                    `protobuf:"varint,6,opt,name=is_checksum_composite,json=isChecksumComposite,proto3" json:"is_checksum_composite,omitempty"`
+	EncryptedChecksum             []byte                  `protobuf:"bytes,7,opt,name=encrypted_checksum,json=encryptedChecksum,proto3" json:"encrypted_checksum,omitempty"`
+	XXX_NoUnkeyedLiteral          struct{}                `json:"-"`
+	XXX_unrecognized              []byte                  `json:"-"`
+	XXX_sizecache                 int32                   `json:"-"`
+}
+
+func (m *GetPendingObjectMetadataResponse) Reset()         { *m = GetPendingObjectMetadataResponse{} }
+func (m *GetPendingObjectMetadataResponse) String() string { return proto.CompactTextString(m) }
+func (*GetPendingObjectMetadataResponse) ProtoMessage()    {}
+
+func (m *GetPendingObjectMetadataResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetPendingObjectMetadataResponse.Unmarshal(m, b)
+}
+func (m *GetPendingObjectMetadataResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetPendingObjectMetadataResponse.Marshal(b, m, deterministic)
+}
+func (m *GetPendingObjectMetadataResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetPendingObjectMetadataResponse.Merge(m, src)
+}
+func (m *GetPendingObjectMetadataResponse) XXX_Size() int {
+	return xxx_messageInfo_GetPendingObjectMetadataResponse.Size(m)
+}
+func (m *GetPendingObjectMetadataResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetPendingObjectMetadataResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetPendingObjectMetadataResponse proto.InternalMessageInfo
+
+func (m *GetPendingObjectMetadataResponse) GetEncryptedMetadataEncryptedKey() []byte {
+	if m != nil {
+		return m.EncryptedMetadataEncryptedKey
+	}
+	return nil
+}
+
+func (m *GetPendingObjectMetadataResponse) GetEncryptedMetadata() []byte {
+	if m != nil {
+		return m.EncryptedMetadata
+	}
+	return nil
+}
+
+func (m *GetPendingObjectMetadataResponse) GetEncryptedEtag() []byte {
+	if m != nil {
+		return m.EncryptedEtag
+	}
+	return nil
+}
+
+func (m *GetPendingObjectMetadataResponse) GetChecksumAlgorithm() ObjectChecksumAlgorithm {
+	if m != nil {
+		return m.ChecksumAlgorithm
+	}
+	return ObjectChecksumAlgorithm_NONE
+}
+
+func (m *GetPendingObjectMetadataResponse) GetIsChecksumComposite() bool {
+	if m != nil {
+		return m.IsChecksumComposite
+	}
+	return false
+}
+
+func (m *GetPendingObjectMetadataResponse) GetEncryptedChecksum() []byte {
+	if m != nil {
+		return m.EncryptedChecksum
+	}
+	return nil
+}
+
+type ObjectMetadataIncludes struct {
+	// custom indicates whether the custom metadata, the metadata encryption key, and the
+	// metadata encryption nonce should be included.
+	Custom bool `protobuf:"varint,1,opt,name=custom,proto3" json:"custom,omitempty"`
+	// etag indicates whether the encrypted ETag, the metadata encryption key, and the
+	// encryption nonce should be included.
+	Etag bool `protobuf:"varint,2,opt,name=etag,proto3" json:"etag,omitempty"`
+	// checksum indicates whether the object's checksum information (its checksum algorithm,
+	// checksum type, and encrypted checksum value), the metadata encryption key, and the
+	// metadata encryption nonce should be included.
+	Checksum             bool     `protobuf:"varint,3,opt,name=checksum,proto3" json:"checksum,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ObjectMetadataIncludes) Reset()         { *m = ObjectMetadataIncludes{} }
+func (m *ObjectMetadataIncludes) String() string { return proto.CompactTextString(m) }
+func (*ObjectMetadataIncludes) ProtoMessage()    {}
+
+func (m *ObjectMetadataIncludes) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ObjectMetadataIncludes.Unmarshal(m, b)
+}
+func (m *ObjectMetadataIncludes) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ObjectMetadataIncludes.Marshal(b, m, deterministic)
+}
+func (m *ObjectMetadataIncludes) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ObjectMetadataIncludes.Merge(m, src)
+}
+func (m *ObjectMetadataIncludes) XXX_Size() int {
+	return xxx_messageInfo_ObjectMetadataIncludes.Size(m)
+}
+func (m *ObjectMetadataIncludes) XXX_DiscardUnknown() {
+	xxx_messageInfo_ObjectMetadataIncludes.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ObjectMetadataIncludes proto.InternalMessageInfo
+
+func (m *ObjectMetadataIncludes) GetCustom() bool {
+	if m != nil {
+		return m.Custom
+	}
+	return false
+}
+
+func (m *ObjectMetadataIncludes) GetEtag() bool {
+	if m != nil {
+		return m.Etag
+	}
+	return false
+}
+
+func (m *ObjectMetadataIncludes) GetChecksum() bool {
+	if m != nil {
+		return m.Checksum
+	}
+	return false
+}
+
+type UpdateObjectMetadataRequest struct {
+	Header             *RequestHeader `protobuf:"bytes,15,opt,name=header,proto3" json:"header,omitempty"`
+	Bucket             []byte         `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	EncryptedObjectKey []byte         `protobuf:"bytes,2,opt,name=encrypted_object_key,json=encryptedObjectKey,proto3" json:"encrypted_object_key,omitempty"`
+	Version            int32          `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
+	ObjectVersion      []byte         `protobuf:"bytes,8,opt,name=object_version,json=objectVersion,proto3" json:"object_version,omitempty"`
+	StreamId           StreamID       `protobuf:"bytes,7,opt,name=stream_id,json=streamId,proto3,customtype=StreamID" json:"stream_id"`
+	// set_encrypted_etag indicates whether the encrypted ETag should be updated. If includes is provided,
+	// set_encrypted_etag is ignored.
+	SetEncryptedEtag bool `protobuf:"varint,9,opt,name=set_encrypted_etag,json=setEncryptedEtag,proto3" json:"set_encrypted_etag,omitempty"`
+	// includes indicates which fields of the object's metadata should be updated. If unset, the custom
+	// metadata, metadata encryption key, and metadata encryption nonce will be updated. Additionally,
+	// the encrypted ETag will be updated if set_encrypted_etag is set. Otherwise, if includes is set,
+	// set_encrypted_etag will be ignored.
+	//
+	// includes exists to prevent clients from unintentionally overwriting new metadata fields.
+	// Clients are expected to include only the metadata fields that they know about. If the metadata
+	// at the destination contains data for a field not included in the provided set of includes, the
+	// satellite aborts the operation. Otherwise, the field would either be silently erased or left
+	// unencryptable if new encryption parameters are applied.
+	Includes                      *ObjectMetadataIncludes `protobuf:"bytes,11,opt,name=includes,proto3" json:"includes,omitempty"`
+	EncryptedMetadataNonce        Nonce                   `protobuf:"bytes,4,opt,name=encrypted_metadata_nonce,json=encryptedMetadataNonce,proto3,customtype=Nonce" json:"encrypted_metadata_nonce"`
+	EncryptedMetadata             []byte                  `protobuf:"bytes,5,opt,name=encrypted_metadata,json=encryptedMetadata,proto3" json:"encrypted_metadata,omitempty"`
+	EncryptedMetadataEncryptedKey []byte                  `protobuf:"bytes,6,opt,name=encrypted_metadata_encrypted_key,json=encryptedMetadataEncryptedKey,proto3" json:"encrypted_metadata_encrypted_key,omitempty"`
+	// optional
+	EncryptedEtag        []byte                  `protobuf:"bytes,10,opt,name=encrypted_etag,json=encryptedEtag,proto3" json:"encrypted_etag,omitempty"`
+	ChecksumAlgorithm    ObjectChecksumAlgorithm `protobuf:"varint,12,opt,name=checksum_algorithm,json=checksumAlgorithm,proto3,enum=metainfo.ObjectChecksumAlgorithm" json:"checksum_algorithm,omitempty"`
+	IsChecksumComposite  bool                    `protobuf:"varint,13,opt,name=is_checksum_composite,json=isChecksumComposite,proto3" json:"is_checksum_composite,omitempty"`
+	EncryptedChecksum    []byte                  `protobuf:"bytes,14,opt,name=encrypted_checksum,json=encryptedChecksum,proto3" json:"encrypted_checksum,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
+	XXX_unrecognized     []byte                  `json:"-"`
+	XXX_sizecache        int32                   `json:"-"`
 }
 
 func (m *UpdateObjectMetadataRequest) Reset()         { *m = UpdateObjectMetadataRequest{} }
@@ -4282,6 +4610,20 @@ func (m *UpdateObjectMetadataRequest) GetObjectVersion() []byte {
 	return nil
 }
 
+func (m *UpdateObjectMetadataRequest) GetSetEncryptedEtag() bool {
+	if m != nil {
+		return m.SetEncryptedEtag
+	}
+	return false
+}
+
+func (m *UpdateObjectMetadataRequest) GetIncludes() *ObjectMetadataIncludes {
+	if m != nil {
+		return m.Includes
+	}
+	return nil
+}
+
 func (m *UpdateObjectMetadataRequest) GetEncryptedMetadata() []byte {
 	if m != nil {
 		return m.EncryptedMetadata
@@ -4296,16 +4638,30 @@ func (m *UpdateObjectMetadataRequest) GetEncryptedMetadataEncryptedKey() []byte 
 	return nil
 }
 
-func (m *UpdateObjectMetadataRequest) GetSetEncryptedEtag() bool {
+func (m *UpdateObjectMetadataRequest) GetEncryptedEtag() []byte {
 	if m != nil {
-		return m.SetEncryptedEtag
+		return m.EncryptedEtag
+	}
+	return nil
+}
+
+func (m *UpdateObjectMetadataRequest) GetChecksumAlgorithm() ObjectChecksumAlgorithm {
+	if m != nil {
+		return m.ChecksumAlgorithm
+	}
+	return ObjectChecksumAlgorithm_NONE
+}
+
+func (m *UpdateObjectMetadataRequest) GetIsChecksumComposite() bool {
+	if m != nil {
+		return m.IsChecksumComposite
 	}
 	return false
 }
 
-func (m *UpdateObjectMetadataRequest) GetEncryptedEtag() []byte {
+func (m *UpdateObjectMetadataRequest) GetEncryptedChecksum() []byte {
 	if m != nil {
-		return m.EncryptedEtag
+		return m.EncryptedChecksum
 	}
 	return nil
 }
@@ -5341,6 +5697,7 @@ type CommitSegmentRequest struct {
 	SizeEncryptedData    int64                       `protobuf:"varint,4,opt,name=size_encrypted_data,json=sizeEncryptedData,proto3" json:"size_encrypted_data,omitempty"`
 	PlainSize            int64                       `protobuf:"varint,6,opt,name=plain_size,json=plainSize,proto3" json:"plain_size,omitempty"`
 	EncryptedETag        []byte                      `protobuf:"bytes,7,opt,name=encrypted_e_tag,json=encryptedETag,proto3" json:"encrypted_e_tag,omitempty"`
+	EncryptedChecksum    []byte                      `protobuf:"bytes,8,opt,name=encrypted_checksum,json=encryptedChecksum,proto3" json:"encrypted_checksum,omitempty"`
 	UploadResult         []*SegmentPieceUploadResult `protobuf:"bytes,5,rep,name=upload_result,json=uploadResult,proto3" json:"upload_result,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`
 	XXX_unrecognized     []byte                      `json:"-"`
@@ -5400,6 +5757,13 @@ func (m *CommitSegmentRequest) GetPlainSize() int64 {
 func (m *CommitSegmentRequest) GetEncryptedETag() []byte {
 	if m != nil {
 		return m.EncryptedETag
+	}
+	return nil
+}
+
+func (m *CommitSegmentRequest) GetEncryptedChecksum() []byte {
+	if m != nil {
+		return m.EncryptedChecksum
 	}
 	return nil
 }
@@ -5501,6 +5865,7 @@ type MakeInlineSegmentRequest struct {
 	EncryptedInlineData  []byte           `protobuf:"bytes,5,opt,name=encrypted_inline_data,json=encryptedInlineData,proto3" json:"encrypted_inline_data,omitempty"`
 	PlainSize            int64            `protobuf:"varint,6,opt,name=plain_size,json=plainSize,proto3" json:"plain_size,omitempty"`
 	EncryptedETag        []byte           `protobuf:"bytes,7,opt,name=encrypted_e_tag,json=encryptedETag,proto3" json:"encrypted_e_tag,omitempty"`
+	EncryptedChecksum    []byte           `protobuf:"bytes,8,opt,name=encrypted_checksum,json=encryptedChecksum,proto3" json:"encrypted_checksum,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -5566,6 +5931,13 @@ func (m *MakeInlineSegmentRequest) GetPlainSize() int64 {
 func (m *MakeInlineSegmentRequest) GetEncryptedETag() []byte {
 	if m != nil {
 		return m.EncryptedETag
+	}
+	return nil
+}
+
+func (m *MakeInlineSegmentRequest) GetEncryptedChecksum() []byte {
+	if m != nil {
+		return m.EncryptedChecksum
 	}
 	return nil
 }
@@ -5922,6 +6294,7 @@ type SegmentListItem struct {
 	PlainOffset          int64     `protobuf:"varint,4,opt,name=plain_offset,json=plainOffset,proto3" json:"plain_offset,omitempty"`
 	CreatedAt            time.Time `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3,stdtime" json:"created_at"`
 	EncryptedETag        []byte    `protobuf:"bytes,5,opt,name=encrypted_e_tag,json=encryptedETag,proto3" json:"encrypted_e_tag,omitempty"`
+	EncryptedChecksum    []byte    `protobuf:"bytes,8,opt,name=encrypted_checksum,json=encryptedChecksum,proto3" json:"encrypted_checksum,omitempty"`
 	EncryptedKeyNonce    Nonce     `protobuf:"bytes,6,opt,name=encrypted_key_nonce,json=encryptedKeyNonce,proto3,customtype=Nonce" json:"encrypted_key_nonce"`
 	EncryptedKey         []byte    `protobuf:"bytes,7,opt,name=encrypted_key,json=encryptedKey,proto3" json:"encrypted_key,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
@@ -5982,6 +6355,13 @@ func (m *SegmentListItem) GetCreatedAt() time.Time {
 func (m *SegmentListItem) GetEncryptedETag() []byte {
 	if m != nil {
 		return m.EncryptedETag
+	}
+	return nil
+}
+
+func (m *SegmentListItem) GetEncryptedChecksum() []byte {
+	if m != nil {
+		return m.EncryptedChecksum
 	}
 	return nil
 }
@@ -6360,6 +6740,7 @@ type BatchRequestItem struct {
 	//	*BatchRequestItem_ObjectGetIps
 	//	*BatchRequestItem_ObjectListPendingStreams
 	//	*BatchRequestItem_ObjectDownload
+	//	*BatchRequestItem_ObjectGetPendingMetadata
 	//	*BatchRequestItem_ObjectUpdateMetadata
 	//	*BatchRequestItem_ObjectBeginMove
 	//	*BatchRequestItem_ObjectFinishMove
@@ -6480,6 +6861,9 @@ type BatchRequestItem_ObjectListPendingStreams struct {
 type BatchRequestItem_ObjectDownload struct {
 	ObjectDownload *DownloadObjectRequest `protobuf:"bytes,23,opt,name=object_download,json=objectDownload,proto3,oneof" json:"object_download,omitempty"`
 }
+type BatchRequestItem_ObjectGetPendingMetadata struct {
+	ObjectGetPendingMetadata *GetPendingObjectMetadataRequest `protobuf:"bytes,45,opt,name=object_get_pending_metadata,json=objectGetPendingMetadata,proto3,oneof" json:"object_get_pending_metadata,omitempty"`
+}
 type BatchRequestItem_ObjectUpdateMetadata struct {
 	ObjectUpdateMetadata *UpdateObjectMetadataRequest `protobuf:"bytes,24,opt,name=object_update_metadata,json=objectUpdateMetadata,proto3,oneof" json:"object_update_metadata,omitempty"`
 }
@@ -6561,6 +6945,7 @@ func (*BatchRequestItem_ObjectsDelete) isBatchRequestItem_Request()             
 func (*BatchRequestItem_ObjectGetIps) isBatchRequestItem_Request()                       {}
 func (*BatchRequestItem_ObjectListPendingStreams) isBatchRequestItem_Request()           {}
 func (*BatchRequestItem_ObjectDownload) isBatchRequestItem_Request()                     {}
+func (*BatchRequestItem_ObjectGetPendingMetadata) isBatchRequestItem_Request()           {}
 func (*BatchRequestItem_ObjectUpdateMetadata) isBatchRequestItem_Request()               {}
 func (*BatchRequestItem_ObjectBeginMove) isBatchRequestItem_Request()                    {}
 func (*BatchRequestItem_ObjectFinishMove) isBatchRequestItem_Request()                   {}
@@ -6749,6 +7134,13 @@ func (m *BatchRequestItem) GetObjectDownload() *DownloadObjectRequest {
 	return nil
 }
 
+func (m *BatchRequestItem) GetObjectGetPendingMetadata() *GetPendingObjectMetadataRequest {
+	if x, ok := m.GetRequest().(*BatchRequestItem_ObjectGetPendingMetadata); ok {
+		return x.ObjectGetPendingMetadata
+	}
+	return nil
+}
+
 func (m *BatchRequestItem) GetObjectUpdateMetadata() *UpdateObjectMetadataRequest {
 	if x, ok := m.GetRequest().(*BatchRequestItem_ObjectUpdateMetadata); ok {
 		return x.ObjectUpdateMetadata
@@ -6908,6 +7300,7 @@ func (*BatchRequestItem) XXX_OneofWrappers() []interface{} {
 		(*BatchRequestItem_ObjectGetIps)(nil),
 		(*BatchRequestItem_ObjectListPendingStreams)(nil),
 		(*BatchRequestItem_ObjectDownload)(nil),
+		(*BatchRequestItem_ObjectGetPendingMetadata)(nil),
 		(*BatchRequestItem_ObjectUpdateMetadata)(nil),
 		(*BatchRequestItem_ObjectBeginMove)(nil),
 		(*BatchRequestItem_ObjectFinishMove)(nil),
@@ -7036,6 +7429,7 @@ type BatchResponseItem struct {
 	//	*BatchResponseItem_ObjectGetIps
 	//	*BatchResponseItem_ObjectListPendingStreams
 	//	*BatchResponseItem_ObjectDownload
+	//	*BatchResponseItem_ObjectGetPendingMetadata
 	//	*BatchResponseItem_ObjectUpdateMetadata
 	//	*BatchResponseItem_ObjectBeginMove
 	//	*BatchResponseItem_ObjectFinishMove
@@ -7156,6 +7550,9 @@ type BatchResponseItem_ObjectListPendingStreams struct {
 type BatchResponseItem_ObjectDownload struct {
 	ObjectDownload *DownloadObjectResponse `protobuf:"bytes,23,opt,name=object_download,json=objectDownload,proto3,oneof" json:"object_download,omitempty"`
 }
+type BatchResponseItem_ObjectGetPendingMetadata struct {
+	ObjectGetPendingMetadata *GetPendingObjectMetadataResponse `protobuf:"bytes,45,opt,name=object_get_pending_metadata,json=objectGetPendingMetadata,proto3,oneof" json:"object_get_pending_metadata,omitempty"`
+}
 type BatchResponseItem_ObjectUpdateMetadata struct {
 	ObjectUpdateMetadata *UpdateObjectMetadataResponse `protobuf:"bytes,24,opt,name=object_update_metadata,json=objectUpdateMetadata,proto3,oneof" json:"object_update_metadata,omitempty"`
 }
@@ -7237,6 +7634,7 @@ func (*BatchResponseItem_ObjectsDelete) isBatchResponseItem_Response()          
 func (*BatchResponseItem_ObjectGetIps) isBatchResponseItem_Response()                       {}
 func (*BatchResponseItem_ObjectListPendingStreams) isBatchResponseItem_Response()           {}
 func (*BatchResponseItem_ObjectDownload) isBatchResponseItem_Response()                     {}
+func (*BatchResponseItem_ObjectGetPendingMetadata) isBatchResponseItem_Response()           {}
 func (*BatchResponseItem_ObjectUpdateMetadata) isBatchResponseItem_Response()               {}
 func (*BatchResponseItem_ObjectBeginMove) isBatchResponseItem_Response()                    {}
 func (*BatchResponseItem_ObjectFinishMove) isBatchResponseItem_Response()                   {}
@@ -7425,6 +7823,13 @@ func (m *BatchResponseItem) GetObjectDownload() *DownloadObjectResponse {
 	return nil
 }
 
+func (m *BatchResponseItem) GetObjectGetPendingMetadata() *GetPendingObjectMetadataResponse {
+	if x, ok := m.GetResponse().(*BatchResponseItem_ObjectGetPendingMetadata); ok {
+		return x.ObjectGetPendingMetadata
+	}
+	return nil
+}
+
 func (m *BatchResponseItem) GetObjectUpdateMetadata() *UpdateObjectMetadataResponse {
 	if x, ok := m.GetResponse().(*BatchResponseItem_ObjectUpdateMetadata); ok {
 		return x.ObjectUpdateMetadata
@@ -7584,6 +7989,7 @@ func (*BatchResponseItem) XXX_OneofWrappers() []interface{} {
 		(*BatchResponseItem_ObjectGetIps)(nil),
 		(*BatchResponseItem_ObjectListPendingStreams)(nil),
 		(*BatchResponseItem_ObjectDownload)(nil),
+		(*BatchResponseItem_ObjectGetPendingMetadata)(nil),
 		(*BatchResponseItem_ObjectUpdateMetadata)(nil),
 		(*BatchResponseItem_ObjectBeginMove)(nil),
 		(*BatchResponseItem_ObjectFinishMove)(nil),
@@ -8001,6 +8407,7 @@ type BeginCopyObjectResponse struct {
 	EncryptedMetadataKey      []byte                  `protobuf:"bytes,3,opt,name=encrypted_metadata_key,json=encryptedMetadataKey,proto3" json:"encrypted_metadata_key,omitempty"`
 	SegmentKeys               []*EncryptedKeyAndNonce `protobuf:"bytes,4,rep,name=segment_keys,json=segmentKeys,proto3" json:"segment_keys,omitempty"`
 	EncryptionParameters      *EncryptionParameters   `protobuf:"bytes,5,opt,name=encryption_parameters,json=encryptionParameters,proto3" json:"encryption_parameters,omitempty"`
+	ChecksumAlgorithm         ObjectChecksumAlgorithm `protobuf:"varint,6,opt,name=checksum_algorithm,json=checksumAlgorithm,proto3,enum=metainfo.ObjectChecksumAlgorithm" json:"checksum_algorithm,omitempty"`
 	XXX_NoUnkeyedLiteral      struct{}                `json:"-"`
 	XXX_unrecognized          []byte                  `json:"-"`
 	XXX_sizecache             int32                   `json:"-"`
@@ -8049,6 +8456,13 @@ func (m *BeginCopyObjectResponse) GetEncryptionParameters() *EncryptionParameter
 	return nil
 }
 
+func (m *BeginCopyObjectResponse) GetChecksumAlgorithm() ObjectChecksumAlgorithm {
+	if m != nil {
+		return m.ChecksumAlgorithm
+	}
+	return ObjectChecksumAlgorithm_NONE
+}
+
 // Uplink uploads the newly encrypted metadata for the destination
 // object, so that the satellite can finish the copy.
 type FinishCopyObjectRequest struct {
@@ -8056,22 +8470,28 @@ type FinishCopyObjectRequest struct {
 	// Stream ID of source object
 	StreamId StreamID `protobuf:"bytes,1,opt,name=stream_id,json=streamId,proto3,customtype=StreamID" json:"stream_id"`
 	// Newly encrypted data of the copy destination
-	NewBucket             []byte     `protobuf:"bytes,2,opt,name=new_bucket,json=newBucket,proto3" json:"new_bucket,omitempty"`
-	NewEncryptedObjectKey []byte     `protobuf:"bytes,3,opt,name=new_encrypted_object_key,json=newEncryptedObjectKey,proto3" json:"new_encrypted_object_key,omitempty"`
-	NewObjectVersion      []byte     `protobuf:"bytes,9,opt,name=new_object_version,json=newObjectVersion,proto3" json:"new_object_version,omitempty"`
-	Retention             *Retention `protobuf:"bytes,10,opt,name=retention,proto3" json:"retention,omitempty"`
-	LegalHold             bool       `protobuf:"varint,11,opt,name=legal_hold,json=legalHold,proto3" json:"legal_hold,omitempty"`
-	// if false, keep existing metadata by ignoring 'new_encrypted_metadata'
-	OverrideMetadata             bool                    `protobuf:"varint,8,opt,name=override_metadata,json=overrideMetadata,proto3" json:"override_metadata,omitempty"`
-	NewEncryptedMetadata         []byte                  `protobuf:"bytes,7,opt,name=new_encrypted_metadata,json=newEncryptedMetadata,proto3" json:"new_encrypted_metadata,omitempty"`
-	NewEncryptedMetadataKeyNonce Nonce                   `protobuf:"bytes,4,opt,name=new_encrypted_metadata_key_nonce,json=newEncryptedMetadataKeyNonce,proto3,customtype=Nonce" json:"new_encrypted_metadata_key_nonce"`
-	NewEncryptedMetadataKey      []byte                  `protobuf:"bytes,5,opt,name=new_encrypted_metadata_key,json=newEncryptedMetadataKey,proto3" json:"new_encrypted_metadata_key,omitempty"`
-	NewEncryptedEtag             []byte                  `protobuf:"bytes,13,opt,name=new_encrypted_etag,json=newEncryptedEtag,proto3" json:"new_encrypted_etag,omitempty"`
-	NewSegmentKeys               []*EncryptedKeyAndNonce `protobuf:"bytes,6,rep,name=new_segment_keys,json=newSegmentKeys,proto3" json:"new_segment_keys,omitempty"`
-	IfNoneMatch                  []string                `protobuf:"bytes,12,rep,name=if_none_match,json=ifNoneMatch,proto3" json:"if_none_match,omitempty"`
-	XXX_NoUnkeyedLiteral         struct{}                `json:"-"`
-	XXX_unrecognized             []byte                  `json:"-"`
-	XXX_sizecache                int32                   `json:"-"`
+	NewBucket                    []byte     `protobuf:"bytes,2,opt,name=new_bucket,json=newBucket,proto3" json:"new_bucket,omitempty"`
+	NewEncryptedObjectKey        []byte     `protobuf:"bytes,3,opt,name=new_encrypted_object_key,json=newEncryptedObjectKey,proto3" json:"new_encrypted_object_key,omitempty"`
+	NewObjectVersion             []byte     `protobuf:"bytes,9,opt,name=new_object_version,json=newObjectVersion,proto3" json:"new_object_version,omitempty"`
+	Retention                    *Retention `protobuf:"bytes,10,opt,name=retention,proto3" json:"retention,omitempty"`
+	LegalHold                    bool       `protobuf:"varint,11,opt,name=legal_hold,json=legalHold,proto3" json:"legal_hold,omitempty"`
+	NewEncryptedMetadataKeyNonce Nonce      `protobuf:"bytes,4,opt,name=new_encrypted_metadata_key_nonce,json=newEncryptedMetadataKeyNonce,proto3,customtype=Nonce" json:"new_encrypted_metadata_key_nonce"`
+	NewEncryptedMetadataKey      []byte     `protobuf:"bytes,5,opt,name=new_encrypted_metadata_key,json=newEncryptedMetadataKey,proto3" json:"new_encrypted_metadata_key,omitempty"`
+	// override_metadata indicates whether the copied object's metadata should be entirely sourced
+	// from the "new_"-prefixed metadata fields, preventing any of the source object's metadata from
+	// being applied. If false, only new_encrypted_metadata_key and new_encrypted_metadata_key_nonce
+	// will be applied, and the rest of the metadata will come from the source object.
+	OverrideMetadata       bool                    `protobuf:"varint,8,opt,name=override_metadata,json=overrideMetadata,proto3" json:"override_metadata,omitempty"`
+	NewEncryptedMetadata   []byte                  `protobuf:"bytes,7,opt,name=new_encrypted_metadata,json=newEncryptedMetadata,proto3" json:"new_encrypted_metadata,omitempty"`
+	NewEncryptedEtag       []byte                  `protobuf:"bytes,13,opt,name=new_encrypted_etag,json=newEncryptedEtag,proto3" json:"new_encrypted_etag,omitempty"`
+	NewChecksumAlgorithm   ObjectChecksumAlgorithm `protobuf:"varint,14,opt,name=new_checksum_algorithm,json=newChecksumAlgorithm,proto3,enum=metainfo.ObjectChecksumAlgorithm" json:"new_checksum_algorithm,omitempty"`
+	NewIsChecksumComposite bool                    `protobuf:"varint,16,opt,name=new_is_checksum_composite,json=newIsChecksumComposite,proto3" json:"new_is_checksum_composite,omitempty"`
+	NewEncryptedChecksum   []byte                  `protobuf:"bytes,17,opt,name=new_encrypted_checksum,json=newEncryptedChecksum,proto3" json:"new_encrypted_checksum,omitempty"`
+	NewSegmentKeys         []*EncryptedKeyAndNonce `protobuf:"bytes,6,rep,name=new_segment_keys,json=newSegmentKeys,proto3" json:"new_segment_keys,omitempty"`
+	IfNoneMatch            []string                `protobuf:"bytes,12,rep,name=if_none_match,json=ifNoneMatch,proto3" json:"if_none_match,omitempty"`
+	XXX_NoUnkeyedLiteral   struct{}                `json:"-"`
+	XXX_unrecognized       []byte                  `json:"-"`
+	XXX_sizecache          int32                   `json:"-"`
 }
 
 func (m *FinishCopyObjectRequest) Reset()         { *m = FinishCopyObjectRequest{} }
@@ -8138,6 +8558,13 @@ func (m *FinishCopyObjectRequest) GetLegalHold() bool {
 	return false
 }
 
+func (m *FinishCopyObjectRequest) GetNewEncryptedMetadataKey() []byte {
+	if m != nil {
+		return m.NewEncryptedMetadataKey
+	}
+	return nil
+}
+
 func (m *FinishCopyObjectRequest) GetOverrideMetadata() bool {
 	if m != nil {
 		return m.OverrideMetadata
@@ -8152,16 +8579,30 @@ func (m *FinishCopyObjectRequest) GetNewEncryptedMetadata() []byte {
 	return nil
 }
 
-func (m *FinishCopyObjectRequest) GetNewEncryptedMetadataKey() []byte {
+func (m *FinishCopyObjectRequest) GetNewEncryptedEtag() []byte {
 	if m != nil {
-		return m.NewEncryptedMetadataKey
+		return m.NewEncryptedEtag
 	}
 	return nil
 }
 
-func (m *FinishCopyObjectRequest) GetNewEncryptedEtag() []byte {
+func (m *FinishCopyObjectRequest) GetNewChecksumAlgorithm() ObjectChecksumAlgorithm {
 	if m != nil {
-		return m.NewEncryptedEtag
+		return m.NewChecksumAlgorithm
+	}
+	return ObjectChecksumAlgorithm_NONE
+}
+
+func (m *FinishCopyObjectRequest) GetNewIsChecksumComposite() bool {
+	if m != nil {
+		return m.NewIsChecksumComposite
+	}
+	return false
+}
+
+func (m *FinishCopyObjectRequest) GetNewEncryptedChecksum() []byte {
+	if m != nil {
+		return m.NewEncryptedChecksum
 	}
 	return nil
 }

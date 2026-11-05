@@ -89,8 +89,8 @@ type FullCAConfig struct {
 func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var (
-		highscore = new(uint32)
-		i         = new(uint32)
+		highscore atomic.Uint32
+		i         atomic.Uint32
 
 		mu          sync.Mutex
 		selectedKey crypto.PrivateKey
@@ -112,15 +112,15 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 
 	updateStatus := func() {
 		if opts.Logger != nil {
-			count := atomic.LoadUint32(i)
-			hs := atomic.LoadUint32(highscore)
+			count := i.Load()
+			hs := highscore.Load()
 			_, _ = fmt.Fprintf(opts.Logger, "\rGenerated %d keys; best difficulty so far: %d", count, hs)
 		}
 	}
 	err = GenerateKeys(ctx, minimumLoggableDifficulty, int(opts.Concurrency), version,
 		func(k crypto.PrivateKey, id storj.NodeID) (done bool, err error) {
 			if opts.Logger != nil {
-				if atomic.AddUint32(i, 1)%100 == 0 {
+				if i.Add(1)%100 == 0 {
 					updateStatus()
 				}
 			}
@@ -138,18 +138,18 @@ func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority,
 				}
 				mu.Unlock()
 				if opts.Logger != nil {
-					atomic.SwapUint32(highscore, uint32(difficulty))
+					highscore.Swap(uint32(difficulty))
 					updateStatus()
 					_, _ = fmt.Fprintf(opts.Logger, "\nFound a key with difficulty %d!\n", difficulty)
 				}
 				return true, nil
 			}
 			for {
-				hs := atomic.LoadUint32(highscore)
+				hs := highscore.Load()
 				if uint32(difficulty) <= hs {
 					return false, nil
 				}
-				if atomic.CompareAndSwapUint32(highscore, hs, uint32(difficulty)) {
+				if highscore.CompareAndSwap(hs, uint32(difficulty)) {
 					updateStatus()
 					return false, nil
 				}

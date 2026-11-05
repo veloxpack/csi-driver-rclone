@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -32,12 +32,12 @@ func (c *Client) UploadAttachment(ctx context.Context, addrKR *crypto.KeyRing, r
 		return res.Attachment, fmt.Errorf("failed to get first key: %w", err)
 	}
 
-	sig, err := kr.SignDetached(crypto.NewPlainMessage(req.Body))
+	sig, err := signDetached(kr, req.Body)
 	if err != nil {
 		return Attachment{}, fmt.Errorf("failed to sign attachment: %w", err)
 	}
 
-	enc, err := kr.EncryptAttachment(crypto.NewPlainMessage(req.Body), req.Filename)
+	enc, err := encryptAttachment(kr, req.Body, req.Filename)
 	if err != nil {
 		return Attachment{}, fmt.Errorf("failed to encrypt attachment: %w", err)
 	}
@@ -56,19 +56,19 @@ func (c *Client) UploadAttachment(ctx context.Context, addrKR *crypto.KeyRing, r
 					Param:       "KeyPackets",
 					FileName:    "blob",
 					ContentType: "application/octet-stream",
-					Reader:      bytes.NewReader(enc.KeyPacket),
+					Reader:      bytes.NewReader(enc.BinaryKeyPacket()),
 				},
 				&resty.MultipartField{
 					Param:       "DataPacket",
 					FileName:    "blob",
 					ContentType: "application/octet-stream",
-					Reader:      bytes.NewReader(enc.DataPacket),
+					Reader:      bytes.NewReader(enc.BinaryDataPacket()),
 				},
 				&resty.MultipartField{
 					Param:       "Signature",
 					FileName:    "blob",
 					ContentType: "application/octet-stream",
-					Reader:      bytes.NewReader(sig.GetBinary()),
+					Reader:      bytes.NewReader(sig),
 				},
 			).
 			Post("/mail/v4/attachments")

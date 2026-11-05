@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1424,11 +1425,8 @@ func (lib *Library) applyPendingDelta(ctx context.Context) bool {
 		// Route new photos to smart albums based on classifySmartAlbums()
 		if isSmart {
 			for _, p := range addedPhotos {
-				for _, sa := range p.SmartAlbums {
-					if sa == album.Name {
-						filtered = append(filtered, p)
-						break
-					}
+				if slices.Contains(p.SmartAlbums, album.Name) {
+					filtered = append(filtered, p)
 				}
 			}
 		}
@@ -1649,6 +1647,29 @@ type ckResourceField struct {
 
 type ckBoolField struct {
 	Value bool `json:"value"`
+}
+
+// UnmarshalJSON parses a CloudKit boolean field, accepting both the
+// boolean (true/false) and numeric (0/1) encodings the server uses
+func (b *ckBoolField) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Value json.RawMessage `json:"value"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if len(raw.Value) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(raw.Value, &b.Value); err == nil {
+		return nil
+	}
+	var n float64
+	if err := json.Unmarshal(raw.Value, &n); err != nil {
+		return fmt.Errorf("cannot unmarshal %q as CloudKit bool", raw.Value)
+	}
+	b.Value = n != 0
+	return nil
 }
 
 type ckReferenceField struct {

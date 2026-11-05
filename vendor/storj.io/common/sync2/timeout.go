@@ -7,20 +7,37 @@ import (
 	"time"
 )
 
-// WithTimeout calls `do` and when the timeout is reached and `do`
-// has not finished, it'll call `onTimeout` concurrently.
+// WithTimeout calls `do` concurrently and waits for it to complete. If the timeout
+// is reached before `do` returns, `onTimeout` will be called; otherwise, `onTimeout`
+// will not be called.
 //
-// When WithTimeout returns it's guaranteed to not call onTimeout.
+// Avoid attempting to detect whether a timeout has occurred from within `do`.
+// Because `do` runs concurrently with the timeout timer, it may complete at the
+// same time as the timeout timer expires, making detection within `do` unreliable.
+// Logic specific to the timeout should instead be placed in `onTimeout`.
 func WithTimeout(timeout time.Duration, do, onTimeout func()) {
-	c := make(chan struct{})
-	t := time.AfterFunc(timeout, func() {
-		defer close(c)
-		onTimeout()
-	})
-	defer func() {
-		if !t.Stop() {
-			<-c
-		}
+	done := make(chan any)
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				done <- err
+			}
+			close(done)
+		}()
+		do()
 	}()
-	do()
+
+	select {
+	case err, ok := <-done:
+		if ok {
+			panic(err)
+		}
+	case <-time.After(timeout):
+		defer func() {
+			if err, ok := <-done; ok {
+				panic(err)
+			}
+		}()
+		onTimeout()
+	}
 }

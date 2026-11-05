@@ -18,6 +18,7 @@ type SiemHttpDestination struct {
 	SendingActive                                 *bool       `json:"sending_active,omitempty" path:"sending_active,omitempty" url:"sending_active,omitempty"`
 	GenericPayloadType                            string      `json:"generic_payload_type,omitempty" path:"generic_payload_type,omitempty" url:"generic_payload_type,omitempty"`
 	SplunkTokenMasked                             string      `json:"splunk_token_masked,omitempty" path:"splunk_token_masked,omitempty" url:"splunk_token_masked,omitempty"`
+	CrowdstrikeTokenMasked                        string      `json:"crowdstrike_token_masked,omitempty" path:"crowdstrike_token_masked,omitempty" url:"crowdstrike_token_masked,omitempty"`
 	AzureDcrImmutableId                           string      `json:"azure_dcr_immutable_id,omitempty" path:"azure_dcr_immutable_id,omitempty" url:"azure_dcr_immutable_id,omitempty"`
 	AzureStreamName                               string      `json:"azure_stream_name,omitempty" path:"azure_stream_name,omitempty" url:"azure_stream_name,omitempty"`
 	AzureOauthClientCredentialsTenantId           string      `json:"azure_oauth_client_credentials_tenant_id,omitempty" path:"azure_oauth_client_credentials_tenant_id,omitempty" url:"azure_oauth_client_credentials_tenant_id,omitempty"`
@@ -62,6 +63,7 @@ type SiemHttpDestination struct {
 	MostRecentHttpCallSuccessTime                 string      `json:"most_recent_http_call_success_time,omitempty" path:"most_recent_http_call_success_time,omitempty" url:"most_recent_http_call_success_time,omitempty"`
 	ConnectionTestEntry                           string      `json:"connection_test_entry,omitempty" path:"connection_test_entry,omitempty" url:"connection_test_entry,omitempty"`
 	SplunkToken                                   string      `json:"splunk_token,omitempty" path:"splunk_token,omitempty" url:"splunk_token,omitempty"`
+	CrowdstrikeToken                              string      `json:"crowdstrike_token,omitempty" path:"crowdstrike_token,omitempty" url:"crowdstrike_token,omitempty"`
 	AzureOauthClientCredentialsClientSecret       string      `json:"azure_oauth_client_credentials_client_secret,omitempty" path:"azure_oauth_client_credentials_client_secret,omitempty" url:"azure_oauth_client_credentials_client_secret,omitempty"`
 	QradarPassword                                string      `json:"qradar_password,omitempty" path:"qradar_password,omitempty" url:"qradar_password,omitempty"`
 	SolarWindsToken                               string      `json:"solar_winds_token,omitempty" path:"solar_winds_token,omitempty" url:"solar_winds_token,omitempty"`
@@ -109,17 +111,19 @@ func (u SiemHttpDestinationDestinationTypeEnum) String() string {
 
 func (u SiemHttpDestinationDestinationTypeEnum) Enum() map[string]SiemHttpDestinationDestinationTypeEnum {
 	return map[string]SiemHttpDestinationDestinationTypeEnum{
-		"generic":      SiemHttpDestinationDestinationTypeEnum("generic"),
-		"splunk":       SiemHttpDestinationDestinationTypeEnum("splunk"),
-		"azure_legacy": SiemHttpDestinationDestinationTypeEnum("azure_legacy"),
-		"qradar":       SiemHttpDestinationDestinationTypeEnum("qradar"),
-		"sumo":         SiemHttpDestinationDestinationTypeEnum("sumo"),
-		"rapid7":       SiemHttpDestinationDestinationTypeEnum("rapid7"),
-		"solar_winds":  SiemHttpDestinationDestinationTypeEnum("solar_winds"),
-		"new_relic":    SiemHttpDestinationDestinationTypeEnum("new_relic"),
-		"datadog":      SiemHttpDestinationDestinationTypeEnum("datadog"),
-		"azure":        SiemHttpDestinationDestinationTypeEnum("azure"),
-		"file":         SiemHttpDestinationDestinationTypeEnum("file"),
+		"generic":           SiemHttpDestinationDestinationTypeEnum("generic"),
+		"splunk":            SiemHttpDestinationDestinationTypeEnum("splunk"),
+		"azure_legacy":      SiemHttpDestinationDestinationTypeEnum("azure_legacy"),
+		"qradar":            SiemHttpDestinationDestinationTypeEnum("qradar"),
+		"sumo":              SiemHttpDestinationDestinationTypeEnum("sumo"),
+		"rapid7":            SiemHttpDestinationDestinationTypeEnum("rapid7"),
+		"solar_winds":       SiemHttpDestinationDestinationTypeEnum("solar_winds"),
+		"new_relic":         SiemHttpDestinationDestinationTypeEnum("new_relic"),
+		"datadog":           SiemHttpDestinationDestinationTypeEnum("datadog"),
+		"azure":             SiemHttpDestinationDestinationTypeEnum("azure"),
+		"file":              SiemHttpDestinationDestinationTypeEnum("file"),
+		"crowdstrike":       SiemHttpDestinationDestinationTypeEnum("crowdstrike"),
+		"splunk_compatible": SiemHttpDestinationDestinationTypeEnum("splunk_compatible"),
 	}
 }
 
@@ -140,6 +144,7 @@ type SiemHttpDestinationCreateParams struct {
 	FileFormat                              SiemHttpDestinationFileFormatEnum         `url:"file_format,omitempty" json:"file_format,omitempty" path:"file_format"`
 	FileIntervalMinutes                     int64                                     `url:"file_interval_minutes,omitempty" json:"file_interval_minutes,omitempty" path:"file_interval_minutes"`
 	SplunkToken                             string                                    `url:"splunk_token,omitempty" json:"splunk_token,omitempty" path:"splunk_token"`
+	CrowdstrikeToken                        string                                    `url:"crowdstrike_token,omitempty" json:"crowdstrike_token,omitempty" path:"crowdstrike_token"`
 	AzureDcrImmutableId                     string                                    `url:"azure_dcr_immutable_id,omitempty" json:"azure_dcr_immutable_id,omitempty" path:"azure_dcr_immutable_id"`
 	AzureStreamName                         string                                    `url:"azure_stream_name,omitempty" json:"azure_stream_name,omitempty" path:"azure_stream_name"`
 	AzureOauthClientCredentialsTenantId     string                                    `url:"azure_oauth_client_credentials_tenant_id,omitempty" json:"azure_oauth_client_credentials_tenant_id,omitempty" path:"azure_oauth_client_credentials_tenant_id"`
@@ -178,6 +183,7 @@ type SiemHttpDestinationSendTestEntryParams struct {
 	FileFormat                              SiemHttpDestinationFileFormatEnum         `url:"file_format,omitempty" json:"file_format,omitempty" path:"file_format"`
 	FileIntervalMinutes                     int64                                     `url:"file_interval_minutes,omitempty" json:"file_interval_minutes,omitempty" path:"file_interval_minutes"`
 	SplunkToken                             string                                    `url:"splunk_token,omitempty" json:"splunk_token,omitempty" path:"splunk_token"`
+	CrowdstrikeToken                        string                                    `url:"crowdstrike_token,omitempty" json:"crowdstrike_token,omitempty" path:"crowdstrike_token"`
 	AzureDcrImmutableId                     string                                    `url:"azure_dcr_immutable_id,omitempty" json:"azure_dcr_immutable_id,omitempty" path:"azure_dcr_immutable_id"`
 	AzureStreamName                         string                                    `url:"azure_stream_name,omitempty" json:"azure_stream_name,omitempty" path:"azure_stream_name"`
 	AzureOauthClientCredentialsTenantId     string                                    `url:"azure_oauth_client_credentials_tenant_id,omitempty" json:"azure_oauth_client_credentials_tenant_id,omitempty" path:"azure_oauth_client_credentials_tenant_id"`
@@ -212,6 +218,7 @@ type SiemHttpDestinationUpdateParams struct {
 	FileFormat                              SiemHttpDestinationFileFormatEnum         `url:"file_format,omitempty" json:"file_format,omitempty" path:"file_format"`
 	FileIntervalMinutes                     int64                                     `url:"file_interval_minutes,omitempty" json:"file_interval_minutes,omitempty" path:"file_interval_minutes"`
 	SplunkToken                             string                                    `url:"splunk_token,omitempty" json:"splunk_token,omitempty" path:"splunk_token"`
+	CrowdstrikeToken                        string                                    `url:"crowdstrike_token,omitempty" json:"crowdstrike_token,omitempty" path:"crowdstrike_token"`
 	AzureDcrImmutableId                     string                                    `url:"azure_dcr_immutable_id,omitempty" json:"azure_dcr_immutable_id,omitempty" path:"azure_dcr_immutable_id"`
 	AzureStreamName                         string                                    `url:"azure_stream_name,omitempty" json:"azure_stream_name,omitempty" path:"azure_stream_name"`
 	AzureOauthClientCredentialsTenantId     string                                    `url:"azure_oauth_client_credentials_tenant_id,omitempty" json:"azure_oauth_client_credentials_tenant_id,omitempty" path:"azure_oauth_client_credentials_tenant_id"`

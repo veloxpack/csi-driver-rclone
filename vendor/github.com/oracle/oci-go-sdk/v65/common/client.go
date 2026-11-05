@@ -375,7 +375,7 @@ func NewClientWithConfig(configProvider ConfigurationProvider) (client BaseClien
 	client = defaultBaseClient(configProvider)
 
 	if authConfig, e := configProvider.AuthType(); e == nil && authConfig.OboToken != nil {
-		Debugf("authConfig's authType is %s, and token content is %s", authConfig.AuthType, *authConfig.OboToken)
+		Debugf("authConfig's authType is %s", authConfig.AuthType)
 		signOboToken(&client, *authConfig.OboToken, configProvider)
 	}
 
@@ -529,6 +529,12 @@ func (client *BaseClient) prepareRequest(request *http.Request) (err error) {
 	if err != nil {
 		return fmt.Errorf("host is invalid. %s", err.Error())
 	}
+	if clientURL.Scheme != "http" && clientURL.Scheme != "https" {
+		return fmt.Errorf("host is invalid. endpoint scheme must be http or https")
+	}
+	if clientURL.User != nil || clientURL.Path != "" || clientURL.RawQuery != "" || clientURL.Fragment != "" {
+		return fmt.Errorf("host is invalid. endpoint must not contain user info, path, query, or fragment")
+	}
 	request.URL.Host = clientURL.Host
 	request.URL.Scheme = clientURL.Scheme
 	currentPath := request.URL.Path
@@ -560,7 +566,7 @@ func checkForSuccessfulResponse(res *http.Response, requestBody *io.ReadCloser) 
 				logRequest(res.Request, Logf, noLogging)
 				if requestBody != nil && *requestBody != http.NoBody {
 					bodyContent, _ := ioutil.ReadAll(*requestBody)
-					Logf("Dump Request Body: \n%s", string(bodyContent))
+					Logf("Dump Request Body: \n%s", RedactSensitiveStringForLogs(string(bodyContent)))
 				}
 			}
 			logResponse(res, Logf, infoLogging)
@@ -585,7 +591,7 @@ func logRequest(request *http.Request, fn func(format string, v ...interface{}),
 
 	dumpBody = dumpBody && defaultLogger.LogLevel() >= bodyLoggingLevel && bodyLoggingLevel != noLogging
 	if dump, e := httputil.DumpRequestOut(request, dumpBody); e == nil {
-		fn("Dump Request %s", string(dump))
+		fn("Dump Request %s", RedactSensitiveStringForLogs(string(dump)))
 	} else {
 		fn("%v\n", e)
 	}
@@ -602,7 +608,7 @@ func logResponse(response *http.Response, fn func(format string, v ...interface{
 	}
 	dumpBody = dumpBody && defaultLogger.LogLevel() >= bodyLoggingLevel && bodyLoggingLevel != noLogging
 	if dump, e := httputil.DumpResponse(response, dumpBody); e == nil {
-		fn("Dump Response %s", string(dump))
+		fn("Dump Response %s", RedactSensitiveStringForLogs(string(dump)))
 	} else {
 		fn("%v\n", e)
 	}
@@ -778,7 +784,11 @@ func (client BaseClient) RefreshableTokenWrappedCallWithDetails(ctx context.Cont
 		}
 
 		response, err = client.CallWithDetails(ctx, request, ClientCallDetails{Signer: client.Signer})
-		if response != nil && response.StatusCode != http.StatusUnauthorized {
+		// Retry only on a HTTP 401 response
+		if response == nil {
+			return nil, err
+		}
+		if response.StatusCode != http.StatusUnauthorized {
 			return response, err
 		}
 		time.Sleep(1 * time.Second)

@@ -546,6 +546,27 @@ For example, the following two paths are treated as equivalent after NFC normali
 
 <div></div>
 
+## Workspaces
+
+A Workspace is a lightweight way to organize related resources inside a single Files.com Site.
+
+Customers commonly group resources by project, department, client, or region. Workspaces provide a built-in structure for that grouping, so the UI can operate within a clear "workspace context" and admins can delegate management for a subset of resources without requiring full site-level isolation.
+
+Every Site has an implicit Default workspace (ID `0`). Resources that are not explicitly assigned to a named workspace are considered part of the Default workspace.
+
+The Files.com Go SDK supports workspace scoping by using the `WorkspaceId` attribute on the `Config` object.
+```go title="Example Request"
+import (
+    files_sdk "github.com/Files-com/files-sdk-go/v3"
+    "github.com/Files-com/files-sdk-go/v3/folder"
+)
+
+config := files_sdk.Config{WorkspaceId: 123}.Init()
+client := folder.Client{Config: config}
+
+client.ListFor(files_sdk.FolderListForParams{})
+```
+
 ## Foreign Language Support
 
 The Files.com Go SDK supports localized responses by using the `Language` attribute on the `Config` struct.
@@ -650,6 +671,7 @@ if err != nil {
 | `bad-request/invalid-oauth-provider` | `ErrInvalidOauthProvider` | Invalid Oauth Provider |
 | `bad-request/invalid-path` | `ErrInvalidPath` | Invalid Path |
 | `bad-request/invalid-return-to-url` | `ErrInvalidReturnToUrl` | Invalid Return To Url |
+| `bad-request/invalid-search-query` | `ErrInvalidSearchQuery` | Invalid Search Query |
 | `bad-request/invalid-sort-field` | `ErrInvalidSortField` | Invalid Sort Field |
 | `bad-request/invalid-sort-filter-combination` | `ErrInvalidSortFilterCombination` | Invalid Sort Filter Combination |
 | `bad-request/invalid-upload-offset` | `ErrInvalidUploadOffset` | Invalid Upload Offset |
@@ -662,6 +684,7 @@ if err != nil {
 | `bad-request/part-number-too-large` | `ErrPartNumberTooLarge` | Part Number Too Large |
 | `bad-request/path-cannot-have-trailing-whitespace` | `ErrPathCannotHaveTrailingWhitespace` | Path Cannot Have Trailing Whitespace |
 | `bad-request/reauthentication-needed-fields` | `ErrReauthenticationNeededFields` | Reauthentication Needed Fields |
+| `bad-request/request-body-too-large` | `ErrRequestBodyTooLarge` | Request Body Too Large |
 | `bad-request/request-params-contain-invalid-character` | `ErrRequestParamsContainInvalidCharacter` | Request Params Contain Invalid Character |
 | `bad-request/request-params-invalid` | `ErrRequestParamsInvalid` | Request Params Invalid |
 | `bad-request/request-params-required` | `ErrRequestParamsRequired` | Request Params Required |
@@ -694,7 +717,7 @@ if err != nil {
 | `not-authorized/api-key-only-for-desktop-app` | `ErrApiKeyOnlyForDesktopApp` | Api Key Only For Desktop App |
 | `not-authorized/api-key-only-for-mobile-app` | `ErrApiKeyOnlyForMobileApp` | Api Key Only For Mobile App |
 | `not-authorized/api-key-only-for-office-integration` | `ErrApiKeyOnlyForOfficeIntegration` | Api Key Only For Office Integration |
-| `not-authorized/billing-or-site-admin-permission-required` | `ErrBillingOrSiteAdminPermissionRequired` | Billing Or Site Admin Permission Required |
+| `not-authorized/billing-information-hidden` | `ErrBillingInformationHidden` | Billing Information Hidden |
 | `not-authorized/billing-permission-required` | `ErrBillingPermissionRequired` | Billing Permission Required |
 | `not-authorized/bundle-maximum-uses-reached` | `ErrBundleMaximumUsesReached` | Bundle Maximum Uses Reached |
 | `not-authorized/bundle-permission-required` | `ErrBundlePermissionRequired` | Bundle Permission Required |
@@ -706,6 +729,7 @@ if err != nil {
 | `not-authorized/folder-admin-permission-required` | `ErrFolderAdminPermissionRequired` | Folder Admin Permission Required |
 | `not-authorized/full-permission-required` | `ErrFullPermissionRequired` | Full Permission Required |
 | `not-authorized/history-permission-required` | `ErrHistoryPermissionRequired` | History Permission Required |
+| `not-authorized/in-app-ai-assistant-unavailable` | `ErrInAppAiAssistantUnavailable` | In App Ai Assistant Unavailable |
 | `not-authorized/insufficient-permission-for-params` | `ErrInsufficientPermissionForParams` | Insufficient Permission For Params |
 | `not-authorized/insufficient-permission-for-site` | `ErrInsufficientPermissionForSite` | Insufficient Permission For Site |
 | `not-authorized/mover-access-denied` | `ErrMoverAccessDenied` | Mover Access Denied |
@@ -725,7 +749,13 @@ if err != nil {
 | `not-authorized/reauthentication-failed-final` | `ErrReauthenticationFailedFinal` | Reauthentication Failed Final |
 | `not-authorized/reauthentication-needed-action` | `ErrReauthenticationNeededAction` | Reauthentication Needed Action |
 | `not-authorized/recaptcha-failed` | `ErrRecaptchaFailed` | Recaptcha Failed |
+| `not-authorized/remote-desktop-debug-logging-disabled` | `ErrRemoteDesktopDebugLoggingDisabled` | Remote Desktop Debug Logging Disabled |
 | `not-authorized/self-managed-required` | `ErrSelfManagedRequired` | Self Managed Required |
+| `not-authorized/site-admin-or-partner-admin-permission-required` | `ErrSiteAdminOrPartnerAdminPermissionRequired` | Site Admin Or Partner Admin Permission Required |
+| `not-authorized/site-admin-or-workspace-admin-or-folder-admin-permission-required` | `ErrSiteAdminOrWorkspaceAdminOrFolderAdminPermissionRequired` | Site Admin Or Workspace Admin Or Folder Admin Permission Required |
+| `not-authorized/site-admin-or-workspace-admin-or-partner-admin-or-folder-admin-permission-required` | `ErrSiteAdminOrWorkspaceAdminOrPartnerAdminOrFolderAdminPermissionRequired` | Site Admin Or Workspace Admin Or Partner Admin Or Folder Admin Permission Required |
+| `not-authorized/site-admin-or-workspace-admin-or-partner-admin-permission-required` | `ErrSiteAdminOrWorkspaceAdminOrPartnerAdminPermissionRequired` | Site Admin Or Workspace Admin Or Partner Admin Permission Required |
+| `not-authorized/site-admin-or-workspace-admin-permission-required` | `ErrSiteAdminOrWorkspaceAdminPermissionRequired` | Site Admin Or Workspace Admin Permission Required |
 | `not-authorized/site-admin-required` | `ErrSiteAdminRequired` | Site Admin Required |
 | `not-authorized/site-files-are-immutable` | `ErrSiteFilesAreImmutable` | Site Files Are Immutable |
 | `not-authorized/two-factor-authentication-required` | `ErrTwoFactorAuthenticationRequired` | Two Factor Authentication Required |
@@ -747,6 +777,7 @@ if err != nil {
 | `not-found/user-not-found` | `ErrUserNotFound` | User Not Found |
 | `processing-failure` | `ErrProcessingFailure` | Processing Failure |
 | `processing-failure/agent-unavailable` | `ErrAgentUnavailable` | Agent Unavailable |
+| `processing-failure/ai-task-cannot-be-run-manually` | `ErrAiTaskCannotBeRunManually` | Ai Task Cannot Be Run Manually |
 | `processing-failure/already-completed` | `ErrAlreadyCompleted` | Already Completed |
 | `processing-failure/automation-cannot-be-run-manually` | `ErrAutomationCannotBeRunManually` | Automation Cannot Be Run Manually |
 | `processing-failure/behavior-not-allowed-on-remote-server` | `ErrBehaviorNotAllowedOnRemoteServer` | Behavior Not Allowed On Remote Server |

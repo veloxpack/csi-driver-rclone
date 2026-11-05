@@ -8,9 +8,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/ProtonMail/go-crypto/openpgp/armor"
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	openpgp "github.com/ProtonMail/go-crypto/openpgp/v2"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/bradenaw/juniper/xslices"
 	"github.com/sirupsen/logrus"
 )
@@ -40,16 +40,19 @@ func ExtractSignatures(kr *crypto.KeyRing, arm string) ([]Signature, error) {
 
 	var signatures []Signature
 
-	for _, signature := range msg.UnverifiedSignatures {
-		buf := new(bytes.Buffer)
+	for _, candidate := range msg.SignatureCandidates {
+		if candidate.CorrespondingSig == nil {
+			continue
+		}
 
-		if err := signature.Serialize(buf); err != nil {
+		buf := new(bytes.Buffer)
+		if err := candidate.CorrespondingSig.Serialize(buf); err != nil {
 			return nil, err
 		}
 
 		signatures = append(signatures, Signature{
-			Hash: signature.Hash.String(),
-			Data: crypto.NewPGPSignature(buf.Bytes()),
+			Hash: candidate.HashAlgorithm.String(),
+			Data: buf.Bytes(),
 		})
 	}
 
@@ -207,21 +210,21 @@ func (key Key) getPassphraseFromToken(kr *crypto.KeyRing) ([]byte, error) {
 		return nil, err
 	}
 
-	sig, err := crypto.NewPGPSignatureFromArmored(key.Signature)
+	sig, err := unarmorSignature(key.Signature)
 	if err != nil {
 		return nil, err
 	}
 
-	token, err := kr.Decrypt(msg, nil, 0)
+	token, err := decryptMessage(kr, msg, nil, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = kr.VerifyDetached(token, sig, 0); err != nil {
+	if err = verifyDetached(kr, token, sig, 0); err != nil {
 		return nil, err
 	}
 
-	return token.GetBinary(), nil
+	return token, nil
 }
 
 func (key Key) unlock(passphrase []byte) (*crypto.Key, error) {

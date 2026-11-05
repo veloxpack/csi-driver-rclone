@@ -1,10 +1,11 @@
-linters:
+version: "2"
+formatters:
   enable:
     - gci
-linters-settings:
-   gci:
+  settings:
+    gci:
       sections:
-         - standard
-         - default
-         - prefix(storj.io/)
+        - standard
+        - default
+        - prefix(storj.io/)
       skip-generated: true

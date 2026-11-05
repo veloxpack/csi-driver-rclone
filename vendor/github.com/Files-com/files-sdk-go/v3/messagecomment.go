@@ -9,7 +9,7 @@ import (
 type MessageComment struct {
 	Id        int64                    `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
 	Body      string                   `json:"body,omitempty" path:"body,omitempty" url:"body,omitempty"`
-	Reactions []map[string]interface{} `json:"reactions,omitempty" path:"reactions,omitempty" url:"reactions,omitempty"`
+	Reactions []MessageCommentReaction `json:"reactions,omitempty" path:"reactions,omitempty" url:"reactions,omitempty"`
 	UserId    int64                    `json:"user_id,omitempty" path:"user_id,omitempty" url:"user_id,omitempty"`
 }
 

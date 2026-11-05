@@ -27,11 +27,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
 
+	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox/retry"
 	"golang.org/x/oauth2"
 )
 
@@ -41,8 +41,8 @@ const (
 	hostAPI       = "api"
 	hostContent   = "content"
 	hostNotify    = "notify"
-	sdkVersion    = "6.0.5"
-	specVersion   = "c36ba27"
+	sdkVersion    = "6.4.0"
+	specVersion   = "b5f7ddd"
 )
 
 // Version returns the current SDK version and API Spec version
@@ -64,6 +64,8 @@ func (e APIError) Error() string {
 	return e.ErrorSummary
 }
 
+// SDKInternalError is returned when the Dropbox API responds with a status code
+// that does not carry a typed error body (e.g. 500 Internal Server Error).
 type SDKInternalError struct {
 	StatusCode int
 	Content    string
@@ -87,14 +89,21 @@ type Config struct {
 	AsAdminID string
 	// Path relative to which action should be taken
 	PathRoot string
-	// No need to set -- for testing only
+	// Dropbox API domain. The default is ".dropboxapi.com".
 	Domain string
-	// No need to set -- for testing only
+	// HTTP client used for authenticated Dropbox API calls. If set, Client takes
+	// precedence over TokenSource and Token.
 	Client *http.Client
+	// RetryPolicy controls automatic retries for Dropbox API calls. If nil, retries
+	// are disabled.
+	RetryPolicy *retry.Policy
 	// No need to set -- for testing only
 	HeaderGenerator func(hostType string, namespace string, route string) map[string]string
 	// No need to set -- for testing only
 	URLGenerator func(hostType string, namespace string, route string) string
+	// OAuth2 token source used for authenticated Dropbox API calls. If Client is
+	// nil and TokenSource is set, TokenSource takes precedence over Token.
+	TokenSource oauth2.TokenSource
 }
 
 // LogLevel defines a type that can set the desired level of logging the SDK will generate.
@@ -167,11 +176,112 @@ type Request struct {
 	ExtraHeaders map[string]string
 }
 
+// Execute executes a Dropbox API request with a background context.
 func (c *Context) Execute(req Request, body io.Reader) ([]byte, io.ReadCloser, error) {
+	return c.ExecuteContext(context.Background(), req, body)
+}
+
+// ExecuteContext executes a Dropbox API request with the provided context.
+// Retries use Config.RetryPolicy when set.
+func (c *Context) ExecuteContext(ctx context.Context, req Request, body io.Reader) ([]byte, io.ReadCloser, error) {
+	var policy retry.Policy
+	retryConfigured := c.Config.RetryPolicy != nil
+	if retryConfigured {
+		policy = c.Config.RetryPolicy.Normalized()
+	}
+	bodyOffset, bodySeeker, bodyRetryable := retryableBody(body)
+	canRetry := retryConfigured && bodyRetryable
+
+	client := c.Client
+	if req.Auth == "noauth" {
+		client = c.NoAuthClient
+	}
+
+	for attempt := 0; ; attempt++ {
+		if attempt > 0 && bodySeeker != nil {
+			if _, err := bodySeeker.Seek(bodyOffset, io.SeekStart); err != nil {
+				return nil, nil, err
+			}
+		}
+
+		httpReq, err := c.newHTTPRequest(ctx, req, body)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		resp, err := client.Do(httpReq)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusPartialContent {
+			switch req.Style {
+			case "rpc", "upload":
+				if resp.Body == nil {
+					return nil, nil, errors.New("expected body in RPC response, got nil")
+				}
+
+				b, err := io.ReadAll(resp.Body)
+				if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+					err = closeErr
+				}
+				if err != nil {
+					return nil, nil, err
+				}
+
+				return b, nil, nil
+			case "download":
+				b := []byte(resp.Header.Get("Dropbox-API-Result"))
+				return b, resp.Body, nil
+			}
+		}
+
+		b, readErr := io.ReadAll(resp.Body)
+		closeErr := resp.Body.Close()
+		bodyErr := readErr
+		if bodyErr == nil {
+			bodyErr = closeErr
+		}
+		if bodyErr != nil {
+			if canRetry {
+				retryBody := b
+				if readErr != nil {
+					retryBody = nil
+				}
+				if wait, ok := policy.Delay(resp, retryBody, attempt); ok {
+					if err := retry.Sleep(ctx, wait); err != nil {
+						return nil, nil, err
+					}
+					continue
+				}
+			}
+			return nil, nil, bodyErr
+		}
+
+		if canRetry {
+			if wait, ok := policy.Delay(resp, b, attempt); ok {
+				if err := retry.Sleep(ctx, wait); err != nil {
+					return nil, nil, err
+				}
+				continue
+			}
+		}
+
+		return nil, nil, SDKInternalError{
+			StatusCode: resp.StatusCode,
+			Content:    string(b),
+		}
+	}
+}
+
+func (c *Context) newHTTPRequest(ctx context.Context, req Request, body io.Reader) (*http.Request, error) {
 	url := c.URLGenerator(req.Host, req.Namespace, req.Route)
-	httpReq, err := http.NewRequest("POST", url, body)
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, body)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+	if body != nil {
+		httpReq.Body = io.NopCloser(body)
 	}
 
 	for k, v := range req.ExtraHeaders {
@@ -202,17 +312,17 @@ func (c *Context) Execute(req Request, body io.Reader) ([]byte, io.ReadCloser, e
 	if req.Arg != nil {
 		serializedArg, err := json.Marshal(req.Arg)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		switch req.Style {
 		case "rpc":
 			if body != nil {
-				return nil, nil, errors.New("RPC style requests can not have body")
+				return nil, errors.New("RPC style requests can not have body")
 			}
 
 			httpReq.Header.Set("Content-Type", "application/json")
-			httpReq.Body = ioutil.NopCloser(bytes.NewReader(serializedArg))
+			httpReq.Body = io.NopCloser(bytes.NewReader(serializedArg))
 			httpReq.ContentLength = int64(len(serializedArg))
 		case "upload", "download":
 			httpReq.Header.Set("Dropbox-API-Arg", string(serializedArg))
@@ -220,46 +330,22 @@ func (c *Context) Execute(req Request, body io.Reader) ([]byte, io.ReadCloser, e
 		}
 	}
 
-	client := c.Client
-	if req.Auth == "noauth" {
-		client = c.NoAuthClient
-	}
+	return httpReq, nil
+}
 
-	resp, err := client.Do(httpReq)
+func retryableBody(body io.Reader) (int64, io.Seeker, bool) {
+	if body == nil {
+		return 0, nil, true
+	}
+	seeker, ok := body.(io.Seeker)
+	if !ok {
+		return 0, nil, false
+	}
+	offset, err := seeker.Seek(0, io.SeekCurrent)
 	if err != nil {
-		return nil, nil, err
+		return 0, nil, false
 	}
-
-	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusPartialContent {
-		switch req.Style {
-		case "rpc", "upload":
-			if resp.Body == nil {
-				return nil, nil, errors.New("Expected body in RPC response, got nil")
-			}
-
-			b, err := ioutil.ReadAll(resp.Body)
-			resp.Body.Close()
-			if err != nil {
-				return nil, nil, err
-			}
-
-			return b, nil, nil
-		case "download":
-			b := []byte(resp.Header.Get("Dropbox-API-Result"))
-			return b, resp.Body, nil
-		}
-	}
-
-	b, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return nil, nil, SDKInternalError{
-		StatusCode: resp.StatusCode,
-		Content:    string(b),
-	}
+	return offset, seeker, true
 }
 
 // NewContext returns a new Context with the given Config.
@@ -271,9 +357,13 @@ func NewContext(c Config) Context {
 
 	client := c.Client
 	if client == nil {
-		var conf = &oauth2.Config{Endpoint: OAuthEndpoint(domain)}
-		tok := &oauth2.Token{AccessToken: c.Token}
-		client = conf.Client(context.Background(), tok)
+		if c.TokenSource != nil {
+			client = oauth2.NewClient(context.Background(), c.TokenSource)
+		} else {
+			var conf = &oauth2.Config{Endpoint: OAuthEndpoint(domain)}
+			tok := &oauth2.Token{AccessToken: c.Token}
+			client = conf.Client(context.Background(), tok)
+		}
 	}
 
 	noAuthClient := c.Client
@@ -309,10 +399,10 @@ func OAuthEndpoint(domain string) oauth2.Endpoint {
 	if domain == "" {
 		domain = defaultDomain
 	}
-	authURL := fmt.Sprintf("https://meta%s/1/oauth2/authorize", domain)
-	tokenURL := fmt.Sprintf("https://api%s/1/oauth2/token", domain)
+	authURL := fmt.Sprintf("https://meta%s/oauth2/authorize", domain)
+	tokenURL := fmt.Sprintf("https://api%s/oauth2/token", domain)
 	if domain == defaultDomain {
-		authURL = "https://www.dropbox.com/1/oauth2/authorize"
+		authURL = "https://www.dropbox.com/oauth2/authorize"
 	}
 	return oauth2.Endpoint{AuthURL: authURL, TokenURL: tokenURL}
 }

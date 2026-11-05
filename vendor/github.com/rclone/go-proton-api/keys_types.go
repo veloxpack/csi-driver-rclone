@@ -3,7 +3,7 @@ package proton
 import (
 	"encoding/json"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 )
 
 type PublicKey struct {
@@ -44,12 +44,7 @@ func NewKeyList(signer *crypto.KeyRing, entries []KeyListEntry) (KeyList, error)
 		return KeyList{}, err
 	}
 
-	sig, err := signer.SignDetached(crypto.NewPlainMessage(data))
-	if err != nil {
-		return KeyList{}, err
-	}
-
-	arm, err := sig.GetArmored()
+	arm, err := signDetachedArmored(signer, data)
 	if err != nil {
 		return KeyList{}, err
 	}

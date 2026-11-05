@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +33,7 @@ import (
 	"github.com/rclone/rclone/lib/encoder"
 	"github.com/rclone/rclone/lib/oauthutil"
 	"github.com/rclone/rclone/lib/pacer"
+	"github.com/rclone/rclone/lib/readers"
 	"github.com/rclone/rclone/lib/rest"
 	"golang.org/x/oauth2"
 )
@@ -1166,14 +1168,7 @@ func (f *Fs) Move(ctx context.Context, src fs.Object, remote string) (fs.Object,
 			fs.Debugf(f, "Cross-directory move returned no parentFolder. Falling back to copy+delete.")
 			return nil, fs.ErrorCantMove
 		}
-		parentFound := false
-		for _, actualParent := range info.ParentFolder {
-			if actualParent == dstDirectoryID {
-				parentFound = true
-				break
-			}
-		}
-		if !parentFound {
+		if !slices.Contains(info.ParentFolder, dstDirectoryID) {
 			fs.Debugf(f, "Cross-directory move failed: expected parent=%q, got=%v. Falling back to copy+delete.",
 				dstDirectoryID, info.ParentFolder)
 			return nil, fs.ErrorCantMove
@@ -1777,9 +1772,16 @@ func (o *Object) uploadMultipart(ctx context.Context, in io.Reader, leaf, direct
 	}
 
 	// Read and write file content
-	_, err = io.Copy(fileWriter, in)
+	counter := readers.NewCountingReader(in)
+	_, err = io.Copy(fileWriter, counter)
 	if err != nil {
 		return fmt.Errorf("failed to copy file content: %w", err)
+	}
+
+	// Check the source supplied the number of bytes it declared
+	// otherwise a truncated file would be stored as a good upload.
+	if int64(counter.BytesRead()) != size {
+		return fmt.Errorf("expected %d bytes in input, but got %d: %w", size, counter.BytesRead(), io.ErrUnexpectedEOF)
 	}
 
 	err = writer.Close()

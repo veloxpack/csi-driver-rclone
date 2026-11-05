@@ -12,6 +12,8 @@ type PublicKey struct {
 	WorkspaceId                int64      `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 	Title                      string     `json:"title,omitempty" path:"title,omitempty" url:"title,omitempty"`
 	CreatedAt                  *time.Time `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
+	ExpiresAt                  *time.Time `json:"expires_at,omitempty" path:"expires_at,omitempty" url:"expires_at,omitempty"`
+	Expired                    *bool      `json:"expired,omitempty" path:"expired,omitempty" url:"expired,omitempty"`
 	Fingerprint                string     `json:"fingerprint,omitempty" path:"fingerprint,omitempty" url:"fingerprint,omitempty"`
 	FingerprintSha256          string     `json:"fingerprint_sha256,omitempty" path:"fingerprint_sha256,omitempty" url:"fingerprint_sha256,omitempty"`
 	Status                     string     `json:"status,omitempty" path:"status,omitempty" url:"status,omitempty"`

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/ProtonMail/gluon/rfc822"
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/google/uuid"
 	"golang.org/x/text/encoding/htmlindex"
 	"golang.org/x/text/encoding/ianaindex"
@@ -161,13 +161,13 @@ func encryptText(w io.Writer, kr *crypto.KeyRing, s *rfc822.Section) error {
 	}
 
 	// Encrypt the body.
-	enc, err := kr.Encrypt(crypto.NewPlainMessage(body), nil)
+	enc, err := encryptMessage(kr, body, nil)
 	if err != nil {
 		return err
 	}
 
 	// Armor the encrypted body.
-	arm, err := enc.GetArmored()
+	arm, err := enc.Armor()
 	if err != nil {
 		return err
 	}
@@ -201,7 +201,7 @@ func encryptAtt(w io.Writer, kr *crypto.KeyRing, s *rfc822.Section) error {
 	header.Set("Content-Transfer-Encoding", "base64")
 
 	// Encrypt the body.
-	enc, err := kr.Encrypt(crypto.NewPlainMessage(body), nil)
+	enc, err := encryptMessage(kr, body, nil)
 	if err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func encryptAtt(w io.Writer, kr *crypto.KeyRing, s *rfc822.Section) error {
 	}
 
 	// Write the base64 body.
-	if err := encodeBase64(w, enc.GetBinary()); err != nil {
+	if err := encodeBase64(w, enc.Bytes()); err != nil {
 		return err
 	}
 
@@ -221,12 +221,12 @@ func encryptAtt(w io.Writer, kr *crypto.KeyRing, s *rfc822.Section) error {
 
 // encryptFull builds a PGP/MIME encrypted message from the given literal.
 func encryptFull(kr *crypto.KeyRing, literal []byte) ([]byte, error) {
-	enc, err := kr.Encrypt(crypto.NewPlainMessage(literal), kr)
+	enc, err := encryptMessage(kr, literal, kr)
 	if err != nil {
 		return nil, err
 	}
 
-	arm, err := enc.GetArmored()
+	arm, err := enc.Armor()
 	if err != nil {
 		return nil, err
 	}

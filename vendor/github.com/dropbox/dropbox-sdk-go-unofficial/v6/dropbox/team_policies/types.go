@@ -48,6 +48,25 @@ const (
 	ComputerBackupPolicyStateOther    = "other"
 )
 
+// DefaultLinkExpirationDaysPolicy : Policy governing default expiration date
+// for new links shared outside the team.
+type DefaultLinkExpirationDaysPolicy struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for DefaultLinkExpirationDaysPolicy
+const (
+	DefaultLinkExpirationDaysPolicyNone   = "none"
+	DefaultLinkExpirationDaysPolicyDay1   = "day_1"
+	DefaultLinkExpirationDaysPolicyDay3   = "day_3"
+	DefaultLinkExpirationDaysPolicyDay7   = "day_7"
+	DefaultLinkExpirationDaysPolicyDay30  = "day_30"
+	DefaultLinkExpirationDaysPolicyDay90  = "day_90"
+	DefaultLinkExpirationDaysPolicyDay180 = "day_180"
+	DefaultLinkExpirationDaysPolicyYear1  = "year_1"
+	DefaultLinkExpirationDaysPolicyOther  = "other"
+)
+
 // EmmState : has no documentation (yet)
 type EmmState struct {
 	dropbox.Tagged
@@ -59,6 +78,19 @@ const (
 	EmmStateOptional = "optional"
 	EmmStateRequired = "required"
 	EmmStateOther    = "other"
+)
+
+// EnforceLinkPasswordPolicy : Policy governing whether new links shared outside
+// the team require passwords.
+type EnforceLinkPasswordPolicy struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for EnforceLinkPasswordPolicy
+const (
+	EnforceLinkPasswordPolicyOptional = "optional"
+	EnforceLinkPasswordPolicyRequired = "required"
+	EnforceLinkPasswordPolicyOther    = "other"
 )
 
 // ExternalDriveBackupPolicyState : has no documentation (yet)
@@ -93,10 +125,11 @@ type FileProviderMigrationPolicyState struct {
 
 // Valid tag values for FileProviderMigrationPolicyState
 const (
-	FileProviderMigrationPolicyStateDisabled = "disabled"
-	FileProviderMigrationPolicyStateEnabled  = "enabled"
-	FileProviderMigrationPolicyStateDefault  = "default"
-	FileProviderMigrationPolicyStateOther    = "other"
+	FileProviderMigrationPolicyStateDisabled  = "disabled"
+	FileProviderMigrationPolicyStateEnabled   = "enabled"
+	FileProviderMigrationPolicyStateDefault   = "default"
+	FileProviderMigrationPolicyStateImmediate = "immediate"
+	FileProviderMigrationPolicyStateOther     = "other"
 )
 
 // GroupCreation : has no documentation (yet)
@@ -208,6 +241,19 @@ const (
 	RolloutMethodAddMemberToExceptions = "add_member_to_exceptions"
 )
 
+// SharedFolderBlanketLinkRestrictionPolicy : Policy governing whether shared
+// folder membership is required to access shared links.
+type SharedFolderBlanketLinkRestrictionPolicy struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for SharedFolderBlanketLinkRestrictionPolicy
+const (
+	SharedFolderBlanketLinkRestrictionPolicyMembers = "members"
+	SharedFolderBlanketLinkRestrictionPolicyAnyone  = "anyone"
+	SharedFolderBlanketLinkRestrictionPolicyOther   = "other"
+)
+
 // SharedFolderJoinPolicy : Policy governing which shared folders a team member
 // can join.
 type SharedFolderJoinPolicy struct {
@@ -229,9 +275,10 @@ type SharedFolderMemberPolicy struct {
 
 // Valid tag values for SharedFolderMemberPolicy
 const (
-	SharedFolderMemberPolicyTeam   = "team"
-	SharedFolderMemberPolicyAnyone = "anyone"
-	SharedFolderMemberPolicyOther  = "other"
+	SharedFolderMemberPolicyTeam            = "team"
+	SharedFolderMemberPolicyAnyone          = "anyone"
+	SharedFolderMemberPolicyTeamAndApproved = "team_and_approved"
+	SharedFolderMemberPolicyOther           = "other"
 )
 
 // SharedLinkCreatePolicy : Policy governing the visibility of shared links.
@@ -247,6 +294,19 @@ const (
 	SharedLinkCreatePolicyTeamOnly        = "team_only"
 	SharedLinkCreatePolicyDefaultNoOne    = "default_no_one"
 	SharedLinkCreatePolicyOther           = "other"
+)
+
+// SharedLinkDefaultPermissionsPolicy : has no documentation (yet)
+type SharedLinkDefaultPermissionsPolicy struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for SharedLinkDefaultPermissionsPolicy
+const (
+	SharedLinkDefaultPermissionsPolicyDefault = "default"
+	SharedLinkDefaultPermissionsPolicyEdit    = "edit"
+	SharedLinkDefaultPermissionsPolicyView    = "view"
+	SharedLinkDefaultPermissionsPolicyOther   = "other"
 )
 
 // ShowcaseDownloadPolicy : has no documentation (yet)
@@ -351,15 +411,19 @@ type TeamMemberPolicies struct {
 	// SuggestMembersPolicy : The team policy on if teammembers are allowed to
 	// suggest users for admins to invite to the team.
 	SuggestMembersPolicy *SuggestMembersPolicy `json:"suggest_members_policy"`
+	// TopLevelContentPolicy : Policy for deciding whether members can edit team
+	// folders at the top level of the team space.
+	TopLevelContentPolicy *TopLevelContentPolicy `json:"top_level_content_policy"`
 }
 
 // NewTeamMemberPolicies returns a new TeamMemberPolicies instance
-func NewTeamMemberPolicies(Sharing *TeamSharingPolicies, EmmState *EmmState, OfficeAddin *OfficeAddInPolicy, SuggestMembersPolicy *SuggestMembersPolicy) *TeamMemberPolicies {
+func NewTeamMemberPolicies(Sharing *TeamSharingPolicies, EmmState *EmmState, OfficeAddin *OfficeAddInPolicy, SuggestMembersPolicy *SuggestMembersPolicy, TopLevelContentPolicy *TopLevelContentPolicy) *TeamMemberPolicies {
 	s := new(TeamMemberPolicies)
 	s.Sharing = Sharing
 	s.EmmState = EmmState
 	s.OfficeAddin = OfficeAddin
 	s.SuggestMembersPolicy = SuggestMembersPolicy
+	s.TopLevelContentPolicy = TopLevelContentPolicy
 	return s
 }
 
@@ -372,16 +436,47 @@ type TeamSharingPolicies struct {
 	SharedFolderJoinPolicy *SharedFolderJoinPolicy `json:"shared_folder_join_policy"`
 	// SharedLinkCreatePolicy : Who can view shared links owned by team members.
 	SharedLinkCreatePolicy *SharedLinkCreatePolicy `json:"shared_link_create_policy"`
+	// GroupCreationPolicy : Who can create groups.
+	GroupCreationPolicy *GroupCreation `json:"group_creation_policy"`
+	// SharedFolderLinkRestrictionPolicy : Who can view links to content in
+	// shared folders.
+	SharedFolderLinkRestrictionPolicy *SharedFolderBlanketLinkRestrictionPolicy `json:"shared_folder_link_restriction_policy"`
+	// EnforceLinkPasswordPolicy : If passwords are required for new links
+	// shared outside the team.
+	EnforceLinkPasswordPolicy *EnforceLinkPasswordPolicy `json:"enforce_link_password_policy"`
+	// DefaultLinkExpirationDaysPolicy : Default expiration date for new links
+	// shared outside the team.
+	DefaultLinkExpirationDaysPolicy *DefaultLinkExpirationDaysPolicy `json:"default_link_expiration_days_policy"`
+	// SharedLinkDefaultPermissionsPolicy : Default access level for new links
+	// shared by team members.
+	SharedLinkDefaultPermissionsPolicy *SharedLinkDefaultPermissionsPolicy `json:"shared_link_default_permissions_policy"`
 }
 
 // NewTeamSharingPolicies returns a new TeamSharingPolicies instance
-func NewTeamSharingPolicies(SharedFolderMemberPolicy *SharedFolderMemberPolicy, SharedFolderJoinPolicy *SharedFolderJoinPolicy, SharedLinkCreatePolicy *SharedLinkCreatePolicy) *TeamSharingPolicies {
+func NewTeamSharingPolicies(SharedFolderMemberPolicy *SharedFolderMemberPolicy, SharedFolderJoinPolicy *SharedFolderJoinPolicy, SharedLinkCreatePolicy *SharedLinkCreatePolicy, GroupCreationPolicy *GroupCreation, SharedFolderLinkRestrictionPolicy *SharedFolderBlanketLinkRestrictionPolicy, EnforceLinkPasswordPolicy *EnforceLinkPasswordPolicy, DefaultLinkExpirationDaysPolicy *DefaultLinkExpirationDaysPolicy, SharedLinkDefaultPermissionsPolicy *SharedLinkDefaultPermissionsPolicy) *TeamSharingPolicies {
 	s := new(TeamSharingPolicies)
 	s.SharedFolderMemberPolicy = SharedFolderMemberPolicy
 	s.SharedFolderJoinPolicy = SharedFolderJoinPolicy
 	s.SharedLinkCreatePolicy = SharedLinkCreatePolicy
+	s.GroupCreationPolicy = GroupCreationPolicy
+	s.SharedFolderLinkRestrictionPolicy = SharedFolderLinkRestrictionPolicy
+	s.EnforceLinkPasswordPolicy = EnforceLinkPasswordPolicy
+	s.DefaultLinkExpirationDaysPolicy = DefaultLinkExpirationDaysPolicy
+	s.SharedLinkDefaultPermissionsPolicy = SharedLinkDefaultPermissionsPolicy
 	return s
 }
+
+// TopLevelContentPolicy : has no documentation (yet)
+type TopLevelContentPolicy struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for TopLevelContentPolicy
+const (
+	TopLevelContentPolicyAdminOnly = "admin_only"
+	TopLevelContentPolicyEveryone  = "everyone"
+	TopLevelContentPolicyOther     = "other"
+)
 
 // TwoStepVerificationPolicy : has no documentation (yet)
 type TwoStepVerificationPolicy struct {

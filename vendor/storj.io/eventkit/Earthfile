@@ -1,5 +1,5 @@
 VERSION 0.6
-FROM golang:1.23
+FROM golang:1.26
 WORKDIR /go/eventkit
 
 lint:
@@ -8,7 +8,7 @@ lint:
         go install honnef.co/go/tools/cmd/staticcheck@2025.1
     RUN --mount=type=cache,target=/root/.cache/go-build \
         --mount=type=cache,target=/go/pkg/mod \
-        go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.7
+        go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.3
     RUN --mount=type=cache,target=/root/.cache/go-build \
         --mount=type=cache,target=/go/pkg/mod \
         go install github.com/storj/ci/check-cross-compile@latest
@@ -37,25 +37,3 @@ format:
    COPY +check-format/format.patch build/format.patch
    RUN git apply --allow-empty build/format.patch
    RUN git status
-
-build:
-    WORKDIR /usr/src/eventkit
-    COPY . .
-    ENV CGO_ENABLED=false
-    WORKDIR /usr/src/eventkit/eventkitd-bigquery
-    RUN  --mount=type=cache,target=/root/.cache/go-build \
-         --mount=type=cache,target=/go/pkg/mod \
-         go install
-    SAVE ARTIFACT /go/bin/eventkitd-bigquery
-
-build-image:
-    COPY .git .git
-    ARG TAG=$(git rev-parse --short HEAD)
-    ARG IMAGE=img.dev.storj.io/dev/eventkitd
-    BUILD +build-tagged-image --TAG=$TAG --IMAGE=$IMAGE
-
-build-tagged-image:
-    ARG --required TAG
-    ARG --required IMAGE
-    COPY +build/eventkitd-bigquery /opt/eventkit/bin/eventkitd-bigquery
-    SAVE IMAGE --push $IMAGE:$TAG $IMAGE:latest

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/bradenaw/juniper/xslices"
 	"github.com/emersion/go-vcard"
 )
@@ -317,21 +317,16 @@ func (c Card) decode(kr *crypto.KeyRing) (vcard.Card, error) {
 			return nil, err
 		}
 
-		dec, err := kr.Decrypt(enc, nil, crypto.GetUnixTime())
+		dec, err := decryptMessage(kr, enc, nil, 0)
 		if err != nil {
 			return nil, err
 		}
 
-		c.Data = dec.GetString()
+		c.Data = string(dec)
 	}
 
 	if c.Type&CardTypeSigned != 0 {
-		sig, err := crypto.NewPGPSignatureFromArmored(c.Signature)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := kr.VerifyDetached(crypto.NewPlainMessageFromString(c.Data), sig, crypto.GetUnixTime()); err != nil {
+		if err := verifyDetachedArmored(kr, []byte(c.Data), c.Signature, 0); err != nil {
 			return nil, err
 		}
 	}
@@ -347,23 +342,21 @@ func (c *Card) encode(kr *crypto.KeyRing, card vcard.Card) error {
 	}
 
 	if c.Type&CardTypeSigned != 0 {
-		sig, err := kr.SignDetached(crypto.NewPlainMessageFromString(buf.String()))
+		sig, err := signDetachedArmored(kr, buf.Bytes())
 		if err != nil {
 			return err
 		}
 
-		if c.Signature, err = sig.GetArmored(); err != nil {
-			return err
-		}
+		c.Signature = sig
 	}
 
 	if c.Type&CardTypeEncrypted != 0 {
-		enc, err := kr.Encrypt(crypto.NewPlainMessageFromString(buf.String()), nil)
+		enc, err := encryptMessage(kr, buf.Bytes(), nil)
 		if err != nil {
 			return err
 		}
 
-		if c.Data, err = enc.GetArmored(); err != nil {
+		if c.Data, err = enc.Armor(); err != nil {
 			return err
 		}
 	} else {

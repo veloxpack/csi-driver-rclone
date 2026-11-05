@@ -23,14 +23,10 @@
 package ants
 
 import (
-	"errors"
-	"fmt"
+	"context"
 	"math"
-	"strings"
 	"sync/atomic"
 	"time"
-
-	"golang.org/x/sync/errgroup"
 )
 
 // MultiPoolWithFunc consists of multiple pools, from which you will benefit the
@@ -59,6 +55,10 @@ func NewMultiPoolWithFunc(size, sizePerPool int, fn func(any), lbs LoadBalancing
 	for i := 0; i < size; i++ {
 		pool, err := NewPoolWithFunc(sizePerPool, fn, options...)
 		if err != nil {
+			// Release all previously created pools to avoid resource leak
+			for j := 0; j < i; j++ {
+				pools[j].Release()
+			}
 			return nil, err
 		}
 		pools[i] = pool
@@ -71,7 +71,7 @@ func (mp *MultiPoolWithFunc) next(lbs LoadBalancingStrategy) (idx int) {
 	case RoundRobin:
 		return int(atomic.AddUint32(&mp.index, 1) % uint32(len(mp.pools)))
 	case LeastTasks:
-		leastTasks := 1<<31 - 1
+		leastTasks := math.MaxInt32
 		for i, pool := range mp.pools {
 			if n := pool.Running(); n < leastTasks {
 				leastTasks = n
@@ -172,40 +172,23 @@ func (mp *MultiPoolWithFunc) IsClosed() bool {
 // ReleaseTimeout closes the multi-pool with a timeout,
 // it waits all pools to be closed before timing out.
 func (mp *MultiPoolWithFunc) ReleaseTimeout(timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return mp.ReleaseContext(ctx)
+}
+
+// ReleaseContext closes the multi-pool with a context,
+// it waits all pools to be closed before the context is done.
+func (mp *MultiPoolWithFunc) ReleaseContext(ctx context.Context) error {
 	if !atomic.CompareAndSwapInt32(&mp.state, OPENED, CLOSED) {
 		return ErrPoolClosed
 	}
 
-	errCh := make(chan error, len(mp.pools))
-	var wg errgroup.Group
-	for i, pool := range mp.pools {
-		func(p *PoolWithFunc, idx int) {
-			wg.Go(func() error {
-				err := p.ReleaseTimeout(timeout)
-				if err != nil {
-					err = fmt.Errorf("pool %d: %v", idx, err)
-				}
-				errCh <- err
-				return err
-			})
-		}(pool, i)
+	pools := make([]contextReleaser, len(mp.pools))
+	for i, p := range mp.pools {
+		pools[i] = p
 	}
-
-	_ = wg.Wait()
-
-	var errStr strings.Builder
-	for i := 0; i < len(mp.pools); i++ {
-		if err := <-errCh; err != nil {
-			errStr.WriteString(err.Error())
-			errStr.WriteString(" | ")
-		}
-	}
-
-	if errStr.Len() == 0 {
-		return nil
-	}
-
-	return errors.New(strings.TrimSuffix(errStr.String(), " | "))
+	return releasePools(ctx, pools)
 }
 
 // Reboot reboots a released multi-pool.

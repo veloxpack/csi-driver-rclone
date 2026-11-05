@@ -1,4 +1,4 @@
-FROM golang:1.17.3
+FROM golang:1.26.3
 
 COPY go.mod go.sum /app/
 WORKDIR /app

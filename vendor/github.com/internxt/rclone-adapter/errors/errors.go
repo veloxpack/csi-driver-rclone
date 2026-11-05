@@ -51,6 +51,17 @@ func (e *HTTPError) StatusCode() int {
 	return e.Response.StatusCode
 }
 
+// FileTooLargeError is returned when an upload is rejected client-side
+// because the file size exceeds the account's MaxUploadFileSize limit
+type FileTooLargeError struct {
+	Size    int64
+	MaxSize int64
+}
+
+func (e *FileTooLargeError) Error() string {
+	return fmt.Sprintf("file too large: %d bytes exceeds account upload limit of %d bytes", e.Size, e.MaxSize)
+}
+
 // NewHTTPError creates an HTTPError from a response
 func NewHTTPError(resp *http.Response, operation string) error {
 	body, _ := io.ReadAll(resp.Body)

@@ -416,7 +416,9 @@ func SameObject(src, dst fs.Object) bool {
 // It returns the destination object if possible.  Note that this may
 // be nil.
 //
-// This is accounted as a check.
+// This is accounted as a check, unless Move falls back to Copy + Delete
+// (on backends without server-side move), in which case the Copy is
+// accounted as a transfer.
 func Move(ctx context.Context, fdst fs.Fs, dst fs.Object, remote string, src fs.Object) (newDst fs.Object, err error) {
 	return move(ctx, fdst, dst, remote, src, false)
 }
@@ -1835,6 +1837,15 @@ func RcatSize(ctx context.Context, fdst fs.Fs, dstFileName string, in io.ReadClo
 			fs.Errorf(dstFileName, "Post request put error: %v", err)
 
 			return nil, err
+		}
+
+		// Check transfer - the source may have ended before size
+		// bytes in which case the object will have been truncated
+		if sizeDiffers(ctx, info, obj) {
+			err = fmt.Errorf("corrupted on transfer: sizes differ src %d vs dst(%s) %d", info.Size(), fdst, obj.Size())
+			err = fs.CountError(ctx, err)
+			fs.Errorf(obj, "%v", err)
+			return obj, err
 		}
 	} else {
 		// Size unknown use Rcat

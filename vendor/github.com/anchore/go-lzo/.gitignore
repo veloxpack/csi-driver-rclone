@@ -1,12 +1,41 @@
-# Tools and test cache
-.tool/
-*.lzo
-*.lzop
-*.test
+# local development
+go.work
+go.work.sum
+mise.toml
+/specs/
 
-# IDE
+# IDEs
 .idea/
-*.out
+.vscode/
+.history/
+
+# tools and aux data
+.tool
+.tmp
+.task
+
+# release info
+/CHANGELOG.md
+/VERSION
+
+# archives and fixtures
+/test/results
+/dist
+/snapshot
+.server/
+*.fingerprint
+*.tar
+*.jar
+*.war
+*.ear
+*.jpi
+*.hpi
+*.zip
+*.log
+.images
+.tmp/
+coverage.txt
+bin/
 
 # Binaries for programs and plugins
 *.exe
@@ -15,9 +44,13 @@
 *.so
 *.dylib
 
-# Go workspace file
-go.work
-go.work.sum
+# Test binary, build with `go test -c`
+*.test
 
-# env file
-.env
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# macOS Finder metadata
+.DS_STORE
+
+*.profile

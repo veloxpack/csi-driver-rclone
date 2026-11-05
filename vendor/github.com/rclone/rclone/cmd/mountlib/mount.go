@@ -94,6 +94,11 @@ var OptionsInfo = fs.Options{{
 	Help:    "Allow access to other users (not supported on Windows)",
 	Groups:  "Mount",
 }, {
+	Name:    "allow_idmap",
+	Default: false,
+	Help:    "Allow id-mapped mounts (Linux 6.12+, mount2 only)",
+	Groups:  "Mount",
+}, {
 	Name:    "async_read",
 	Default: true,
 	Help:    "Use asynchronous reads (not supported on Windows)",
@@ -172,6 +177,7 @@ type Options struct {
 	AllowNonEmpty      bool          `config:"allow_non_empty"`
 	AllowRoot          bool          `config:"allow_root"`
 	AllowOther         bool          `config:"allow_other"`
+	AllowIDMap         bool          `config:"allow_idmap"`
 	DefaultPermissions bool          `config:"default_permissions"`
 	WritebackCache     bool          `config:"write_back_cache"`
 	Daemon             bool          `config:"daemon"`
@@ -204,6 +210,7 @@ type (
 
 // MountPoint represents a mount with options and runtime state
 type MountPoint struct {
+	Ctx        context.Context
 	MountPoint string
 	MountedOn  time.Time
 	MountOpt   Options
@@ -218,6 +225,7 @@ type MountPoint struct {
 // NewMountPoint makes a new mounting structure
 func NewMountPoint(mount MountFn, mountPoint string, f fs.Fs, mountOpt *Options, vfsOpt *vfscommon.Options) *MountPoint {
 	return &MountPoint{
+		Ctx:        context.Background(),
 		MountFn:    mount,
 		MountPoint: mountPoint,
 		Fs:         f,
@@ -373,7 +381,7 @@ func (m *MountPoint) Mount() (mountDaemon *os.Process, err error) {
 		}
 	}
 
-	m.VFS = vfs.New(context.Background(), m.Fs, &m.VFSOpt)
+	m.VFS = vfs.New(m.Ctx, m.Fs, &m.VFSOpt)
 
 	var actualMountpoint string
 	m.ErrChan, m.UnmountFn, actualMountpoint, err = m.MountFn(m.VFS, m.MountPoint, &m.MountOpt)

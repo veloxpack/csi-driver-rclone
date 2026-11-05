@@ -39,8 +39,9 @@ type FoldersResult struct {
 
 // FolderResult contains details of a single folder.
 type FolderResult struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
+	Name       string `json:"name"`
+	Path       string `json:"path"`
+	ExternalID string `json:"external_id,omitempty"`
 }
 
 // SubFoldersParams are the parameters for SubFolders.
@@ -79,10 +80,11 @@ func (a *API) CreateFolder(ctx context.Context, params CreateFolderParams) (*Cre
 
 // CreateFolderResult is the result of CreateFolder.
 type CreateFolderResult struct {
-	Success bool          `json:"success"`
-	Path    string        `json:"path"`
-	Name    string        `json:"name"`
-	Error   api.ErrorResp `json:"error,omitempty"`
+	Success    bool          `json:"success"`
+	Path       string        `json:"path"`
+	Name       string        `json:"name"`
+	ExternalID string        `json:"external_id,omitempty"`
+	Error      api.ErrorResp `json:"error,omitempty"`
 }
 
 // RenameFolderParams are the parameters for RenameFolder.

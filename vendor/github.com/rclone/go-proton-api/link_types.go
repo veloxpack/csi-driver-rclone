@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 )
 
 type LinkWalkFunc func([]string, Link, *crypto.KeyRing) error
@@ -56,12 +56,12 @@ func (l Link) GetName(parentNodeKR, addrKR *crypto.KeyRing) (string, error) {
 		return "", err
 	}
 
-	decName, err := parentNodeKR.Decrypt(encName, addrKR, crypto.GetUnixTime())
+	decName, err := decryptMessage(parentNodeKR, encName, addrKR, 0)
 	if err != nil {
 		return "", err
 	}
 
-	return decName.GetString(), nil
+	return string(decName), nil
 }
 
 func (l Link) GetKeyRing(parentNodeKR, addrKR *crypto.KeyRing) (*crypto.KeyRing, error) {
@@ -70,17 +70,12 @@ func (l Link) GetKeyRing(parentNodeKR, addrKR *crypto.KeyRing) (*crypto.KeyRing,
 		return nil, err
 	}
 
-	dec, err := parentNodeKR.Decrypt(enc, nil, crypto.GetUnixTime())
+	dec, err := decryptMessage(parentNodeKR, enc, nil, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	sig, err := crypto.NewPGPSignatureFromArmored(l.NodePassphraseSignature)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := addrKR.VerifyDetached(dec, sig, crypto.GetUnixTime()); err != nil {
+	if err := verifyDetachedArmored(addrKR, dec, l.NodePassphraseSignature, 0); err != nil {
 		return nil, err
 	}
 
@@ -89,7 +84,7 @@ func (l Link) GetKeyRing(parentNodeKR, addrKR *crypto.KeyRing) (*crypto.KeyRing,
 		return nil, err
 	}
 
-	unlockedKey, err := lockedKey.Unlock(dec.GetBinary())
+	unlockedKey, err := lockedKey.Unlock(dec)
 	if err != nil {
 		return nil, err
 	}
@@ -107,21 +102,11 @@ func (l Link) GetHashKey(parentNodeKey, addrKRs *crypto.KeyRing) ([]byte, error)
 		return nil, err
 	}
 
-	_, ok := enc.GetSignatureKeyIDs()
-	var dec *crypto.PlainMessage
+	_, ok := enc.SignatureKeyIDs()
 	if ok {
-		dec, err = parentNodeKey.Decrypt(enc, addrKRs, crypto.GetUnixTime())
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		dec, err = parentNodeKey.Decrypt(enc, nil, 0)
-		if err != nil {
-			return nil, err
-		}
+		return decryptMessage(parentNodeKey, enc, addrKRs, 0)
 	}
-
-	return dec.GetBinary(), nil
+	return decryptMessage(parentNodeKey, enc, nil, 0)
 }
 
 func (l Link) GetSessionKey(nodeKR *crypto.KeyRing) (*crypto.SessionKey, error) {
@@ -134,17 +119,12 @@ func (l Link) GetSessionKey(nodeKR *crypto.KeyRing) (*crypto.SessionKey, error) 
 		return nil, err
 	}
 
-	key, err := nodeKR.DecryptSessionKey(dec)
+	key, err := decryptSessionKey(nodeKR, dec)
 	if err != nil {
 		return nil, err
 	}
 
-	sig, err := crypto.NewPGPSignatureFromArmored(l.FileProperties.ContentKeyPacketSignature)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := nodeKR.VerifyDetached(crypto.NewPlainMessage(key.Key), sig, crypto.GetUnixTime()); err != nil {
+	if err := verifyDetachedArmored(nodeKR, key.Key, l.FileProperties.ContentKeyPacketSignature, 0); err != nil {
 		return nil, err
 	}
 
@@ -191,13 +171,13 @@ func (revisionMetadata *RevisionMetadata) GetDecXAttrString(addrKR, nodeKR *cryp
 		return nil, err
 	}
 
-	decXAttr, err := nodeKR.Decrypt(XAttrMsg, addrKR, crypto.GetUnixTime())
+	decXAttr, err := decryptMessage(nodeKR, XAttrMsg, addrKR, 0)
 	if err != nil {
 		return nil, err
 	}
 
 	var data RevisionXAttr
-	err = json.Unmarshal(decXAttr.Data, &data)
+	err = json.Unmarshal(decXAttr, &data)
 	if err != nil {
 		// TODO: if Unmarshal fails, maybe it's because the file system is missing the field?
 		return nil, err
@@ -225,13 +205,13 @@ func (revision *Revision) GetDecXAttrString(addrKR, nodeKR *crypto.KeyRing) (*Re
 		return nil, err
 	}
 
-	decXAttr, err := nodeKR.Decrypt(XAttrMsg, addrKR, crypto.GetUnixTime())
+	decXAttr, err := decryptMessage(nodeKR, XAttrMsg, addrKR, 0)
 	if err != nil {
 		return nil, err
 	}
 
 	var data RevisionXAttr
-	err = json.Unmarshal(decXAttr.Data, &data)
+	err = json.Unmarshal(decXAttr, &data)
 	if err != nil {
 		// TODO: if Unmarshal fails, maybe it's because the file system is missing the field?
 		return nil, err

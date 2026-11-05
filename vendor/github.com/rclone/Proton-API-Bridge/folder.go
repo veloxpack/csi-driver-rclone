@@ -86,7 +86,8 @@ func (protonDrive *ProtonDrive) CreateNewFolder(ctx context.Context, parentLink 
 		return "", err
 	}
 
-	newNodeKey, newNodePassphraseEnc, newNodePassphraseSignature, err := generateNodeKeys(parentNodeKR, protonDrive.DefaultAddrKR)
+	// Folder node keys stay v4 (non-AEAD) per Proton's crypto-refresh design.
+	newNodeKey, newNodePassphraseEnc, newNodePassphraseSignature, err := generateNodeKeys(parentNodeKR, protonDrive.DefaultAddrKR, false)
 	if err != nil {
 		return "", err
 	}

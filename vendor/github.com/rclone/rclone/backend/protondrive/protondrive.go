@@ -22,6 +22,7 @@ import (
 	"github.com/rclone/rclone/fs/config/configmap"
 	"github.com/rclone/rclone/fs/config/configstruct"
 	"github.com/rclone/rclone/fs/config/obscure"
+	"github.com/rclone/rclone/fs/fserrors"
 	"github.com/rclone/rclone/fs/fshttp"
 	"github.com/rclone/rclone/fs/hash"
 	"github.com/rclone/rclone/lib/dircache"
@@ -250,8 +251,36 @@ type Object struct {
 
 // shouldRetry returns a boolean as to whether this err deserves to be
 // retried.  It returns the err as a convenience
+//
+// 429 rate-limit and 503 responses are retried inside go-proton-api's resty
+// layer (see catchTooManyRequests / catchRetryAfter) using the Retry-After
+// header, so we do not retry them again here.
 func shouldRetry(ctx context.Context, err error) (bool, error) {
-	return false, err
+	if fserrors.ContextError(ctx, &err) {
+		return false, err
+	}
+	if err == nil {
+		return false, nil
+	}
+	var apiErr *proton.APIError
+	if errors.As(err, &apiErr) {
+		// Code 200501 is a generic Drive operation-failure code. Proton also
+		// returns it with an HTTP 422 for permanent validation failures (for
+		// example a content key packet that cannot be verified, or an upload
+		// format the account is not enabled for), which must NOT be retried -
+		// doing so spins the pacer until the operation times out. Only retry it
+		// when it is not a permanent client (4xx) error.
+		if apiErr.Code == 200501 && (apiErr.Status < 400 || apiErr.Status >= 500) {
+			fs.Debugf(nil, "Retrying transient storage block error: %v", err)
+			return true, err
+		}
+		// Server errors. 503 is already handled by the SDK; retry the rest.
+		if apiErr.Status >= 500 && apiErr.Status < 600 && apiErr.Status != 503 {
+			return true, err
+		}
+		return false, err
+	}
+	return fserrors.ShouldRetry(err), err
 }
 
 //------------------------------------------------------------------------------
@@ -1085,7 +1114,7 @@ func (o *Object) Update(ctx context.Context, in io.Reader, src fs.ObjectInfo, op
 	modTime := src.ModTime(ctx)
 	var linkID string
 	var fileSystemAttrs *proton.RevisionXAttrCommon
-	if err = o.fs.pacer.Call(func() (bool, error) {
+	if err = o.fs.pacer.CallNoRetry(func() (bool, error) {
 		linkID, fileSystemAttrs, err = o.fs.protonDrive.UploadFileByReader(ctx, folderLinkID, leaf, modTime, in, 0)
 		return shouldRetry(ctx, err)
 	}); err != nil {
@@ -1101,7 +1130,10 @@ func (o *Object) Update(ctx context.Context, in io.Reader, src fs.ObjectInfo, op
 
 	o.id = linkID
 	o.originalSize = &fileSystemAttrs.Size
-	o.modTime = modTime
+	// The server stores modtimes with second precision so truncate
+	// here too to keep the in-memory modtime identical to the one a
+	// fresh listing returns.
+	o.modTime = modTime.Truncate(time.Second)
 	o.blockSizes = fileSystemAttrs.BlockSizes
 	o.digests = &sha1Hash
 

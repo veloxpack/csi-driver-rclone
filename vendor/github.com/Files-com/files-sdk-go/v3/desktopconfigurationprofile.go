@@ -7,11 +7,12 @@ import (
 )
 
 type DesktopConfigurationProfile struct {
-	Id             int64       `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
-	Name           string      `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
-	WorkspaceId    int64       `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
-	UseForAllUsers *bool       `json:"use_for_all_users,omitempty" path:"use_for_all_users,omitempty" url:"use_for_all_users,omitempty"`
-	MountMappings  interface{} `json:"mount_mappings,omitempty" path:"mount_mappings,omitempty" url:"mount_mappings,omitempty"`
+	Id                   int64       `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	Name                 string      `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
+	WorkspaceId          int64       `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
+	UseForAllUsers       *bool       `json:"use_for_all_users,omitempty" path:"use_for_all_users,omitempty" url:"use_for_all_users,omitempty"`
+	DisableDriveMounting *bool       `json:"disable_drive_mounting,omitempty" path:"disable_drive_mounting,omitempty" url:"disable_drive_mounting,omitempty"`
+	MountMappings        interface{} `json:"mount_mappings,omitempty" path:"mount_mappings,omitempty" url:"mount_mappings,omitempty"`
 }
 
 func (d DesktopConfigurationProfile) Identifier() interface{} {
@@ -31,18 +32,20 @@ type DesktopConfigurationProfileFindParams struct {
 }
 
 type DesktopConfigurationProfileCreateParams struct {
-	Name           string      `url:"name" json:"name" path:"name"`
-	MountMappings  interface{} `url:"mount_mappings" json:"mount_mappings" path:"mount_mappings"`
-	WorkspaceId    int64       `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
-	UseForAllUsers *bool       `url:"use_for_all_users,omitempty" json:"use_for_all_users,omitempty" path:"use_for_all_users"`
+	Name                 string      `url:"name" json:"name" path:"name"`
+	MountMappings        interface{} `url:"mount_mappings" json:"mount_mappings" path:"mount_mappings"`
+	WorkspaceId          int64       `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
+	UseForAllUsers       *bool       `url:"use_for_all_users,omitempty" json:"use_for_all_users,omitempty" path:"use_for_all_users"`
+	DisableDriveMounting *bool       `url:"disable_drive_mounting,omitempty" json:"disable_drive_mounting,omitempty" path:"disable_drive_mounting"`
 }
 
 type DesktopConfigurationProfileUpdateParams struct {
-	Id             int64       `url:"-,omitempty" json:"-,omitempty" path:"id"`
-	Name           string      `url:"name,omitempty" json:"name,omitempty" path:"name"`
-	WorkspaceId    int64       `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
-	MountMappings  interface{} `url:"mount_mappings,omitempty" json:"mount_mappings,omitempty" path:"mount_mappings"`
-	UseForAllUsers *bool       `url:"use_for_all_users,omitempty" json:"use_for_all_users,omitempty" path:"use_for_all_users"`
+	Id                   int64       `url:"-,omitempty" json:"-,omitempty" path:"id"`
+	Name                 string      `url:"name,omitempty" json:"name,omitempty" path:"name"`
+	WorkspaceId          int64       `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
+	MountMappings        interface{} `url:"mount_mappings,omitempty" json:"mount_mappings,omitempty" path:"mount_mappings"`
+	UseForAllUsers       *bool       `url:"use_for_all_users,omitempty" json:"use_for_all_users,omitempty" path:"use_for_all_users"`
+	DisableDriveMounting *bool       `url:"disable_drive_mounting,omitempty" json:"disable_drive_mounting,omitempty" path:"disable_drive_mounting"`
 }
 
 type DesktopConfigurationProfileDeleteParams struct {

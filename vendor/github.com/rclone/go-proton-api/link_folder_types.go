@@ -1,7 +1,7 @@
 package proton
 
 import (
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 )
 
 type CreateFolderReq struct {
@@ -47,14 +47,12 @@ func (createFolderReq *CreateFolderReq) SetNodeHashKey(parentNodeKey *crypto.Key
 		return err
 	}
 
-	tokenMessage := crypto.NewPlainMessage(token)
-
-	encToken, err := parentNodeKey.Encrypt(tokenMessage, parentNodeKey)
+	encToken, err := encryptMessage(parentNodeKey, token, parentNodeKey)
 	if err != nil {
 		return err
 	}
 
-	nodeHashKey, err := encToken.GetArmored()
+	nodeHashKey, err := encToken.Armor()
 	if err != nil {
 		return err
 	}

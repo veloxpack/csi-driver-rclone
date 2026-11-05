@@ -126,8 +126,11 @@ func newServer(ctx context.Context, opt *rc.Options, mux *http.ServeMux) (*Serve
 		middleware.SetHeader("Server", "rclone/"+fs.Version),
 	)
 
-	// Add the debug handler which is installed in the default mux
-	router.Handle("/debug/pprof/*", mux)
+	// Add the debug handler which is installed in the default mux.
+	// Only do this if auth is enabled.
+	if s.noAuth || s.server.UsingAuth() {
+		router.Handle("/debug/pprof/*", mux)
+	}
 
 	// FIXME split these up into individual functions
 	router.Get("/*", s.handler)
@@ -259,6 +262,17 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request, path string)
 			return
 		}
 	}
+
+	// Check for Prefer: respond-async header (RFC 7240)
+	preferAsync := false
+	for _, pref := range strings.Split(r.Header.Get("Prefer"), ",") {
+		if strings.EqualFold(strings.TrimSpace(pref), "respond-async") {
+			preferAsync = true
+			in["_async"] = true
+			break
+		}
+	}
+
 	// Find the call
 	call := rc.Calls.Get(path)
 	if call == nil {
@@ -298,6 +312,10 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request, path string)
 
 	fs.Debugf(nil, "rc: %q: reply %+v: %v", path, out, err)
 	w.Header().Set("Content-Type", "application/json")
+	if preferAsync {
+		w.Header().Set("Preference-Applied", "respond-async")
+		w.WriteHeader(http.StatusAccepted)
+	}
 	err = rc.WriteJSON(w, out)
 	if err != nil {
 		// can't return the error at this point - but have a go anyway
@@ -311,6 +329,12 @@ func (s *Server) handleOptions(w http.ResponseWriter, r *http.Request, path stri
 }
 
 func (s *Server) serveRoot(w http.ResponseWriter, r *http.Request) {
+	// Listing the configured remotes discloses their names so
+	// require auth like the rest of the rc endpoints
+	if !s.noAuth && !s.server.UsingAuth() {
+		writeError(r.URL.Path, nil, w, errors.New("listing the remotes requires authentication to be set up on the rc server or the --rc-no-auth flag"), http.StatusForbidden)
+		return
+	}
 	remoteNames := config.GetRemoteNames()
 	sort.Strings(remoteNames)
 	directory := serve.NewDirectory("", s.server.HTMLTemplate())

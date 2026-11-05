@@ -930,6 +930,11 @@ func (m *Mega) addFSNode(itm FSNode) (*Node, error) {
 	switch {
 	case ok:
 		parent = n
+		// Detach the node from its old parent if it is being
+		// reparented so it doesn't appear in two directories.
+		if node.parent != nil && node.parent != parent {
+			node.parent.removeChild(node)
+		}
 		parent.removeChild(node)
 		parent.addChild(node)
 	default:
@@ -1986,7 +1991,12 @@ func (m *Mega) processDeleteNode(evRaw []byte) error {
 	node := m.FS.hashLookup(ev.N)
 	if node != nil && node.parent != nil {
 		node.parent.removeChild(node)
-		delete(m.FS.lookup, node.hash)
+		// A delete event which is part of a move (m is set) will be
+		// followed by an add node event re-attaching the node, so keep
+		// it in the lookup map to preserve the node's identity.
+		if ev.Moved == 0 {
+			delete(m.FS.lookup, node.hash)
+		}
 	}
 	return nil
 }

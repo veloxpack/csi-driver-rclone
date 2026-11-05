@@ -346,22 +346,43 @@ func (stream *timedUploadStream) cancelTimeout() {
 }
 
 func (stream *timedUploadStream) Close() (err error) {
-	sync2.WithTimeout(stream.timeout, func() {
-		err = stream.stream.Close()
-	}, stream.cancelTimeout)
-	return CloseError.Wrap(err)
+	return stream.withTimeout(stream.stream.Close)
 }
 
 func (stream *timedUploadStream) Send(req *pb.PieceUploadRequest) (err error) {
-	sync2.WithTimeout(stream.timeout, func() {
-		err = stream.stream.Send(req)
-	}, stream.cancelTimeout)
-	return err
+	return stream.withTimeout(func() error {
+		return stream.stream.Send(req)
+	})
 }
 
 func (stream *timedUploadStream) CloseAndRecv() (resp *pb.PieceUploadResponse, err error) {
+	err = stream.withTimeout(func() error {
+		var recvErr error
+		resp, recvErr = stream.stream.CloseAndRecv()
+		return recvErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (stream *timedUploadStream) withTimeout(fn func() error) error {
+	var (
+		err      error
+		timedOut bool
+	)
 	sync2.WithTimeout(stream.timeout, func() {
-		resp, err = stream.stream.CloseAndRecv()
-	}, stream.cancelTimeout)
-	return resp, err
+		err = fn()
+	}, func() {
+		stream.cancelTimeout()
+		timedOut = true
+	})
+	if err != nil {
+		return CloseError.Wrap(err)
+	}
+	if timedOut {
+		return CloseError.Wrap(errMessageTimeout)
+	}
+	return nil
 }

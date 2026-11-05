@@ -21,7 +21,9 @@
 package users
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 
 	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox"
@@ -35,7 +37,7 @@ type Client interface {
 	FeaturesGetValues(arg *UserFeaturesGetValuesBatchArg) (res *UserFeaturesGetValuesBatchResult, err error)
 	// GetAccount : Get information about a user's account.
 	GetAccount(arg *GetAccountArg) (res *BasicAccount, err error)
-	// GetAccountBatch : Get information about multiple user accounts.  At most
+	// GetAccountBatch : Get information about multiple user accounts. At most
 	// 300 accounts may be queried per request.
 	GetAccountBatch(arg *GetAccountBatchArg) (res []*BasicAccount, err error)
 	// GetCurrentAccount : Get information about the current user's account.
@@ -45,15 +47,35 @@ type Client interface {
 	GetSpaceUsage() (res *SpaceUsage, err error)
 }
 
+// ContextClient interface describes all routes in this namespace with context support
+type ContextClient interface {
+	Client
+	// FeaturesGetValuesContext : Get a list of feature values that may be configured
+	// for the current account.
+	FeaturesGetValuesContext(ctx context.Context, arg *UserFeaturesGetValuesBatchArg) (res *UserFeaturesGetValuesBatchResult, err error)
+	// GetAccountContext : Get information about a user's account.
+	GetAccountContext(ctx context.Context, arg *GetAccountArg) (res *BasicAccount, err error)
+	// GetAccountBatchContext : Get information about multiple user accounts. At most
+	// 300 accounts may be queried per request.
+	GetAccountBatchContext(ctx context.Context, arg *GetAccountBatchArg) (res []*BasicAccount, err error)
+	// GetCurrentAccountContext : Get information about the current user's account.
+	GetCurrentAccountContext(ctx context.Context) (res *FullAccount, err error)
+	// GetSpaceUsageContext : Get the space usage information for the current user's
+	// account.
+	GetSpaceUsageContext(ctx context.Context) (res *SpaceUsage, err error)
+}
+
 type apiImpl dropbox.Context
 
-//FeaturesGetValuesAPIError is an error-wrapper for the features/get_values route
+// FeaturesGetValuesAPIError is an error-wrapper for the features/get_values route
 type FeaturesGetValuesAPIError struct {
 	dropbox.APIError
 	EndpointError *UserFeaturesGetValuesBatchError `json:"error"`
 }
 
-func (dbx *apiImpl) FeaturesGetValues(arg *UserFeaturesGetValuesBatchArg) (res *UserFeaturesGetValuesBatchResult, err error) {
+// FeaturesGetValuesContext : Get a list of feature values that may be configured
+// for the current account.
+func (dbx *apiImpl) FeaturesGetValuesContext(ctx context.Context, arg *UserFeaturesGetValuesBatchArg) (res *UserFeaturesGetValuesBatchResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
 		Namespace:    "users",
@@ -66,11 +88,11 @@ func (dbx *apiImpl) FeaturesGetValues(arg *UserFeaturesGetValuesBatchArg) (res *
 
 	var resp []byte
 	var respBody io.ReadCloser
-	resp, respBody, err = (*dropbox.Context)(dbx).Execute(req, nil)
+	resp, respBody, err = (*dropbox.Context)(dbx).ExecuteContext(ctx, req, nil)
 	if err != nil {
 		var appErr FeaturesGetValuesAPIError
 		err = auth.ParseError(err, &appErr)
-		if err == &appErr {
+		if errors.Is(err, &appErr) {
 			err = appErr
 		}
 		return
@@ -85,13 +107,18 @@ func (dbx *apiImpl) FeaturesGetValues(arg *UserFeaturesGetValuesBatchArg) (res *
 	return
 }
 
-//GetAccountAPIError is an error-wrapper for the get_account route
+func (dbx *apiImpl) FeaturesGetValues(arg *UserFeaturesGetValuesBatchArg) (res *UserFeaturesGetValuesBatchResult, err error) {
+	return dbx.FeaturesGetValuesContext(context.Background(), arg)
+}
+
+// GetAccountAPIError is an error-wrapper for the get_account route
 type GetAccountAPIError struct {
 	dropbox.APIError
 	EndpointError *GetAccountError `json:"error"`
 }
 
-func (dbx *apiImpl) GetAccount(arg *GetAccountArg) (res *BasicAccount, err error) {
+// GetAccountContext : Get information about a user's account.
+func (dbx *apiImpl) GetAccountContext(ctx context.Context, arg *GetAccountArg) (res *BasicAccount, err error) {
 	req := dropbox.Request{
 		Host:         "api",
 		Namespace:    "users",
@@ -104,11 +131,11 @@ func (dbx *apiImpl) GetAccount(arg *GetAccountArg) (res *BasicAccount, err error
 
 	var resp []byte
 	var respBody io.ReadCloser
-	resp, respBody, err = (*dropbox.Context)(dbx).Execute(req, nil)
+	resp, respBody, err = (*dropbox.Context)(dbx).ExecuteContext(ctx, req, nil)
 	if err != nil {
 		var appErr GetAccountAPIError
 		err = auth.ParseError(err, &appErr)
-		if err == &appErr {
+		if errors.Is(err, &appErr) {
 			err = appErr
 		}
 		return
@@ -123,13 +150,19 @@ func (dbx *apiImpl) GetAccount(arg *GetAccountArg) (res *BasicAccount, err error
 	return
 }
 
-//GetAccountBatchAPIError is an error-wrapper for the get_account_batch route
+func (dbx *apiImpl) GetAccount(arg *GetAccountArg) (res *BasicAccount, err error) {
+	return dbx.GetAccountContext(context.Background(), arg)
+}
+
+// GetAccountBatchAPIError is an error-wrapper for the get_account_batch route
 type GetAccountBatchAPIError struct {
 	dropbox.APIError
 	EndpointError *GetAccountBatchError `json:"error"`
 }
 
-func (dbx *apiImpl) GetAccountBatch(arg *GetAccountBatchArg) (res []*BasicAccount, err error) {
+// GetAccountBatchContext : Get information about multiple user accounts. At most
+// 300 accounts may be queried per request.
+func (dbx *apiImpl) GetAccountBatchContext(ctx context.Context, arg *GetAccountBatchArg) (res []*BasicAccount, err error) {
 	req := dropbox.Request{
 		Host:         "api",
 		Namespace:    "users",
@@ -142,11 +175,11 @@ func (dbx *apiImpl) GetAccountBatch(arg *GetAccountBatchArg) (res []*BasicAccoun
 
 	var resp []byte
 	var respBody io.ReadCloser
-	resp, respBody, err = (*dropbox.Context)(dbx).Execute(req, nil)
+	resp, respBody, err = (*dropbox.Context)(dbx).ExecuteContext(ctx, req, nil)
 	if err != nil {
 		var appErr GetAccountBatchAPIError
 		err = auth.ParseError(err, &appErr)
-		if err == &appErr {
+		if errors.Is(err, &appErr) {
 			err = appErr
 		}
 		return
@@ -161,13 +194,18 @@ func (dbx *apiImpl) GetAccountBatch(arg *GetAccountBatchArg) (res []*BasicAccoun
 	return
 }
 
-//GetCurrentAccountAPIError is an error-wrapper for the get_current_account route
+func (dbx *apiImpl) GetAccountBatch(arg *GetAccountBatchArg) (res []*BasicAccount, err error) {
+	return dbx.GetAccountBatchContext(context.Background(), arg)
+}
+
+// GetCurrentAccountAPIError is an error-wrapper for the get_current_account route
 type GetCurrentAccountAPIError struct {
 	dropbox.APIError
 	EndpointError struct{} `json:"error"`
 }
 
-func (dbx *apiImpl) GetCurrentAccount() (res *FullAccount, err error) {
+// GetCurrentAccountContext : Get information about the current user's account.
+func (dbx *apiImpl) GetCurrentAccountContext(ctx context.Context) (res *FullAccount, err error) {
 	req := dropbox.Request{
 		Host:         "api",
 		Namespace:    "users",
@@ -180,11 +218,11 @@ func (dbx *apiImpl) GetCurrentAccount() (res *FullAccount, err error) {
 
 	var resp []byte
 	var respBody io.ReadCloser
-	resp, respBody, err = (*dropbox.Context)(dbx).Execute(req, nil)
+	resp, respBody, err = (*dropbox.Context)(dbx).ExecuteContext(ctx, req, nil)
 	if err != nil {
 		var appErr GetCurrentAccountAPIError
 		err = auth.ParseError(err, &appErr)
-		if err == &appErr {
+		if errors.Is(err, &appErr) {
 			err = appErr
 		}
 		return
@@ -199,13 +237,19 @@ func (dbx *apiImpl) GetCurrentAccount() (res *FullAccount, err error) {
 	return
 }
 
-//GetSpaceUsageAPIError is an error-wrapper for the get_space_usage route
+func (dbx *apiImpl) GetCurrentAccount() (res *FullAccount, err error) {
+	return dbx.GetCurrentAccountContext(context.Background())
+}
+
+// GetSpaceUsageAPIError is an error-wrapper for the get_space_usage route
 type GetSpaceUsageAPIError struct {
 	dropbox.APIError
 	EndpointError struct{} `json:"error"`
 }
 
-func (dbx *apiImpl) GetSpaceUsage() (res *SpaceUsage, err error) {
+// GetSpaceUsageContext : Get the space usage information for the current user's
+// account.
+func (dbx *apiImpl) GetSpaceUsageContext(ctx context.Context) (res *SpaceUsage, err error) {
 	req := dropbox.Request{
 		Host:         "api",
 		Namespace:    "users",
@@ -218,11 +262,11 @@ func (dbx *apiImpl) GetSpaceUsage() (res *SpaceUsage, err error) {
 
 	var resp []byte
 	var respBody io.ReadCloser
-	resp, respBody, err = (*dropbox.Context)(dbx).Execute(req, nil)
+	resp, respBody, err = (*dropbox.Context)(dbx).ExecuteContext(ctx, req, nil)
 	if err != nil {
 		var appErr GetSpaceUsageAPIError
 		err = auth.ParseError(err, &appErr)
-		if err == &appErr {
+		if errors.Is(err, &appErr) {
 			err = appErr
 		}
 		return
@@ -237,8 +281,17 @@ func (dbx *apiImpl) GetSpaceUsage() (res *SpaceUsage, err error) {
 	return
 }
 
-// New returns a Client implementation for this namespace
-func New(c dropbox.Config) Client {
+func (dbx *apiImpl) GetSpaceUsage() (res *SpaceUsage, err error) {
+	return dbx.GetSpaceUsageContext(context.Background())
+}
+
+// NewContext returns a ContextClient implementation for this namespace
+func NewContext(c dropbox.Config) ContextClient {
 	ctx := apiImpl(dropbox.NewContext(c))
 	return &ctx
+}
+
+// New returns a Client implementation for this namespace
+func New(c dropbox.Config) Client {
+	return NewContext(c)
 }

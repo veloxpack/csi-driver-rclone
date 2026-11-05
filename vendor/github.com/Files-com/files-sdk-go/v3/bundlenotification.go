@@ -11,6 +11,7 @@ type BundleNotification struct {
 	Id                   int64 `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
 	NotifyOnRegistration *bool `json:"notify_on_registration,omitempty" path:"notify_on_registration,omitempty" url:"notify_on_registration,omitempty"`
 	NotifyOnUpload       *bool `json:"notify_on_upload,omitempty" path:"notify_on_upload,omitempty" url:"notify_on_upload,omitempty"`
+	NotifyCurrentUser    *bool `json:"notify_current_user,omitempty" path:"notify_current_user,omitempty" url:"notify_current_user,omitempty"`
 	NotifyUserId         int64 `json:"notify_user_id,omitempty" path:"notify_user_id,omitempty" url:"notify_user_id,omitempty"`
 	WorkspaceId          int64 `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 	UserId               int64 `json:"user_id,omitempty" path:"user_id,omitempty" url:"user_id,omitempty"`
@@ -23,9 +24,10 @@ func (b BundleNotification) Identifier() interface{} {
 type BundleNotificationCollection []BundleNotification
 
 type BundleNotificationListParams struct {
-	UserId int64       `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
-	SortBy interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
-	Filter interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
+	UserId   int64       `url:"user_id,omitempty" json:"user_id,omitempty" path:"user_id"`
+	SortBy   interface{} `url:"sort_by,omitempty" json:"sort_by,omitempty" path:"sort_by"`
+	Filter   interface{} `url:"filter,omitempty" json:"filter,omitempty" path:"filter"`
+	BundleId int64       `url:"bundle_id,omitempty" json:"bundle_id,omitempty" path:"bundle_id"`
 	ListParams
 }
 

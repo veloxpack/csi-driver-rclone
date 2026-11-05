@@ -15,12 +15,14 @@ type Automation struct {
 	Automation                       string                   `json:"automation,omitempty" path:"automation,omitempty" url:"automation,omitempty"`
 	Deleted                          *bool                    `json:"deleted,omitempty" path:"deleted,omitempty" url:"deleted,omitempty"`
 	Description                      string                   `json:"description,omitempty" path:"description,omitempty" url:"description,omitempty"`
+	Definition                       interface{}              `json:"definition,omitempty" path:"definition,omitempty" url:"definition,omitempty"`
 	DestinationReplaceFrom           string                   `json:"destination_replace_from,omitempty" path:"destination_replace_from,omitempty" url:"destination_replace_from,omitempty"`
 	DestinationReplaceTo             string                   `json:"destination_replace_to,omitempty" path:"destination_replace_to,omitempty" url:"destination_replace_to,omitempty"`
 	Destinations                     []string                 `json:"destinations,omitempty" path:"destinations,omitempty" url:"destinations,omitempty"`
 	Disabled                         *bool                    `json:"disabled,omitempty" path:"disabled,omitempty" url:"disabled,omitempty"`
 	ExcludePattern                   string                   `json:"exclude_pattern,omitempty" path:"exclude_pattern,omitempty" url:"exclude_pattern,omitempty"`
 	ImportUrls                       []map[string]interface{} `json:"import_urls,omitempty" path:"import_urls,omitempty" url:"import_urls,omitempty"`
+	InboundEmailAddress              string                   `json:"inbound_email_address,omitempty" path:"inbound_email_address,omitempty" url:"inbound_email_address,omitempty"`
 	FlattenDestinationStructure      *bool                    `json:"flatten_destination_structure,omitempty" path:"flatten_destination_structure,omitempty" url:"flatten_destination_structure,omitempty"`
 	GroupIds                         []int64                  `json:"group_ids,omitempty" path:"group_ids,omitempty" url:"group_ids,omitempty"`
 	IgnoreLockedFolders              *bool                    `json:"ignore_locked_folders,omitempty" path:"ignore_locked_folders,omitempty" url:"ignore_locked_folders,omitempty"`
@@ -31,6 +33,7 @@ type Automation struct {
 	OverwriteFiles                   *bool                    `json:"overwrite_files,omitempty" path:"overwrite_files,omitempty" url:"overwrite_files,omitempty"`
 	Path                             string                   `json:"path,omitempty" path:"path,omitempty" url:"path,omitempty"`
 	PathTimeZone                     string                   `json:"path_time_zone,omitempty" path:"path_time_zone,omitempty" url:"path_time_zone,omitempty"`
+	Version                          int64                    `json:"version,omitempty" path:"version,omitempty" url:"version,omitempty"`
 	RecurringDay                     int64                    `json:"recurring_day,omitempty" path:"recurring_day,omitempty" url:"recurring_day,omitempty"`
 	RetryOnFailureIntervalInMinutes  int64                    `json:"retry_on_failure_interval_in_minutes,omitempty" path:"retry_on_failure_interval_in_minutes,omitempty" url:"retry_on_failure_interval_in_minutes,omitempty"`
 	RetryOnFailureNumberOfAttempts   int64                    `json:"retry_on_failure_number_of_attempts,omitempty" path:"retry_on_failure_number_of_attempts,omitempty" url:"retry_on_failure_number_of_attempts,omitempty"`
@@ -89,6 +92,7 @@ func (u AutomationEnum) Enum() map[string]AutomationEnum {
 		"as2_send":      AutomationEnum("as2_send"),
 		"run_sync":      AutomationEnum("run_sync"),
 		"import_file":   AutomationEnum("import_file"),
+		"v2":            AutomationEnum("v2"),
 	}
 }
 
@@ -143,9 +147,15 @@ type AutomationCreateParams struct {
 	WorkspaceId                      int64                    `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
 }
 
-// Manually Run Automation
-type AutomationManualRunParams struct {
+// Upgrade a legacy Automation to Automation v2
+type AutomationUpgradeParams struct {
 	Id int64 `url:"-,omitempty" json:"-,omitempty" path:"id"`
+}
+
+// Manually Run Automation. v2 Automations require Site or Workspace Admin permission
+type AutomationManualRunParams struct {
+	Id    int64                    `url:"-,omitempty" json:"-,omitempty" path:"id"`
+	Items []map[string]interface{} `url:"items,omitempty" json:"items,omitempty" path:"items"`
 }
 
 type AutomationUpdateParams struct {

@@ -92,7 +92,7 @@ func (wq *loopQueue) detach() worker {
 }
 
 func (wq *loopQueue) refresh(duration time.Duration) []worker {
-	expiryTime := time.Now().Add(-duration)
+	expiryTime := time.Now().Add(-duration).UnixNano()
 	index := wq.binarySearch(expiryTime)
 	if index == -1 {
 		return nil
@@ -123,12 +123,11 @@ func (wq *loopQueue) refresh(duration time.Duration) []worker {
 	return wq.expiry
 }
 
-func (wq *loopQueue) binarySearch(expiryTime time.Time) int {
-	var mid, nlen, basel, tmid int
-	nlen = len(wq.items)
+func (wq *loopQueue) binarySearch(expiryTime int64) int {
+	n := len(wq.items)
 
 	// if no need to remove work, return -1
-	if wq.isEmpty() || expiryTime.Before(wq.items[wq.head].lastUsedTime()) {
+	if wq.isEmpty() || expiryTime < wq.items[wq.head].lastUsedTime() {
 		return -1
 	}
 
@@ -143,21 +142,21 @@ func (wq *loopQueue) binarySearch(expiryTime time.Time) int {
 
 	// base algorithm is a copy from worker_stack
 	// map head and tail to effective left and right
-	r := (wq.tail - 1 - wq.head + nlen) % nlen
-	basel = wq.head
+	r := (wq.tail - 1 - wq.head + n) % n
+	base := wq.head
 	l := 0
 	for l <= r {
-		mid = l + ((r - l) >> 1) // avoid overflow when computing mid
+		mid := l + ((r - l) >> 1) // avoid overflow when computing mid
 		// calculate true mid position from mapped mid position
-		tmid = (mid + basel + nlen) % nlen
-		if expiryTime.Before(wq.items[tmid].lastUsedTime()) {
+		tmid := (mid + base + n) % n
+		if expiryTime < wq.items[tmid].lastUsedTime() {
 			r = mid - 1
 		} else {
 			l = mid + 1
 		}
 	}
 	// return true position from mapped position
-	return (r + basel + nlen) % nlen
+	return (r + base + n) % n
 }
 
 func (wq *loopQueue) reset() {

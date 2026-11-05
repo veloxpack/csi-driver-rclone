@@ -23,7 +23,6 @@ package team
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox"
 	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox/account"
@@ -44,9 +43,9 @@ type DeviceSession struct {
 	// made.
 	Country string `json:"country,omitempty"`
 	// Created : The time this session was created.
-	Created *time.Time `json:"created,omitempty"`
+	Created *dropbox.DBXTime `json:"created,omitempty"`
 	// Updated : The time of the last activity from this session.
-	Updated *time.Time `json:"updated,omitempty"`
+	Updated *dropbox.DBXTime `json:"updated,omitempty"`
 }
 
 // NewDeviceSession returns a new DeviceSession instance
@@ -66,7 +65,7 @@ type ActiveWebSession struct {
 	// Browser : Information on the browser used for this web session.
 	Browser string `json:"browser"`
 	// Expires : The time this session expires.
-	Expires *time.Time `json:"expires,omitempty"`
+	Expires *dropbox.DBXTime `json:"expires,omitempty"`
 }
 
 // NewActiveWebSession returns a new ActiveWebSession instance
@@ -98,7 +97,8 @@ type AddSecondaryEmailResult struct {
 	// ReachedLimit : User already has the maximum number of secondary emails
 	// allowed.
 	ReachedLimit string `json:"reached_limit,omitempty"`
-	// TransientError : A transient error occurred. Please try again later.
+	// TransientError : Field is deprecated. A transient error occurred. Please
+	// try again later.
 	TransientError string `json:"transient_error,omitempty"`
 	// TooManyUpdates : An error occurred due to conflicting updates. Please try
 	// again later.
@@ -140,7 +140,8 @@ func (u *AddSecondaryEmailResult) UnmarshalJSON(body []byte) error {
 		// ReachedLimit : User already has the maximum number of secondary
 		// emails allowed.
 		ReachedLimit string `json:"reached_limit,omitempty"`
-		// TransientError : A transient error occurred. Please try again later.
+		// TransientError : Field is deprecated. A transient error occurred.
+		// Please try again later.
 		TransientError string `json:"transient_error,omitempty"`
 		// TooManyUpdates : An error occurred due to conflicting updates. Please
 		// try again later.
@@ -253,7 +254,7 @@ type ApiApp struct {
 	// PublisherUrl : The publisher's URL.
 	PublisherUrl string `json:"publisher_url,omitempty"`
 	// Linked : The time this application was linked.
-	Linked *time.Time `json:"linked,omitempty"`
+	Linked *dropbox.DBXTime `json:"linked,omitempty"`
 	// IsAppFolder : Whether the linked application uses a dedicated folder.
 	IsAppFolder bool `json:"is_app_folder"`
 }
@@ -400,10 +401,10 @@ func NewCustomQuotaUsersArg(Users []*UserSelectorArg) *CustomQuotaUsersArg {
 // DateRange : Input arguments that can be provided for most reports.
 type DateRange struct {
 	// StartDate : Optional starting date (inclusive). If start_date is None or
-	// too long ago, this field will  be set to 6 months ago.
-	StartDate *time.Time `json:"start_date,omitempty"`
+	// too long ago, this field will be set to 6 months ago.
+	StartDate *dropbox.DBXTime `json:"start_date,omitempty"`
 	// EndDate : Optional ending date (exclusive).
-	EndDate *time.Time `json:"end_date,omitempty"`
+	EndDate *dropbox.DBXTime `json:"end_date,omitempty"`
 }
 
 // NewDateRange returns a new DateRange instance
@@ -578,7 +579,7 @@ type DevicesActive struct {
 	// Android : Array of number of linked android devices with activity.
 	Android []uint64 `json:"android"`
 	// Other : Array of number of other linked devices (blackberry, windows
-	// phone, etc)  with activity.
+	// phone, etc) with activity.
 	Other []uint64 `json:"other"`
 	// Total : Array of total number of linked clients with activity.
 	Total []uint64 `json:"total"`
@@ -724,11 +725,12 @@ type Feature struct {
 
 // Valid tag values for Feature
 const (
-	FeatureUploadApiRateLimit   = "upload_api_rate_limit"
-	FeatureHasTeamSharedDropbox = "has_team_shared_dropbox"
-	FeatureHasTeamFileEvents    = "has_team_file_events"
-	FeatureHasTeamSelectiveSync = "has_team_selective_sync"
-	FeatureOther                = "other"
+	FeatureUploadApiRateLimit     = "upload_api_rate_limit"
+	FeatureHasTeamSharedDropbox   = "has_team_shared_dropbox"
+	FeatureHasTeamFileEvents      = "has_team_file_events"
+	FeatureHasTeamSelectiveSync   = "has_team_selective_sync"
+	FeatureHasDistinctMemberHomes = "has_distinct_member_homes"
+	FeatureOther                  = "other"
 )
 
 // FeatureValue : The values correspond to entries in `Feature`. You may get
@@ -743,15 +745,18 @@ type FeatureValue struct {
 	HasTeamFileEvents *HasTeamFileEventsValue `json:"has_team_file_events,omitempty"`
 	// HasTeamSelectiveSync : has no documentation (yet)
 	HasTeamSelectiveSync *HasTeamSelectiveSyncValue `json:"has_team_selective_sync,omitempty"`
+	// HasDistinctMemberHomes : has no documentation (yet)
+	HasDistinctMemberHomes *HasDistinctMemberHomesValue `json:"has_distinct_member_homes,omitempty"`
 }
 
 // Valid tag values for FeatureValue
 const (
-	FeatureValueUploadApiRateLimit   = "upload_api_rate_limit"
-	FeatureValueHasTeamSharedDropbox = "has_team_shared_dropbox"
-	FeatureValueHasTeamFileEvents    = "has_team_file_events"
-	FeatureValueHasTeamSelectiveSync = "has_team_selective_sync"
-	FeatureValueOther                = "other"
+	FeatureValueUploadApiRateLimit     = "upload_api_rate_limit"
+	FeatureValueHasTeamSharedDropbox   = "has_team_shared_dropbox"
+	FeatureValueHasTeamFileEvents      = "has_team_file_events"
+	FeatureValueHasTeamSelectiveSync   = "has_team_selective_sync"
+	FeatureValueHasDistinctMemberHomes = "has_distinct_member_homes"
+	FeatureValueOther                  = "other"
 )
 
 // UnmarshalJSON deserializes into a FeatureValue instance
@@ -766,6 +771,8 @@ func (u *FeatureValue) UnmarshalJSON(body []byte) error {
 		HasTeamFileEvents *HasTeamFileEventsValue `json:"has_team_file_events,omitempty"`
 		// HasTeamSelectiveSync : has no documentation (yet)
 		HasTeamSelectiveSync *HasTeamSelectiveSyncValue `json:"has_team_selective_sync,omitempty"`
+		// HasDistinctMemberHomes : has no documentation (yet)
+		HasDistinctMemberHomes *HasDistinctMemberHomesValue `json:"has_distinct_member_homes,omitempty"`
 	}
 	var w wrap
 	var err error
@@ -785,6 +792,9 @@ func (u *FeatureValue) UnmarshalJSON(body []byte) error {
 
 	case "has_team_selective_sync":
 		u.HasTeamSelectiveSync = w.HasTeamSelectiveSync
+
+	case "has_distinct_member_homes":
+		u.HasDistinctMemberHomes = w.HasDistinctMemberHomes
 
 	}
 	return nil
@@ -1153,9 +1163,9 @@ const (
 
 // IncludeMembersArg : has no documentation (yet)
 type IncludeMembersArg struct {
-	// ReturnMembers : Whether to return the list of members in the group.  Note
-	// that the default value will cause all the group members  to be returned
-	// in the response. This may take a long time for large groups.
+	// ReturnMembers : Whether to return the list of members in the group. Note
+	// that the default value will cause all the group members to be returned in
+	// the response. This may take a long time for large groups.
 	ReturnMembers bool `json:"return_members"`
 }
 
@@ -1253,10 +1263,10 @@ type GroupMembersChangeResult struct {
 	// GroupInfo : The group info after member change operation has been
 	// performed.
 	GroupInfo *GroupFullInfo `json:"group_info"`
-	// AsyncJobId : For legacy purposes async_job_id will always return one
-	// space ' '. Formerly, it was an ID that was used to obtain the status of
-	// granting/revoking group-owned resources. It's no longer necessary because
-	// the async processing now happens automatically.
+	// AsyncJobId : Field is deprecated. For legacy purposes async_job_id will
+	// always return one space ' '. Formerly, it was an ID that was used to
+	// obtain the status of granting/revoking group-owned resources. It's no
+	// longer necessary because the async processing now happens automatically.
 	AsyncJobId string `json:"async_job_id"`
 }
 
@@ -1368,9 +1378,9 @@ type GroupMembersSetAccessTypeArg struct {
 	GroupMemberSelector
 	// AccessType : New group access type the user will have.
 	AccessType *GroupAccessType `json:"access_type"`
-	// ReturnMembers : Whether to return the list of members in the group.  Note
-	// that the default value will cause all the group members  to be returned
-	// in the response. This may take a long time for large groups.
+	// ReturnMembers : Whether to return the list of members in the group. Note
+	// that the default value will cause all the group members to be returned in
+	// the response. This may take a long time for large groups.
 	ReturnMembers bool `json:"return_members"`
 }
 
@@ -1697,6 +1707,42 @@ func (u *GroupsSelector) UnmarshalJSON(body []byte) error {
 	return nil
 }
 
+// HasDistinctMemberHomesValue : The value for
+// `Feature.has_distinct_member_homes`.
+type HasDistinctMemberHomesValue struct {
+	dropbox.Tagged
+	// HasDistinctMemberHomes : Does this team have distinct team member homes.
+	HasDistinctMemberHomes bool `json:"has_distinct_member_homes,omitempty"`
+}
+
+// Valid tag values for HasDistinctMemberHomesValue
+const (
+	HasDistinctMemberHomesValueHasDistinctMemberHomes = "has_distinct_member_homes"
+	HasDistinctMemberHomesValueOther                  = "other"
+)
+
+// UnmarshalJSON deserializes into a HasDistinctMemberHomesValue instance
+func (u *HasDistinctMemberHomesValue) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+		// HasDistinctMemberHomes : Does this team have distinct team member
+		// homes.
+		HasDistinctMemberHomes bool `json:"has_distinct_member_homes,omitempty"`
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "has_distinct_member_homes":
+		u.HasDistinctMemberHomes = w.HasDistinctMemberHomes
+
+	}
+	return nil
+}
+
 // HasTeamFileEventsValue : The value for `Feature.has_team_file_events`.
 type HasTeamFileEventsValue struct {
 	dropbox.Tagged
@@ -1809,7 +1855,7 @@ type LegalHoldHeldRevisionMetadata struct {
 	// OriginalFilePath : The original path of the held revision.
 	OriginalFilePath string `json:"original_file_path"`
 	// ServerModified : The last time the file was modified on Dropbox.
-	ServerModified time.Time `json:"server_modified"`
+	ServerModified dropbox.DBXTime `json:"server_modified"`
 	// AuthorMemberId : The member id of the revision's author.
 	AuthorMemberId string `json:"author_member_id"`
 	// AuthorMemberStatus : The member status of the revision's author.
@@ -1827,7 +1873,7 @@ type LegalHoldHeldRevisionMetadata struct {
 }
 
 // NewLegalHoldHeldRevisionMetadata returns a new LegalHoldHeldRevisionMetadata instance
-func NewLegalHoldHeldRevisionMetadata(NewFilename string, OriginalRevisionId string, OriginalFilePath string, ServerModified time.Time, AuthorMemberId string, AuthorMemberStatus *TeamMemberStatus, AuthorEmail string, FileType string, Size uint64, ContentHash string) *LegalHoldHeldRevisionMetadata {
+func NewLegalHoldHeldRevisionMetadata(NewFilename string, OriginalRevisionId string, OriginalFilePath string, ServerModified dropbox.DBXTime, AuthorMemberId string, AuthorMemberStatus *TeamMemberStatus, AuthorEmail string, FileType string, Size uint64, ContentHash string) *LegalHoldHeldRevisionMetadata {
 	s := new(LegalHoldHeldRevisionMetadata)
 	s.NewFilename = NewFilename
 	s.OriginalRevisionId = OriginalRevisionId
@@ -1851,20 +1897,20 @@ type LegalHoldPolicy struct {
 	// Description : A description of the legal hold policy.
 	Description string `json:"description,omitempty"`
 	// ActivationTime : The time at which the legal hold was activated.
-	ActivationTime *time.Time `json:"activation_time,omitempty"`
+	ActivationTime *dropbox.DBXTime `json:"activation_time,omitempty"`
 	// Members : Team members IDs and number of permanently deleted members
 	// under hold.
 	Members *MembersInfo `json:"members"`
 	// Status : The current state of the hold.
 	Status *LegalHoldStatus `json:"status"`
 	// StartDate : Start date of the legal hold policy.
-	StartDate time.Time `json:"start_date"`
+	StartDate dropbox.DBXTime `json:"start_date"`
 	// EndDate : End date of the legal hold policy.
-	EndDate *time.Time `json:"end_date,omitempty"`
+	EndDate *dropbox.DBXTime `json:"end_date,omitempty"`
 }
 
 // NewLegalHoldPolicy returns a new LegalHoldPolicy instance
-func NewLegalHoldPolicy(Id string, Name string, Members *MembersInfo, Status *LegalHoldStatus, StartDate time.Time) *LegalHoldPolicy {
+func NewLegalHoldPolicy(Id string, Name string, Members *MembersInfo, Status *LegalHoldStatus, StartDate dropbox.DBXTime) *LegalHoldPolicy {
 	s := new(LegalHoldPolicy)
 	s.Id = Id
 	s.Name = Name
@@ -2057,9 +2103,9 @@ type LegalHoldsPolicyCreateArg struct {
 	// Members : List of team member IDs added to the hold.
 	Members []string `json:"members"`
 	// StartDate : start date of the legal hold policy.
-	StartDate *time.Time `json:"start_date,omitempty"`
+	StartDate *dropbox.DBXTime `json:"start_date,omitempty"`
 	// EndDate : end date of the legal hold policy.
-	EndDate *time.Time `json:"end_date,omitempty"`
+	EndDate *dropbox.DBXTime `json:"end_date,omitempty"`
 }
 
 // NewLegalHoldsPolicyCreateArg returns a new LegalHoldsPolicyCreateArg instance
@@ -2992,14 +3038,14 @@ type MemberProfile struct {
 	MembershipType *TeamMembershipType `json:"membership_type"`
 	// InvitedOn : The date and time the user was invited to the team (contains
 	// value only when the member's status matches `TeamMemberStatus.invited`).
-	InvitedOn *time.Time `json:"invited_on,omitempty"`
+	InvitedOn *dropbox.DBXTime `json:"invited_on,omitempty"`
 	// JoinedOn : The date and time the user joined as a member of a specific
 	// team.
-	JoinedOn *time.Time `json:"joined_on,omitempty"`
+	JoinedOn *dropbox.DBXTime `json:"joined_on,omitempty"`
 	// SuspendedOn : The date and time the user was suspended from the team
 	// (contains value only when the member's status matches
 	// `TeamMemberStatus.suspended`).
-	SuspendedOn *time.Time `json:"suspended_on,omitempty"`
+	SuspendedOn *dropbox.DBXTime `json:"suspended_on,omitempty"`
 	// PersistentId : Persistent ID that a team can attach to the user. The
 	// persistent ID is unique ID to be used for SAML authentication.
 	PersistentId string `json:"persistent_id,omitempty"`
@@ -3336,6 +3382,37 @@ const (
 	MembersDeactivateErrorOther         = "other"
 )
 
+// MembersPermanentlyDeleteFilesError : has no documentation (yet)
+type MembersPermanentlyDeleteFilesError struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for MembersPermanentlyDeleteFilesError
+const (
+	MembersPermanentlyDeleteFilesErrorUserNotFound                = "user_not_found"
+	MembersPermanentlyDeleteFilesErrorUserNotInTeam               = "user_not_in_team"
+	MembersPermanentlyDeleteFilesErrorOther                       = "other"
+	MembersPermanentlyDeleteFilesErrorTransferInProgress          = "transfer_in_progress"
+	MembersPermanentlyDeleteFilesErrorAlreadyTransferred          = "already_transferred"
+	MembersPermanentlyDeleteFilesErrorAlreadyTransferredOrDeleted = "already_transferred_or_deleted"
+)
+
+// MembersDeleteFormerMemberFilesError : has no documentation (yet)
+type MembersDeleteFormerMemberFilesError struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for MembersDeleteFormerMemberFilesError
+const (
+	MembersDeleteFormerMemberFilesErrorUserNotFound                = "user_not_found"
+	MembersDeleteFormerMemberFilesErrorUserNotInTeam               = "user_not_in_team"
+	MembersDeleteFormerMemberFilesErrorOther                       = "other"
+	MembersDeleteFormerMemberFilesErrorTransferInProgress          = "transfer_in_progress"
+	MembersDeleteFormerMemberFilesErrorAlreadyTransferred          = "already_transferred"
+	MembersDeleteFormerMemberFilesErrorAlreadyTransferredOrDeleted = "already_transferred_or_deleted"
+	MembersDeleteFormerMemberFilesErrorUserNotRemoved              = "user_not_removed"
+)
+
 // MembersDeleteProfilePhotoArg : has no documentation (yet)
 type MembersDeleteProfilePhotoArg struct {
 	// User : Identity of the user whose profile photo will be deleted.
@@ -3361,6 +3438,20 @@ const (
 	MembersDeleteProfilePhotoErrorSetProfileDisallowed = "set_profile_disallowed"
 	MembersDeleteProfilePhotoErrorOther                = "other"
 )
+
+// MembersFormerMemberArg : Exactly one of team_member_id, email, or external_id
+// must be provided to identify a former team member.
+type MembersFormerMemberArg struct {
+	// User : Identity of user whose files will be permanently deleted.
+	User *UserSelectorArg `json:"user"`
+}
+
+// NewMembersFormerMemberArg returns a new MembersFormerMemberArg instance
+func NewMembersFormerMemberArg(User *UserSelectorArg) *MembersFormerMemberArg {
+	s := new(MembersFormerMemberArg)
+	s.User = User
+	return s
+}
 
 // MembersGetAvailableTeamMemberRolesResult : Available TeamMemberRole for the
 // connected team. To be used with `membersSetAdminPermissions`.
@@ -3711,7 +3802,7 @@ type MembersRemoveArg struct {
 	// provided, then this argument must be provided as well.
 	TransferAdminId *UserSelectorArg `json:"transfer_admin_id,omitempty"`
 	// KeepAccount : Downgrade the member to a Basic account. The user will
-	// retain the email address associated with their Dropbox  account and data
+	// retain the email address associated with their Dropbox account and data
 	// in their account that is not restricted to team members. In order to keep
 	// the account the argument `wipe_data` should be set to false.
 	KeepAccount bool `json:"keep_account"`
@@ -3723,6 +3814,10 @@ type MembersRemoveArg struct {
 	// `wipe_data` should be set to false and `keep_account` should be set to
 	// true.
 	RetainTeamShares bool `json:"retain_team_shares"`
+	// PermanentlyDeleteFiles : Permanently delete the data in the deleted
+	// member's account. After permanent deletion, the data is no longer
+	// available to be transferred to a different user.
+	PermanentlyDeleteFiles bool `json:"permanently_delete_files"`
 }
 
 // NewMembersRemoveArg returns a new MembersRemoveArg instance
@@ -3732,6 +3827,7 @@ func NewMembersRemoveArg(User *UserSelectorArg) *MembersRemoveArg {
 	s.WipeData = true
 	s.KeepAccount = false
 	s.RetainTeamShares = false
+	s.PermanentlyDeleteFiles = false
 	return s
 }
 
@@ -3745,6 +3841,9 @@ const (
 	MembersTransferFilesErrorUserNotFound                        = "user_not_found"
 	MembersTransferFilesErrorUserNotInTeam                       = "user_not_in_team"
 	MembersTransferFilesErrorOther                               = "other"
+	MembersTransferFilesErrorTransferInProgress                  = "transfer_in_progress"
+	MembersTransferFilesErrorAlreadyTransferred                  = "already_transferred"
+	MembersTransferFilesErrorAlreadyTransferredOrDeleted         = "already_transferred_or_deleted"
 	MembersTransferFilesErrorRemovedAndTransferDestShouldDiffer  = "removed_and_transfer_dest_should_differ"
 	MembersTransferFilesErrorRemovedAndTransferAdminShouldDiffer = "removed_and_transfer_admin_should_differ"
 	MembersTransferFilesErrorTransferDestUserNotFound            = "transfer_dest_user_not_found"
@@ -3766,6 +3865,9 @@ const (
 	MembersRemoveErrorUserNotFound                                 = "user_not_found"
 	MembersRemoveErrorUserNotInTeam                                = "user_not_in_team"
 	MembersRemoveErrorOther                                        = "other"
+	MembersRemoveErrorTransferInProgress                           = "transfer_in_progress"
+	MembersRemoveErrorAlreadyTransferred                           = "already_transferred"
+	MembersRemoveErrorAlreadyTransferredOrDeleted                  = "already_transferred_or_deleted"
 	MembersRemoveErrorRemovedAndTransferDestShouldDiffer           = "removed_and_transfer_dest_should_differ"
 	MembersRemoveErrorRemovedAndTransferAdminShouldDiffer          = "removed_and_transfer_admin_should_differ"
 	MembersRemoveErrorTransferDestUserNotFound                     = "transfer_dest_user_not_found"
@@ -3778,6 +3880,7 @@ const (
 	MembersRemoveErrorRemoveLastAdmin                              = "remove_last_admin"
 	MembersRemoveErrorCannotKeepAccountAndTransfer                 = "cannot_keep_account_and_transfer"
 	MembersRemoveErrorCannotKeepAccountAndDeleteData               = "cannot_keep_account_and_delete_data"
+	MembersRemoveErrorCannotKeepAccountAndPermanentlyDelete        = "cannot_keep_account_and_permanently_delete"
 	MembersRemoveErrorEmailAddressTooLongToBeDisabled              = "email_address_too_long_to_be_disabled"
 	MembersRemoveErrorCannotKeepInvitedUserAccount                 = "cannot_keep_invited_user_account"
 	MembersRemoveErrorCannotRetainSharesWhenDataWiped              = "cannot_retain_shares_when_data_wiped"
@@ -3786,6 +3889,8 @@ const (
 	MembersRemoveErrorCannotKeepAccount                            = "cannot_keep_account"
 	MembersRemoveErrorCannotKeepAccountUnderLegalHold              = "cannot_keep_account_under_legal_hold"
 	MembersRemoveErrorCannotKeepAccountRequiredToSignTos           = "cannot_keep_account_required_to_sign_tos"
+	MembersRemoveErrorCannotPermanentlyDeleteAndTransfer           = "cannot_permanently_delete_and_transfer"
+	MembersRemoveErrorMemberIsTransferDestination                  = "member_is_transfer_destination"
 )
 
 // MembersSendWelcomeError :
@@ -4024,6 +4129,9 @@ const (
 	MembersTransferFormerMembersFilesErrorUserNotFound                        = "user_not_found"
 	MembersTransferFormerMembersFilesErrorUserNotInTeam                       = "user_not_in_team"
 	MembersTransferFormerMembersFilesErrorOther                               = "other"
+	MembersTransferFormerMembersFilesErrorTransferInProgress                  = "transfer_in_progress"
+	MembersTransferFormerMembersFilesErrorAlreadyTransferred                  = "already_transferred"
+	MembersTransferFormerMembersFilesErrorAlreadyTransferredOrDeleted         = "already_transferred_or_deleted"
 	MembersTransferFormerMembersFilesErrorRemovedAndTransferDestShouldDiffer  = "removed_and_transfer_dest_should_differ"
 	MembersTransferFormerMembersFilesErrorRemovedAndTransferAdminShouldDiffer = "removed_and_transfer_admin_should_differ"
 	MembersTransferFormerMembersFilesErrorTransferDestUserNotFound            = "transfer_dest_user_not_found"
@@ -4118,6 +4226,9 @@ type NamespaceMetadata struct {
 	// TeamMemberId : If this is a team member or app folder, the ID of the
 	// owning team member. Otherwise, this field is not present.
 	TeamMemberId string `json:"team_member_id,omitempty"`
+	// QuotaLimit : The quota limit in bytes for this namespace tree. Only
+	// applicable to team folders.
+	QuotaLimit int64 `json:"quota_limit"`
 }
 
 // NewNamespaceMetadata returns a new NamespaceMetadata instance
@@ -4126,6 +4237,7 @@ func NewNamespaceMetadata(Name string, NamespaceId string, NamespaceType *Namesp
 	s.Name = Name
 	s.NamespaceId = NamespaceId
 	s.NamespaceType = NamespaceType
+	s.QuotaLimit = 0
 	return s
 }
 
@@ -4140,6 +4252,7 @@ const (
 	NamespaceTypeSharedFolder     = "shared_folder"
 	NamespaceTypeTeamFolder       = "team_folder"
 	NamespaceTypeTeamMemberFolder = "team_member_folder"
+	NamespaceTypeTeamMemberRoot   = "team_member_root"
 	NamespaceTypeOther            = "other"
 )
 
@@ -4423,8 +4536,9 @@ type RevokeLinkedApiAppArg struct {
 	AppId string `json:"app_id"`
 	// TeamMemberId : The unique id of the member owning the device.
 	TeamMemberId string `json:"team_member_id"`
-	// KeepAppFolder : This flag is not longer supported, the application
-	// dedicated folder (in case the application uses  one) will be kept.
+	// KeepAppFolder : Field is deprecated. This flag is not longer supported,
+	// the application dedicated folder (in case the application uses one) will
+	// be kept.
 	KeepAppFolder bool `json:"keep_app_folder"`
 }
 
@@ -4526,6 +4640,228 @@ const (
 	SetCustomQuotaErrorOther                = "other"
 	SetCustomQuotaErrorSomeUsersAreExcluded = "some_users_are_excluded"
 )
+
+// SharingAllowlistAddArgs : Structure representing Approve List entries. Domain
+// and emails are supported. At least one entry of any supported type is
+// required.
+type SharingAllowlistAddArgs struct {
+	// Domains : List of domains represented by valid string representation
+	// (RFC-1034/5).
+	Domains []string `json:"domains,omitempty"`
+	// Emails : List of emails represented by valid string representation
+	// (RFC-5322/822).
+	Emails []string `json:"emails,omitempty"`
+}
+
+// NewSharingAllowlistAddArgs returns a new SharingAllowlistAddArgs instance
+func NewSharingAllowlistAddArgs() *SharingAllowlistAddArgs {
+	s := new(SharingAllowlistAddArgs)
+	return s
+}
+
+// SharingAllowlistAddError : has no documentation (yet)
+type SharingAllowlistAddError struct {
+	dropbox.Tagged
+	// MalformedEntry : One of provided values is not valid.
+	MalformedEntry string `json:"malformed_entry,omitempty"`
+	// EntriesAlreadyExist : Entries already exists.
+	EntriesAlreadyExist string `json:"entries_already_exist,omitempty"`
+}
+
+// Valid tag values for SharingAllowlistAddError
+const (
+	SharingAllowlistAddErrorMalformedEntry         = "malformed_entry"
+	SharingAllowlistAddErrorNoEntriesProvided      = "no_entries_provided"
+	SharingAllowlistAddErrorTooManyEntriesProvided = "too_many_entries_provided"
+	SharingAllowlistAddErrorTeamLimitReached       = "team_limit_reached"
+	SharingAllowlistAddErrorUnknownError           = "unknown_error"
+	SharingAllowlistAddErrorEntriesAlreadyExist    = "entries_already_exist"
+	SharingAllowlistAddErrorOther                  = "other"
+)
+
+// UnmarshalJSON deserializes into a SharingAllowlistAddError instance
+func (u *SharingAllowlistAddError) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+		// MalformedEntry : One of provided values is not valid.
+		MalformedEntry string `json:"malformed_entry,omitempty"`
+		// EntriesAlreadyExist : Entries already exists.
+		EntriesAlreadyExist string `json:"entries_already_exist,omitempty"`
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "malformed_entry":
+		u.MalformedEntry = w.MalformedEntry
+
+	case "entries_already_exist":
+		u.EntriesAlreadyExist = w.EntriesAlreadyExist
+
+	}
+	return nil
+}
+
+// SharingAllowlistAddResponse : This struct is empty. The comment here is
+// intentionally emitted to avoid indentation issues with Stone.
+type SharingAllowlistAddResponse struct {
+}
+
+// NewSharingAllowlistAddResponse returns a new SharingAllowlistAddResponse instance
+func NewSharingAllowlistAddResponse() *SharingAllowlistAddResponse {
+	s := new(SharingAllowlistAddResponse)
+	return s
+}
+
+// SharingAllowlistListArg : has no documentation (yet)
+type SharingAllowlistListArg struct {
+	// Limit : The number of entries to fetch at one time.
+	Limit uint32 `json:"limit"`
+}
+
+// NewSharingAllowlistListArg returns a new SharingAllowlistListArg instance
+func NewSharingAllowlistListArg() *SharingAllowlistListArg {
+	s := new(SharingAllowlistListArg)
+	s.Limit = 1000
+	return s
+}
+
+// SharingAllowlistListContinueArg : has no documentation (yet)
+type SharingAllowlistListContinueArg struct {
+	// Cursor : The cursor returned from a previous call to
+	// `sharingAllowlistList` or `sharingAllowlistListContinue`.
+	Cursor string `json:"cursor"`
+}
+
+// NewSharingAllowlistListContinueArg returns a new SharingAllowlistListContinueArg instance
+func NewSharingAllowlistListContinueArg(Cursor string) *SharingAllowlistListContinueArg {
+	s := new(SharingAllowlistListContinueArg)
+	s.Cursor = Cursor
+	return s
+}
+
+// SharingAllowlistListContinueError : has no documentation (yet)
+type SharingAllowlistListContinueError struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for SharingAllowlistListContinueError
+const (
+	SharingAllowlistListContinueErrorInvalidCursor = "invalid_cursor"
+	SharingAllowlistListContinueErrorOther         = "other"
+)
+
+// SharingAllowlistListError : This struct is empty. The comment here is
+// intentionally emitted to avoid indentation issues with Stone.
+type SharingAllowlistListError struct {
+}
+
+// NewSharingAllowlistListError returns a new SharingAllowlistListError instance
+func NewSharingAllowlistListError() *SharingAllowlistListError {
+	s := new(SharingAllowlistListError)
+	return s
+}
+
+// SharingAllowlistListResponse : has no documentation (yet)
+type SharingAllowlistListResponse struct {
+	// Domains : List of domains represented by valid string representation
+	// (RFC-1034/5).
+	Domains []string `json:"domains"`
+	// Emails : List of emails represented by valid string representation
+	// (RFC-5322/822).
+	Emails []string `json:"emails"`
+	// Cursor : If this is nonempty, there are more entries that can be fetched
+	// with `sharingAllowlistListContinue`.
+	Cursor string `json:"cursor"`
+	// HasMore : if true indicates that more entries can be fetched with
+	// `sharingAllowlistListContinue`.
+	HasMore bool `json:"has_more"`
+}
+
+// NewSharingAllowlistListResponse returns a new SharingAllowlistListResponse instance
+func NewSharingAllowlistListResponse(Domains []string, Emails []string) *SharingAllowlistListResponse {
+	s := new(SharingAllowlistListResponse)
+	s.Domains = Domains
+	s.Emails = Emails
+	s.Cursor = ""
+	s.HasMore = false
+	return s
+}
+
+// SharingAllowlistRemoveArgs : has no documentation (yet)
+type SharingAllowlistRemoveArgs struct {
+	// Domains : List of domains represented by valid string representation
+	// (RFC-1034/5).
+	Domains []string `json:"domains,omitempty"`
+	// Emails : List of emails represented by valid string representation
+	// (RFC-5322/822).
+	Emails []string `json:"emails,omitempty"`
+}
+
+// NewSharingAllowlistRemoveArgs returns a new SharingAllowlistRemoveArgs instance
+func NewSharingAllowlistRemoveArgs() *SharingAllowlistRemoveArgs {
+	s := new(SharingAllowlistRemoveArgs)
+	return s
+}
+
+// SharingAllowlistRemoveError : has no documentation (yet)
+type SharingAllowlistRemoveError struct {
+	dropbox.Tagged
+	// MalformedEntry : One of provided values is not valid.
+	MalformedEntry string `json:"malformed_entry,omitempty"`
+	// EntriesDoNotExist : One or more provided values do not exist.
+	EntriesDoNotExist string `json:"entries_do_not_exist,omitempty"`
+}
+
+// Valid tag values for SharingAllowlistRemoveError
+const (
+	SharingAllowlistRemoveErrorMalformedEntry         = "malformed_entry"
+	SharingAllowlistRemoveErrorEntriesDoNotExist      = "entries_do_not_exist"
+	SharingAllowlistRemoveErrorNoEntriesProvided      = "no_entries_provided"
+	SharingAllowlistRemoveErrorTooManyEntriesProvided = "too_many_entries_provided"
+	SharingAllowlistRemoveErrorUnknownError           = "unknown_error"
+	SharingAllowlistRemoveErrorOther                  = "other"
+)
+
+// UnmarshalJSON deserializes into a SharingAllowlistRemoveError instance
+func (u *SharingAllowlistRemoveError) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+		// MalformedEntry : One of provided values is not valid.
+		MalformedEntry string `json:"malformed_entry,omitempty"`
+		// EntriesDoNotExist : One or more provided values do not exist.
+		EntriesDoNotExist string `json:"entries_do_not_exist,omitempty"`
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "malformed_entry":
+		u.MalformedEntry = w.MalformedEntry
+
+	case "entries_do_not_exist":
+		u.EntriesDoNotExist = w.EntriesDoNotExist
+
+	}
+	return nil
+}
+
+// SharingAllowlistRemoveResponse : This struct is empty. The comment here is
+// intentionally emitted to avoid indentation issues with Stone.
+type SharingAllowlistRemoveResponse struct {
+}
+
+// NewSharingAllowlistRemoveResponse returns a new SharingAllowlistRemoveResponse instance
+func NewSharingAllowlistRemoveResponse() *SharingAllowlistRemoveResponse {
+	s := new(SharingAllowlistRemoveResponse)
+	return s
+}
 
 // StorageBucket : Describes the number of users in a specific storage bucket.
 type StorageBucket struct {
@@ -4985,6 +5321,9 @@ type TeamFolderMetadata struct {
 	// ContentSyncSettings : Sync settings applied to contents of this team
 	// folder.
 	ContentSyncSettings []*files.ContentSyncSetting `json:"content_sync_settings"`
+	// QuotaLimit : The quota limit in bytes for this team folder namespace
+	// tree.
+	QuotaLimit int64 `json:"quota_limit"`
 }
 
 // NewTeamFolderMetadata returns a new TeamFolderMetadata instance
@@ -4996,6 +5335,7 @@ func NewTeamFolderMetadata(TeamFolderId string, Name string, Status *TeamFolderS
 	s.IsTeamSharedDropbox = IsTeamSharedDropbox
 	s.SyncSetting = SyncSetting
 	s.ContentSyncSettings = ContentSyncSettings
+	s.QuotaLimit = 0
 	return s
 }
 
@@ -5117,6 +5457,56 @@ func (u *TeamFolderRenameError) UnmarshalJSON(body []byte) error {
 	return nil
 }
 
+// TeamFolderRestoreError :
+type TeamFolderRestoreError struct {
+	dropbox.Tagged
+	// AccessError : has no documentation (yet)
+	AccessError *TeamFolderAccessError `json:"access_error,omitempty"`
+	// StatusError : has no documentation (yet)
+	StatusError *TeamFolderInvalidStatusError `json:"status_error,omitempty"`
+	// TeamSharedDropboxError : has no documentation (yet)
+	TeamSharedDropboxError *TeamFolderTeamSharedDropboxError `json:"team_shared_dropbox_error,omitempty"`
+}
+
+// Valid tag values for TeamFolderRestoreError
+const (
+	TeamFolderRestoreErrorAccessError            = "access_error"
+	TeamFolderRestoreErrorStatusError            = "status_error"
+	TeamFolderRestoreErrorTeamSharedDropboxError = "team_shared_dropbox_error"
+	TeamFolderRestoreErrorOther                  = "other"
+)
+
+// UnmarshalJSON deserializes into a TeamFolderRestoreError instance
+func (u *TeamFolderRestoreError) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+		// AccessError : has no documentation (yet)
+		AccessError *TeamFolderAccessError `json:"access_error,omitempty"`
+		// StatusError : has no documentation (yet)
+		StatusError *TeamFolderInvalidStatusError `json:"status_error,omitempty"`
+		// TeamSharedDropboxError : has no documentation (yet)
+		TeamSharedDropboxError *TeamFolderTeamSharedDropboxError `json:"team_shared_dropbox_error,omitempty"`
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "access_error":
+		u.AccessError = w.AccessError
+
+	case "status_error":
+		u.StatusError = w.StatusError
+
+	case "team_shared_dropbox_error":
+		u.TeamSharedDropboxError = w.TeamSharedDropboxError
+
+	}
+	return nil
+}
+
 // TeamFolderStatus : has no documentation (yet)
 type TeamFolderStatus struct {
 	dropbox.Tagged
@@ -5127,6 +5517,7 @@ const (
 	TeamFolderStatusActive            = "active"
 	TeamFolderStatusArchived          = "archived"
 	TeamFolderStatusArchiveInProgress = "archive_in_progress"
+	TeamFolderStatusInactive          = "inactive"
 	TeamFolderStatusOther             = "other"
 )
 
@@ -5228,6 +5619,8 @@ type TeamGetInfoResult struct {
 	// NumProvisionedUsers : The number of accounts that have been invited or
 	// are already active members of the team.
 	NumProvisionedUsers uint32 `json:"num_provisioned_users"`
+	// NumUsedLicenses : The number of licenses used on the team.
+	NumUsedLicenses uint32 `json:"num_used_licenses"`
 	// Policies : has no documentation (yet)
 	Policies *team_policies.TeamMemberPolicies `json:"policies"`
 }
@@ -5240,6 +5633,7 @@ func NewTeamGetInfoResult(Name string, TeamId string, NumLicensedUsers uint32, N
 	s.NumLicensedUsers = NumLicensedUsers
 	s.NumProvisionedUsers = NumProvisionedUsers
 	s.Policies = Policies
+	s.NumUsedLicenses = 0
 	return s
 }
 
@@ -5293,12 +5687,14 @@ type TeamMemberProfile struct {
 	MemberProfile
 	// Groups : List of group IDs of groups that the user belongs to.
 	Groups []string `json:"groups"`
-	// MemberFolderId : The namespace id of the user's root folder.
+	// MemberFolderId : The namespace id of the user's member folder.
 	MemberFolderId string `json:"member_folder_id"`
+	// RootFolderId : The namespace id of the user's root folder.
+	RootFolderId string `json:"root_folder_id"`
 }
 
 // NewTeamMemberProfile returns a new TeamMemberProfile instance
-func NewTeamMemberProfile(TeamMemberId string, Email string, EmailVerified bool, Status *TeamMemberStatus, Name *users.Name, MembershipType *TeamMembershipType, Groups []string, MemberFolderId string) *TeamMemberProfile {
+func NewTeamMemberProfile(TeamMemberId string, Email string, EmailVerified bool, Status *TeamMemberStatus, Name *users.Name, MembershipType *TeamMembershipType, Groups []string, MemberFolderId string, RootFolderId string) *TeamMemberProfile {
 	s := new(TeamMemberProfile)
 	s.TeamMemberId = TeamMemberId
 	s.Email = Email
@@ -5308,6 +5704,7 @@ func NewTeamMemberProfile(TeamMemberId string, Email string, EmailVerified bool,
 	s.MembershipType = MembershipType
 	s.Groups = Groups
 	s.MemberFolderId = MemberFolderId
+	s.RootFolderId = RootFolderId
 	return s
 }
 
@@ -5384,7 +5781,7 @@ const (
 
 // TeamNamespacesListArg : has no documentation (yet)
 type TeamNamespacesListArg struct {
-	// Limit : Specifying a value here has no effect.
+	// Limit : Field is deprecated. Specifying a value here has no effect.
 	Limit uint32 `json:"limit"`
 }
 

@@ -35,6 +35,10 @@ type ChunkUploadSession struct {
 // upload session on the Internxt network. The caller specifies totalSize
 // and chunkSize
 func NewChunkUploadSession(ctx context.Context, cfg *config.Config, totalSize, chunkSize int64) (*ChunkUploadSession, error) {
+	if err := checkUploadSize(ctx, cfg, totalSize); err != nil {
+		return nil, err
+	}
+
 	var ph [32]byte
 	if _, err := rand.Read(ph[:]); err != nil {
 		return nil, fmt.Errorf("cannot generate random index: %w", err)

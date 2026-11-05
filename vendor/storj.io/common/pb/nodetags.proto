@@ -39,3 +39,19 @@ message SignedNodeTagSet {
 message SignedNodeTagSets {
   repeated SignedNodeTagSet tags = 1;
 }
+
+// TagSigner is the service that can provide signed tags for a node.
+service TagSigner {
+  rpc SignTags(SignTagsRequest) returns (SignTagsResponse) {}
+}
+
+// SignTagsRequest is the request for default, signed tags for a node.
+message SignTagsRequest {
+  bytes node_id = 1;
+  string secret = 2;
+}
+
+// SignTagsResponse is the response with signed tags for a node.
+message SignTagsResponse {
+  repeated SignedNodeTagSet tags = 1;
+}

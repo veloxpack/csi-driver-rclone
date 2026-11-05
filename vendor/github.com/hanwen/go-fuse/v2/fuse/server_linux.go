@@ -4,37 +4,32 @@
 
 package fuse
 
-import (
-	"syscall"
-)
-
 const useSingleReader = false
 
 func (ms *Server) write(req *request) Status {
 	if req.outPayloadSize() == 0 {
 		err := handleEINTR(func() error {
-			_, err := syscall.Write(ms.mountFd, req.outputBuf)
+			_, err := writev(ms.mountFd, [][]byte{req.outHeaderBuf, req.outDataBuf})
 			return err
 		})
 		return ToStatus(err)
 	}
-	if req.fdData != nil {
+	if req.readResult != nil {
+		defer req.readResult.Done()
 		if ms.canSplice {
-			err := ms.trySplice(req, req.fdData)
+			err := ms.trySplice(req, req.readResult)
 			if err == nil {
-				req.readResult.Done()
 				return OK
 			}
-			ms.opts.Logger.Println("trySplice:", err)
+			if err != errRecoverSplice {
+				ms.opts.Logger.Println("trySplice:", err)
+			}
 		}
 
-		req.outPayload, req.status = req.fdData.Bytes(req.outPayload)
+		req.outPayload, req.status = req.readResult.Bytes(req.outPayload)
 		req.serializeHeader(len(req.outPayload))
 	}
 
-	_, err := writev(ms.mountFd, [][]byte{req.outputBuf, req.outPayload})
-	if req.readResult != nil {
-		req.readResult.Done()
-	}
+	_, err := writev(ms.mountFd, [][]byte{req.outHeaderBuf, req.outDataBuf, req.outPayload})
 	return ToStatus(err)
 }

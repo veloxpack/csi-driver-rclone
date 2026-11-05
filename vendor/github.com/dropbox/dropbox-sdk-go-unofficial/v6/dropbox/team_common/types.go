@@ -21,11 +21,7 @@
 // Package team_common : has no documentation (yet)
 package team_common
 
-import (
-	"time"
-
-	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox"
-)
+import "github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox"
 
 // GroupManagementType : The group type determines how a group is managed.
 type GroupManagementType struct {
@@ -92,9 +88,9 @@ const (
 // TimeRange : Time range.
 type TimeRange struct {
 	// StartTime : Optional starting time (inclusive).
-	StartTime *time.Time `json:"start_time,omitempty"`
+	StartTime *dropbox.DBXTime `json:"start_time,omitempty"`
 	// EndTime : Optional ending time (exclusive).
-	EndTime *time.Time `json:"end_time,omitempty"`
+	EndTime *dropbox.DBXTime `json:"end_time,omitempty"`
 }
 
 // NewTimeRange returns a new TimeRange instance

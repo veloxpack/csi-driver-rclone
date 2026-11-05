@@ -10,6 +10,7 @@ type KeyLifecycleRule struct {
 	Id                   int64  `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
 	KeyType              string `json:"key_type,omitempty" path:"key_type,omitempty" url:"key_type,omitempty"`
 	InactivityDays       int64  `json:"inactivity_days,omitempty" path:"inactivity_days,omitempty" url:"inactivity_days,omitempty"`
+	ExpirationDays       int64  `json:"expiration_days,omitempty" path:"expiration_days,omitempty" url:"expiration_days,omitempty"`
 	ApplyToAllWorkspaces *bool  `json:"apply_to_all_workspaces,omitempty" path:"apply_to_all_workspaces,omitempty" url:"apply_to_all_workspaces,omitempty"`
 	Name                 string `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
 	WorkspaceId          int64  `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
@@ -31,6 +32,7 @@ func (u KeyLifecycleRuleKeyTypeEnum) Enum() map[string]KeyLifecycleRuleKeyTypeEn
 	return map[string]KeyLifecycleRuleKeyTypeEnum{
 		"gpg": KeyLifecycleRuleKeyTypeEnum("gpg"),
 		"ssh": KeyLifecycleRuleKeyTypeEnum("ssh"),
+		"api": KeyLifecycleRuleKeyTypeEnum("api"),
 	}
 }
 
@@ -46,6 +48,7 @@ type KeyLifecycleRuleFindParams struct {
 
 type KeyLifecycleRuleCreateParams struct {
 	ApplyToAllWorkspaces *bool                       `url:"apply_to_all_workspaces,omitempty" json:"apply_to_all_workspaces,omitempty" path:"apply_to_all_workspaces"`
+	ExpirationDays       int64                       `url:"expiration_days,omitempty" json:"expiration_days,omitempty" path:"expiration_days"`
 	KeyType              KeyLifecycleRuleKeyTypeEnum `url:"key_type,omitempty" json:"key_type,omitempty" path:"key_type"`
 	InactivityDays       int64                       `url:"inactivity_days,omitempty" json:"inactivity_days,omitempty" path:"inactivity_days"`
 	Name                 string                      `url:"name,omitempty" json:"name,omitempty" path:"name"`
@@ -55,6 +58,7 @@ type KeyLifecycleRuleCreateParams struct {
 type KeyLifecycleRuleUpdateParams struct {
 	Id                   int64                       `url:"-,omitempty" json:"-,omitempty" path:"id"`
 	ApplyToAllWorkspaces *bool                       `url:"apply_to_all_workspaces,omitempty" json:"apply_to_all_workspaces,omitempty" path:"apply_to_all_workspaces"`
+	ExpirationDays       int64                       `url:"expiration_days,omitempty" json:"expiration_days,omitempty" path:"expiration_days"`
 	KeyType              KeyLifecycleRuleKeyTypeEnum `url:"key_type,omitempty" json:"key_type,omitempty" path:"key_type"`
 	InactivityDays       int64                       `url:"inactivity_days,omitempty" json:"inactivity_days,omitempty" path:"inactivity_days"`
 	Name                 string                      `url:"name,omitempty" json:"name,omitempty" path:"name"`
