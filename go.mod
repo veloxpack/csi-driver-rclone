@@ -12,7 +12,7 @@ require (
 	golang.org/x/sys v0.49.0
 	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
-	k8s.io/apimachinery v0.36.3
+	k8s.io/apimachinery v0.37.2
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/mount-utils v0.36.3
 	sigs.k8s.io/yaml v1.6.0
@@ -227,7 +227,7 @@ require (
 	gopkg.in/validator.v2 v2.0.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 // indirect
+	k8s.io/utils v0.0.0-20260626114624-be93311217bd // indirect
 	moul.io/http2curl/v2 v2.3.0 // indirect
 	storj.io/common v0.0.0-20260629224719-ba1bff0a7846 // indirect
 	storj.io/drpc v1.0.0 // indirect
