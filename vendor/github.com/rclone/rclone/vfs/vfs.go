@@ -69,6 +69,8 @@ type Node interface {
 	Truncate(size int64) error
 	Path() string
 	SetSys(any)
+	Aux(owner any) any
+	SetAux(owner, value any)
 }
 
 // Check interfaces
@@ -186,6 +188,7 @@ type VFS struct {
 	usageMu     sync.Mutex
 	usageTime   time.Time
 	usage       *fs.Usage
+	pollMu      sync.Mutex
 	pollChan    chan time.Duration
 	inUse       atomic.Int32 // count of number of opens
 }
@@ -226,15 +229,19 @@ func New(ctx context.Context, f fs.Fs, opt *vfscommon.Options) *VFS {
 	// Fill out anything else
 	vfs.Opt.Init(ctx)
 
-	// Do not reuse active VFS instances. In a CSI driver each mount has its
-	// own cancellable context whose lifetime is tied to the mount. Reusing a
-	// VFS binds newer mounts to older contexts; when the older mount is
-	// unpublished and its context cancelled, the shared VFS breaks (e.g.
-	// OAuth token refresh fails with "context canceled").
-	// See: https://github.com/veloxpack/csi-driver-rclone/issues/69
+	// Find a VFS with the same name and options and return it if possible
 	activeMu.Lock()
 	defer activeMu.Unlock()
 	configName := fs.ConfigString(f)
+	for _, activeVFS := range active[configName] {
+		if vfs.Opt == activeVFS.Opt {
+			fs.Debugf(f, "Reusing VFS from active cache")
+			activeVFS.inUse.Add(1)
+			cancel()
+			return activeVFS
+		}
+	}
+	// Put the VFS into the active cache
 	active[configName] = append(active[configName], vfs)
 
 	// Create root directory
@@ -281,6 +288,7 @@ func New(ctx context.Context, f fs.Fs, opt *vfscommon.Options) *VFS {
 
 // refresh the directory cache for all directories
 func (vfs *VFS) refresh() {
+	defer vfscommon.RecoverPanic(vfs.f, nil)
 	fs.Debugf(vfs.f, "Refreshing VFS directory cache")
 	err := vfs.root.readDirTree()
 	if err != nil {
@@ -403,13 +411,15 @@ func (vfs *VFS) Shutdown() {
 
 	vfs.shutdownCache()
 
+	// Cancel any background go routines
+	vfs.cancel()
+
+	vfs.pollMu.Lock()
 	if vfs.pollChan != nil {
 		close(vfs.pollChan)
 		vfs.pollChan = nil
 	}
-
-	// Cancel any background go routines
-	vfs.cancel()
+	vfs.pollMu.Unlock()
 }
 
 // CleanUp deletes the contents of the on disk cache
@@ -736,6 +746,38 @@ func (vfs *VFS) Chtimes(name string, atime time.Time, mtime time.Time) error {
 		return err
 	}
 	return nil
+}
+
+// Chmod changes the mode of the named file.
+//
+// If name is a symlink the mode of the link itself is changed, not
+// its target (like lchmod). It does not follow the link, so it works
+// on symlinks whose target doesn't exist.
+//
+// The VFS doesn't store file permissions so currently this returns
+// ENOSYS if the file exists and ENOENT if it doesn't.
+func (vfs *VFS) Chmod(name string, mode os.FileMode) error {
+	_, err := vfs.Stat(name)
+	if err != nil {
+		return err
+	}
+	return ENOSYS
+}
+
+// Chown changes the uid and gid of the named file.
+//
+// If name is a symlink the ownership of the link itself is changed,
+// not its target (like lchown). It does not follow the link, so it
+// works on symlinks whose target doesn't exist.
+//
+// The VFS doesn't store file ownership so currently this returns
+// ENOSYS if the file exists and ENOENT if it doesn't.
+func (vfs *VFS) Chown(name string, uid, gid int) error {
+	_, err := vfs.Stat(name)
+	if err != nil {
+		return err
+	}
+	return ENOSYS
 }
 
 // mkdir creates a new directory with the specified name and permission bits

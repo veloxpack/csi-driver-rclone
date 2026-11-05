@@ -15,6 +15,7 @@ type Behavior struct {
 	Name                        string      `json:"name,omitempty" path:"name,omitempty" url:"name,omitempty"`
 	Description                 string      `json:"description,omitempty" path:"description,omitempty" url:"description,omitempty"`
 	Value                       interface{} `json:"value,omitempty" path:"value,omitempty" url:"value,omitempty"`
+	PublicHostingUrl            string      `json:"public_hosting_url,omitempty" path:"public_hosting_url,omitempty" url:"public_hosting_url,omitempty"`
 	DisableParentFolderBehavior *bool       `json:"disable_parent_folder_behavior,omitempty" path:"disable_parent_folder_behavior,omitempty" url:"disable_parent_folder_behavior,omitempty"`
 	Recursive                   *bool       `json:"recursive,omitempty" path:"recursive,omitempty" url:"recursive,omitempty"`
 	AttachmentFile              io.Reader   `json:"attachment_file,omitempty" path:"attachment_file,omitempty" url:"attachment_file,omitempty"`

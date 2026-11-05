@@ -7,15 +7,16 @@ import (
 )
 
 type ConstrainedWorkGroup struct {
-	wg   sync.WaitGroup
-	sem  chan struct{}
-	cond *sync.Cond
+	wg     sync.WaitGroup
+	sem    chan struct{}
+	mu     sync.Mutex
+	notify chan struct{}
 }
 
 func NewConstrainedWorkGroup(maxConcurrency int) *ConstrainedWorkGroup {
 	return &ConstrainedWorkGroup{
-		sem:  make(chan struct{}, maxConcurrency),
-		cond: sync.NewCond(&sync.Mutex{}),
+		sem:    make(chan struct{}, maxConcurrency),
+		notify: make(chan struct{}),
 	}
 }
 
@@ -25,11 +26,11 @@ func (cw *ConstrainedWorkGroup) Wait() {
 }
 
 func (cw *ConstrainedWorkGroup) Done() {
-	cw.cond.L.Lock()
-	defer cw.cond.L.Unlock()
 	cw.wg.Done()
 	<-cw.sem
-	cw.cond.Signal()
+	cw.mu.Lock()
+	cw.signalDoneLocked()
+	cw.mu.Unlock()
 }
 
 func (cw *ConstrainedWorkGroup) WaitAllDone() {
@@ -60,27 +61,43 @@ func (cw *ConstrainedWorkGroup) RemainingCapacity() int {
 
 func (cw *ConstrainedWorkGroup) NewSubWorker() ConcurrencyManager {
 	return &SubWorker{
-		cw:   cw,
-		cond: sync.NewCond(&sync.Mutex{}),
+		cw:     cw,
+		notify: make(chan struct{}),
 	}
 }
 
 func (cw *ConstrainedWorkGroup) WaitForADone() bool {
-	cw.cond.L.Lock()
-	defer cw.cond.L.Unlock()
+	return cw.WaitForADoneWithContext(context.Background())
+}
+
+func (cw *ConstrainedWorkGroup) WaitForADoneWithContext(ctx context.Context) bool {
+	cw.mu.Lock()
 	if cw.RunningCount() == 0 {
+		cw.mu.Unlock()
 		return false
 	}
+	notify := cw.notify
+	cw.mu.Unlock()
 
-	cw.cond.Wait()
-	return true
+	select {
+	case <-ctx.Done():
+		return false
+	case <-notify:
+		return true
+	}
+}
+
+func (cw *ConstrainedWorkGroup) signalDoneLocked() {
+	close(cw.notify)
+	cw.notify = make(chan struct{})
 }
 
 type SubWorker struct {
 	cw           *ConstrainedWorkGroup
 	wg           sync.WaitGroup
 	runningCount int32
-	cond         *sync.Cond
+	mu           sync.Mutex
+	notify       chan struct{}
 }
 
 func (sw *SubWorker) Wait() {
@@ -99,12 +116,12 @@ func (sw *SubWorker) WaitWithContext(ctx context.Context) bool {
 }
 
 func (sw *SubWorker) Done() {
-	sw.cond.L.Lock()
-	defer sw.cond.L.Unlock()
+	sw.mu.Lock()
 	atomic.AddInt32(&sw.runningCount, -1)
 	sw.wg.Done()
+	sw.signalDoneLocked()
+	sw.mu.Unlock()
 	sw.cw.Done()
-	sw.cond.Signal()
 }
 
 func (sw *SubWorker) WaitAllDone() {
@@ -113,15 +130,31 @@ func (sw *SubWorker) WaitAllDone() {
 
 // WaitForADone Blocks until at least one goroutine has completed.
 func (sw *SubWorker) WaitForADone() bool {
-	sw.cond.L.Lock()
-	defer sw.cond.L.Unlock()
+	return sw.WaitForADoneWithContext(context.Background())
+}
+
+func (sw *SubWorker) WaitForADoneWithContext(ctx context.Context) bool {
+	sw.mu.Lock()
 	if sw.RunningCount() == 0 {
+		sw.mu.Unlock()
 		return false
 	}
-	sw.cond.Wait()
-	return true
+	notify := sw.notify
+	sw.mu.Unlock()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-notify:
+		return true
+	}
 }
 
 func (sw *SubWorker) RunningCount() int {
 	return int(atomic.LoadInt32(&sw.runningCount))
+}
+
+func (sw *SubWorker) signalDoneLocked() {
+	close(sw.notify)
+	sw.notify = make(chan struct{})
 }

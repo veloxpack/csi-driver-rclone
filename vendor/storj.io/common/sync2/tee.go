@@ -30,10 +30,11 @@ func NewTeeFile(readers int, tempdir string) ([]PipeReader, PipeWriter, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	handles := int64(readers + 1) // +1 for the writer
+	handles := new(atomic.Int64)
+	handles.Store(int64(readers + 1)) // +1 for the writer
 
 	tee := &tee{
-		open: &handles,
+		open: handles,
 	}
 	tee.nodata.L = &tee.mu
 	tee.noreader.L = &tee.mu
@@ -44,7 +45,7 @@ func NewTeeFile(readers int, tempdir string) ([]PipeReader, PipeWriter, error) {
 			tee: tee,
 			buffer: &sharedFile{
 				file: file,
-				open: &handles,
+				open: handles,
 			},
 		}
 	}
@@ -53,7 +54,7 @@ func NewTeeFile(readers int, tempdir string) ([]PipeReader, PipeWriter, error) {
 		tee: tee,
 		buffer: &sharedFile{
 			file: file,
-			open: &handles,
+			open: handles,
 		},
 	}, nil
 }
@@ -63,10 +64,11 @@ func NewTeeInmemory(readers int, blockSize int64) ([]PipeReader, PipeWriter, err
 	block := &memoryBlock{
 		data: make([]byte, blockSize),
 	}
-	handles := int64(readers + 1) // +1 for the writer
+	handles := new(atomic.Int64)
+	handles.Store(int64(readers + 1)) // +1 for the writer
 
 	tee := &tee{
-		open: &handles,
+		open: handles,
 	}
 	tee.nodata.L = &tee.mu
 	tee.noreader.L = &tee.mu
@@ -93,7 +95,7 @@ func NewTeeInmemory(readers int, blockSize int64) ([]PipeReader, PipeWriter, err
 type tee struct {
 	noCopy noCopy //nolint:structcheck
 
-	open *int64
+	open *atomic.Int64
 
 	mu       sync.Mutex
 	nodata   sync.Cond
@@ -110,7 +112,7 @@ type teeReader struct {
 	tee    *tee
 	buffer io.ReadCloser
 	pos    int64
-	closed int32
+	closed atomic.Int32
 }
 
 type teeWriter struct {
@@ -180,7 +182,7 @@ func (writer *teeWriter) Write(data []byte) (n int, err error) {
 
 	for tee.write > tee.maxRead {
 		// are all readers already closed?
-		if atomic.LoadInt64(tee.open) <= 1 {
+		if tee.open.Load() <= 1 {
 			tee.mu.Unlock()
 			return 0, io.ErrClosedPipe
 		}
@@ -211,7 +213,7 @@ func (writer *teeWriter) Close() error { return writer.CloseWithError(nil) }
 // CloseWithError implements closing with error.
 func (reader *teeReader) CloseWithError(reason error) (err error) {
 	tee := reader.tee
-	if atomic.CompareAndSwapInt32(&reader.closed, 0, 1) {
+	if reader.closed.CompareAndSwap(0, 1) {
 		err = reader.buffer.Close()
 	}
 

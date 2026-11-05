@@ -27,6 +27,111 @@ import (
 	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox"
 )
 
+// AccountPhotoGetArg : has no documentation (yet)
+type AccountPhotoGetArg struct {
+	// DbxAccountId : Encoded ID of the user. Must start either with 'dbid:' or
+	// 'dbaphid:'.
+	DbxAccountId string `json:"dbx_account_id"`
+	// Size : A string representing the size of the photo.
+	Size string `json:"size"`
+	// CircleCrop : True if the photo should be cropped and false otherwise.
+	CircleCrop bool `json:"circle_crop"`
+	// ExpectAccountPhoto : True if we expect account photo to exist.
+	ExpectAccountPhoto bool `json:"expect_account_photo"`
+}
+
+// NewAccountPhotoGetArg returns a new AccountPhotoGetArg instance
+func NewAccountPhotoGetArg(DbxAccountId string, Size string, CircleCrop bool, ExpectAccountPhoto bool) *AccountPhotoGetArg {
+	s := new(AccountPhotoGetArg)
+	s.DbxAccountId = DbxAccountId
+	s.Size = Size
+	s.CircleCrop = CircleCrop
+	s.ExpectAccountPhoto = ExpectAccountPhoto
+	return s
+}
+
+// AccountPhotoGetError : has no documentation (yet)
+type AccountPhotoGetError struct {
+	dropbox.Tagged
+	// ThumbnailError : Indicates infrastructural failure.
+	ThumbnailError *ThumbnailError `json:"thumbnail_error,omitempty"`
+}
+
+// Valid tag values for AccountPhotoGetError
+const (
+	AccountPhotoGetErrorThumbnailError              = "thumbnail_error"
+	AccountPhotoGetErrorAccountPhotoMissing         = "account_photo_missing"
+	AccountPhotoGetErrorExpectedAccountPhotoMissing = "expected_account_photo_missing"
+	AccountPhotoGetErrorOther                       = "other"
+)
+
+// UnmarshalJSON deserializes into a AccountPhotoGetError instance
+func (u *AccountPhotoGetError) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+		// ThumbnailError : Indicates infrastructural failure.
+		ThumbnailError *ThumbnailError `json:"thumbnail_error,omitempty"`
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "thumbnail_error":
+		u.ThumbnailError = w.ThumbnailError
+
+	}
+	return nil
+}
+
+// AccountPhotoGetResult : has no documentation (yet)
+type AccountPhotoGetResult struct {
+	// ContentType : The data returned by get_photo.
+	ContentType string `json:"content_type"`
+}
+
+// NewAccountPhotoGetResult returns a new AccountPhotoGetResult instance
+func NewAccountPhotoGetResult(ContentType string) *AccountPhotoGetResult {
+	s := new(AccountPhotoGetResult)
+	s.ContentType = ContentType
+	return s
+}
+
+// DeleteProfilePhotoArg : This struct is empty. The comment here is
+// intentionally emitted to avoid indentation issues with Stone.
+type DeleteProfilePhotoArg struct {
+}
+
+// NewDeleteProfilePhotoArg returns a new DeleteProfilePhotoArg instance
+func NewDeleteProfilePhotoArg() *DeleteProfilePhotoArg {
+	s := new(DeleteProfilePhotoArg)
+	return s
+}
+
+// DeleteProfilePhotoError : This union is empty. The comment here is
+// intentionally emitted to avoid indentation issues with Stone.
+type DeleteProfilePhotoError struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for DeleteProfilePhotoError
+const (
+	DeleteProfilePhotoErrorOther = "other"
+)
+
+// DeleteProfilePhotoResult : This struct is empty. The comment here is
+// intentionally emitted to avoid indentation issues with Stone.
+type DeleteProfilePhotoResult struct {
+}
+
+// NewDeleteProfilePhotoResult returns a new DeleteProfilePhotoResult instance
+func NewDeleteProfilePhotoResult() *DeleteProfilePhotoResult {
+	s := new(DeleteProfilePhotoResult)
+	return s
+}
+
 // PhotoSourceArg : has no documentation (yet)
 type PhotoSourceArg struct {
 	dropbox.Tagged
@@ -101,3 +206,15 @@ func NewSetProfilePhotoResult(ProfilePhotoUrl string) *SetProfilePhotoResult {
 	s.ProfilePhotoUrl = ProfilePhotoUrl
 	return s
 }
+
+// ThumbnailError : has no documentation (yet)
+type ThumbnailError struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for ThumbnailError
+const (
+	ThumbnailErrorPermanentFailure = "permanent_failure"
+	ThumbnailErrorTemporaryFailure = "temporary_failure"
+	ThumbnailErrorOther            = "other"
+)

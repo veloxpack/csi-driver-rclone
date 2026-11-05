@@ -1,7 +1,6 @@
 # go-vcard
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/emersion/go-vcard.svg)](https://pkg.go.dev/github.com/emersion/go-vcard)
-[![builds.sr.ht status](https://builds.sr.ht/~emersion/go-vcard/commits.svg)](https://builds.sr.ht/~emersion/go-vcard/commits?)
 
 A Go library to parse and format [vCard](https://tools.ietf.org/html/rfc6350).
 

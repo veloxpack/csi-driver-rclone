@@ -71,7 +71,10 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit, pieceP
 
 	ctx, cancel := context2.WithCustomCancel(ctx)
 
-	var underlyingStream downloadStream
+	var (
+		underlyingStream downloadStream
+		timedOut         bool
+	)
 	sync2.WithTimeout(client.config.MessageTimeout, func() {
 		if client.replaySafe != nil {
 			underlyingStream, err = client.replaySafe.Download(ctx)
@@ -80,11 +83,16 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit, pieceP
 		}
 	}, func() {
 		cancel(errMessageTimeout)
+		timedOut = true
 	})
 	if err != nil {
 		cancel(context.Canceled)
 		return nil, err
 	}
+	if timedOut {
+		return nil, errMessageTimeout
+	}
+
 	stream := &timedDownloadStream{
 		timeout: client.config.MessageTimeout,
 		stream:  underlyingStream,
@@ -287,10 +295,18 @@ func (client *Download) handleClosingError(err error) {
 func (client *Download) closeWithError(err error) {
 	client.close.Do(func() {
 		closeErr := client.stream.Close()
-		// If all data was successfully downloaded, ignore the stream close error.
-		// The close is just the mutual shutdown handshake and the data is already
-		// safely received. The other side may have already closed the connection.
-		if closeErr != nil && client.read.Load() >= client.downloadSize && client.downloadSize > 0 {
+		// A nil err means nothing went wrong while reading: either all the
+		// requested data was received, or the caller is intentionally abandoning
+		// the download (e.g. closing a partially read stream). In that case
+		// closeErr can only be a stream shutdown-handshake failure (such as
+		// "use of closed network connection" or a close timeout) — the other side
+		// often closes the connection right after sending data. That describes the
+		// connection teardown, not the data, which was already delivered through
+		// Read. Real download errors are reported separately: node-side failures
+		// arrive via Recv and are recorded by handleClosingError, and cancellations
+		// are passed in here as a non-nil err. So only suppress closeErr when err
+		// is nil.
+		if err == nil {
 			closeErr = nil
 		}
 		client.closingError.Set(errs.Combine(err, closeErr))
@@ -386,25 +402,46 @@ func (stream *timedDownloadStream) cancelTimeout() {
 	stream.cancel(errMessageTimeout)
 }
 
-func (stream *timedDownloadStream) Close() (err error) {
-	sync2.WithTimeout(stream.timeout, func() {
-		err = stream.stream.Close()
-	}, stream.cancelTimeout)
-	return CloseError.Wrap(err)
+func (stream *timedDownloadStream) Close() error {
+	return stream.withTimeout(stream.stream.Close)
 }
 
-func (stream *timedDownloadStream) Send(req *pb.PieceDownloadRequest) (err error) {
-	sync2.WithTimeout(stream.timeout, func() {
-		err = stream.stream.Send(req)
-	}, stream.cancelTimeout)
-	return err
+func (stream *timedDownloadStream) Send(req *pb.PieceDownloadRequest) error {
+	return stream.withTimeout(func() error {
+		return stream.stream.Send(req)
+	})
 }
 
 func (stream *timedDownloadStream) Recv() (resp *pb.PieceDownloadResponse, err error) {
+	err = stream.withTimeout(func() error {
+		var recvErr error
+		resp, recvErr = stream.stream.Recv()
+		return recvErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (stream *timedDownloadStream) withTimeout(fn func() error) error {
+	var (
+		err      error
+		timedOut bool
+	)
 	sync2.WithTimeout(stream.timeout, func() {
-		resp, err = stream.stream.Recv()
-	}, stream.cancelTimeout)
-	return resp, err
+		err = fn()
+	}, func() {
+		stream.cancelTimeout()
+		timedOut = true
+	})
+	if err != nil {
+		return CloseError.Wrap(err)
+	}
+	if timedOut {
+		return CloseError.Wrap(errMessageTimeout)
+	}
+	return nil
 }
 
 // syncError synchronizes access to an error and keeps

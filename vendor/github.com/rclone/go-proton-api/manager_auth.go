@@ -7,7 +7,7 @@ import (
 	"errors"
 
 	"github.com/ProtonMail/go-srp"
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/go-resty/resty/v2"
 )
 

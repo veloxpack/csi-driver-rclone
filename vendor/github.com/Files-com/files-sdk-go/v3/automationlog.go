@@ -8,16 +8,22 @@ import (
 )
 
 type AutomationLog struct {
-	Timestamp       *time.Time `json:"timestamp,omitempty" path:"timestamp,omitempty" url:"timestamp,omitempty"`
-	AutomationId    int64      `json:"automation_id,omitempty" path:"automation_id,omitempty" url:"automation_id,omitempty"`
-	AutomationRunId int64      `json:"automation_run_id,omitempty" path:"automation_run_id,omitempty" url:"automation_run_id,omitempty"`
-	DestPath        string     `json:"dest_path,omitempty" path:"dest_path,omitempty" url:"dest_path,omitempty"`
-	ErrorType       string     `json:"error_type,omitempty" path:"error_type,omitempty" url:"error_type,omitempty"`
-	Message         string     `json:"message,omitempty" path:"message,omitempty" url:"message,omitempty"`
-	Operation       string     `json:"operation,omitempty" path:"operation,omitempty" url:"operation,omitempty"`
-	Path            string     `json:"path,omitempty" path:"path,omitempty" url:"path,omitempty"`
-	Status          string     `json:"status,omitempty" path:"status,omitempty" url:"status,omitempty"`
-	CreatedAt       *time.Time `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
+	Timestamp               *time.Time `json:"timestamp,omitempty" path:"timestamp,omitempty" url:"timestamp,omitempty"`
+	AutomationId            int64      `json:"automation_id,omitempty" path:"automation_id,omitempty" url:"automation_id,omitempty"`
+	AutomationRunId         int64      `json:"automation_run_id,omitempty" path:"automation_run_id,omitempty" url:"automation_run_id,omitempty"`
+	CorrelationId           string     `json:"correlation_id,omitempty" path:"correlation_id,omitempty" url:"correlation_id,omitempty"`
+	DestPath                string     `json:"dest_path,omitempty" path:"dest_path,omitempty" url:"dest_path,omitempty"`
+	ErrorType               string     `json:"error_type,omitempty" path:"error_type,omitempty" url:"error_type,omitempty"`
+	SourceAutomationId      int64      `json:"source_automation_id,omitempty" path:"source_automation_id,omitempty" url:"source_automation_id,omitempty"`
+	SourceAutomationVersion int64      `json:"source_automation_version,omitempty" path:"source_automation_version,omitempty" url:"source_automation_version,omitempty"`
+	Message                 string     `json:"message,omitempty" path:"message,omitempty" url:"message,omitempty"`
+	NodeId                  string     `json:"node_id,omitempty" path:"node_id,omitempty" url:"node_id,omitempty"`
+	NodeType                string     `json:"node_type,omitempty" path:"node_type,omitempty" url:"node_type,omitempty"`
+	Operation               string     `json:"operation,omitempty" path:"operation,omitempty" url:"operation,omitempty"`
+	Output                  string     `json:"output,omitempty" path:"output,omitempty" url:"output,omitempty"`
+	Path                    string     `json:"path,omitempty" path:"path,omitempty" url:"path,omitempty"`
+	Status                  string     `json:"status,omitempty" path:"status,omitempty" url:"status,omitempty"`
+	CreatedAt               *time.Time `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
 }
 
 func (a AutomationLog) Identifier() interface{} {

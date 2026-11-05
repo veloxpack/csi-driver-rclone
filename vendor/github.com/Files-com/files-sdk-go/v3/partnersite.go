@@ -7,20 +7,14 @@ import (
 )
 
 type PartnerSite struct {
-	PartnerId      int64  `json:"partner_id,omitempty" path:"partner_id,omitempty" url:"partner_id,omitempty"`
-	PartnerName    string `json:"partner_name,omitempty" path:"partner_name,omitempty" url:"partner_name,omitempty"`
-	LinkedSiteId   int64  `json:"linked_site_id,omitempty" path:"linked_site_id,omitempty" url:"linked_site_id,omitempty"`
-	LinkedSiteName string `json:"linked_site_name,omitempty" path:"linked_site_name,omitempty" url:"linked_site_name,omitempty"`
-	MainSiteId     int64  `json:"main_site_id,omitempty" path:"main_site_id,omitempty" url:"main_site_id,omitempty"`
-	MainSiteName   string `json:"main_site_name,omitempty" path:"main_site_name,omitempty" url:"main_site_name,omitempty"`
 }
 
 // Identifier no path or id
 
 type PartnerSiteCollection []PartnerSite
 
-type PartnerSiteListParams struct {
-	ListParams
+type PartnerSiteDeleteParams struct {
+	Id int64 `url:"-,omitempty" json:"-,omitempty" path:"id"`
 }
 
 func (p *PartnerSite) UnmarshalJSON(data []byte) error {

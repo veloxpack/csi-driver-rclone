@@ -23,6 +23,7 @@
 package ants
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -43,6 +44,43 @@ const (
 	// LeastTasks always selects the pool with the least number of pending tasks.
 	LeastTasks
 )
+
+type contextReleaser interface {
+	ReleaseContext(ctx context.Context) error
+}
+
+func releasePools(ctx context.Context, pools []contextReleaser) error {
+	errCh := make(chan error, len(pools))
+	var wg errgroup.Group
+	for i, pool := range pools {
+		func(p contextReleaser, idx int) {
+			wg.Go(func() error {
+				err := p.ReleaseContext(ctx)
+				if err != nil {
+					err = fmt.Errorf("pool %d: %v", idx, err)
+				}
+				errCh <- err
+				return err
+			})
+		}(pool, i)
+	}
+
+	_ = wg.Wait()
+
+	var errStr strings.Builder
+	for i := 0; i < len(pools); i++ {
+		if err := <-errCh; err != nil {
+			errStr.WriteString(err.Error())
+			errStr.WriteString(" | ")
+		}
+	}
+
+	if errStr.Len() == 0 {
+		return nil
+	}
+
+	return errors.New(strings.TrimSuffix(errStr.String(), " | "))
+}
 
 // MultiPool consists of multiple pools, from which you will benefit the
 // performance improvement on basis of the fine-grained locking that reduces
@@ -70,6 +108,10 @@ func NewMultiPool(size, sizePerPool int, lbs LoadBalancingStrategy, options ...O
 	for i := 0; i < size; i++ {
 		pool, err := NewPool(sizePerPool, options...)
 		if err != nil {
+			// Release all previously created pools to avoid resource leak
+			for j := 0; j < i; j++ {
+				pools[j].Release()
+			}
 			return nil, err
 		}
 		pools[i] = pool
@@ -82,7 +124,7 @@ func (mp *MultiPool) next(lbs LoadBalancingStrategy) (idx int) {
 	case RoundRobin:
 		return int(atomic.AddUint32(&mp.index, 1) % uint32(len(mp.pools)))
 	case LeastTasks:
-		leastTasks := 1<<31 - 1
+		leastTasks := math.MaxInt32
 		for i, pool := range mp.pools {
 			if n := pool.Running(); n < leastTasks {
 				leastTasks = n
@@ -182,40 +224,23 @@ func (mp *MultiPool) IsClosed() bool {
 // ReleaseTimeout closes the multi-pool with a timeout,
 // it waits all pools to be closed before timing out.
 func (mp *MultiPool) ReleaseTimeout(timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return mp.ReleaseContext(ctx)
+}
+
+// ReleaseContext closes the multi-pool with a context,
+// it waits all pools to be closed before the context is done.
+func (mp *MultiPool) ReleaseContext(ctx context.Context) error {
 	if !atomic.CompareAndSwapInt32(&mp.state, OPENED, CLOSED) {
 		return ErrPoolClosed
 	}
 
-	errCh := make(chan error, len(mp.pools))
-	var wg errgroup.Group
-	for i, pool := range mp.pools {
-		func(p *Pool, idx int) {
-			wg.Go(func() error {
-				err := p.ReleaseTimeout(timeout)
-				if err != nil {
-					err = fmt.Errorf("pool %d: %v", idx, err)
-				}
-				errCh <- err
-				return err
-			})
-		}(pool, i)
+	pools := make([]contextReleaser, len(mp.pools))
+	for i, p := range mp.pools {
+		pools[i] = p
 	}
-
-	_ = wg.Wait()
-
-	var errStr strings.Builder
-	for i := 0; i < len(mp.pools); i++ {
-		if err := <-errCh; err != nil {
-			errStr.WriteString(err.Error())
-			errStr.WriteString(" | ")
-		}
-	}
-
-	if errStr.Len() == 0 {
-		return nil
-	}
-
-	return errors.New(strings.TrimSuffix(errStr.String(), " | "))
+	return releasePools(ctx, pools)
 }
 
 // Reboot reboots a released multi-pool.

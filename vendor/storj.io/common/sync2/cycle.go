@@ -22,8 +22,8 @@ import (
 type Cycle struct {
 	noCopy noCopy //nolint:structcheck
 
-	stopsent int32
-	runexec  int32
+	stopsent atomic.Int32
+	runexec  atomic.Int32
 
 	interval time.Duration
 
@@ -72,7 +72,7 @@ func (cycle *Cycle) initialize() {
 
 // Start runs the specified function with an errgroup.
 func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ctx context.Context) error) {
-	atomic.CompareAndSwapInt32(&cycle.runexec, 0, 1)
+	cycle.runexec.CompareAndSwap(0, 1)
 	group.Go(func() error {
 		return cycle.Run(ctx, fn)
 	})
@@ -85,7 +85,7 @@ func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ct
 //
 // Run PANICS if it's called after Stop has been called.
 func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error) error {
-	atomic.CompareAndSwapInt32(&cycle.runexec, 0, 1)
+	cycle.runexec.CompareAndSwap(0, 1)
 	cycle.initialize()
 	defer close(cycle.stopped)
 
@@ -173,7 +173,7 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 func (cycle *Cycle) Close() {
 	cycle.Stop()
 
-	if atomic.LoadInt32(&cycle.runexec) == 1 {
+	if cycle.runexec.Load() == 1 {
 		<-cycle.stopped
 	}
 
@@ -192,11 +192,11 @@ func (cycle *Cycle) sendControl(message any) {
 // Stop stops the cycle permanently.
 func (cycle *Cycle) Stop() {
 	cycle.initialize()
-	if atomic.CompareAndSwapInt32(&cycle.stopsent, 0, 1) {
+	if cycle.stopsent.CompareAndSwap(0, 1) {
 		close(cycle.stopping)
 	}
 
-	if atomic.LoadInt32(&cycle.runexec) == 1 {
+	if cycle.runexec.Load() == 1 {
 		<-cycle.stopped
 	}
 }

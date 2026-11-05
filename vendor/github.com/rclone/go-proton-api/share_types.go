@@ -1,6 +1,6 @@
 package proton
 
-import "github.com/ProtonMail/gopenpgp/v2/crypto"
+import "github.com/ProtonMail/gopenpgp/v3/crypto"
 
 type ShareMetadata struct {
 	ShareID  string // Encrypted share ID
@@ -41,17 +41,12 @@ func (s Share) GetKeyRing(addrKR *crypto.KeyRing) (*crypto.KeyRing, error) {
 		return nil, err
 	}
 
-	dec, err := addrKR.Decrypt(enc, nil, crypto.GetUnixTime())
+	dec, err := decryptMessage(addrKR, enc, nil, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	sig, err := crypto.NewPGPSignatureFromArmored(s.PassphraseSignature)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := addrKR.VerifyDetached(dec, sig, crypto.GetUnixTime()); err != nil {
+	if err := verifyDetachedArmored(addrKR, dec, s.PassphraseSignature, 0); err != nil {
 		return nil, err
 	}
 
@@ -60,7 +55,7 @@ func (s Share) GetKeyRing(addrKR *crypto.KeyRing) (*crypto.KeyRing, error) {
 		return nil, err
 	}
 
-	unlockedKey, err := lockedKey.Unlock(dec.GetBinary())
+	unlockedKey, err := lockedKey.Unlock(dec)
 	if err != nil {
 		return nil, err
 	}

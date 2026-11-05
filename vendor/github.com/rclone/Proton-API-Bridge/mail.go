@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/ProtonMail/gluon/rfc822"
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/rclone/go-proton-api"
 )
 
@@ -102,7 +102,11 @@ func (protonDrive *ProtonDrive) getAttachmentSessionKeyMap(attachments []*proton
 			return nil, err
 		}
 
-		key, err := protonDrive.DefaultAddrKR.DecryptSessionKey(keyPacket)
+		dh, err := crypto.PGP().Decryption().DecryptionKeys(protonDrive.DefaultAddrKR).New()
+		if err != nil {
+			return nil, err
+		}
+		key, err := dh.DecryptSessionKey(keyPacket)
 		if err != nil {
 			return nil, err
 		}

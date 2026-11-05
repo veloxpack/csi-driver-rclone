@@ -3,7 +3,7 @@ package common
 import (
 	"context"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/rclone/go-proton-api"
 )
 
@@ -60,7 +60,7 @@ func getAccountKRs(ctx context.Context, c *proton.Client, keyPass, saltedKeyPass
 	if err != nil {
 		return nil, nil, nil, nil, err
 
-	} else if userKR.CountDecryptionEntities() == 0 {
+	} else if userKR.CountDecryptionEntities(0) == 0 {
 		if err != nil {
 			return nil, nil, nil, nil, ErrFailedToUnlockUserKeys
 		}

@@ -12,7 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ProtonMail/gluon/rfc822"
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/emersion/go-message"
 	"github.com/emersion/go-message/textproto"
 	"github.com/google/uuid"
@@ -97,9 +97,9 @@ func writeAttachmentPart(w *message.Writer, kr *crypto.KeyRing, att Attachment, 
 		return err
 	}
 
-	msg := crypto.NewPGPSplitMessage(kps, attData).GetPGPMessage()
+	msg := crypto.NewPGPSplitMessage(kps, attData)
 
-	dec, err := kr.Decrypt(msg, nil, crypto.GetUnixTime())
+	dec, err := decryptMessage(kr, msg, nil, 0)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func writeAttachmentPart(w *message.Writer, kr *crypto.KeyRing, att Attachment, 
 		return err
 	}
 
-	if _, err := part.Write(dec.GetBinary()); err != nil {
+	if _, err := part.Write(dec); err != nil {
 		return err
 	}
 
@@ -201,7 +201,7 @@ func buildMultipartSignedRFC822(header message.Header, body []byte, sig Signatur
 	sigHeader.SetContentDisposition("attachment", map[string]string{"filename": "OpenPGP_signature"})
 	sigHeader.Set("Content-Description", "OpenPGP digital signature")
 
-	sigData, err := sig.Data.GetArmored()
+	sigData, err := armorSignature(sig.Data)
 	if err != nil {
 		return nil, err
 	}

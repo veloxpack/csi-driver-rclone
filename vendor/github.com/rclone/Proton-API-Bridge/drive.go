@@ -6,7 +6,7 @@ import (
 	"github.com/rclone/Proton-API-Bridge/common"
 	"golang.org/x/sync/semaphore"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/rclone/go-proton-api"
 )
 

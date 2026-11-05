@@ -15,7 +15,6 @@ import (
 	"github.com/Files-com/files-sdk-go/v3/lib/direction"
 	libLog "github.com/Files-com/files-sdk-go/v3/lib/logpath"
 	"github.com/Files-com/files-sdk-go/v3/lib/timer"
-	"github.com/bradfitz/iter"
 	"github.com/chilts/sid"
 	"github.com/hashicorp/go-retryablehttp"
 	ignore "github.com/sabhiram/go-gitignore"
@@ -112,6 +111,15 @@ type Job struct {
 	retryablehttp.Logger
 	RemoteFs fs.FS
 	*lib.Meter
+	fileAdmissionPool          lib.ConcurrencyManager
+	adaptiveUploadV2Mu         sync.Mutex
+	adaptiveUploadV2Clients    map[uploadV2HTTPClientCacheKey]uploadV2HTTPClientCacheEntry
+	adaptiveUploadV2Managers   map[uploadV2AdaptiveManagerCacheKey]*lib.AdaptiveConcurrencyManager
+	adaptiveDownloadV2Mu       sync.Mutex
+	adaptiveDownloadV2Managers map[downloadV2AdaptiveManagerCacheKey]*lib.AdaptiveConcurrencyManager
+	zipBatchStats              *zipBatchStats
+	scanStartedAt              time.Time
+	scanEndedAt                time.Time
 }
 
 func (r *Job) Init() *Job {
@@ -126,20 +134,34 @@ func (r *Job) Init() *Job {
 	r.Scanning = (&lib.Signal{}).Init()
 	r.EndScanning = (&lib.Signal{}).Init()
 	r.Meter, _ = lib.NewMeter(time.Millisecond*250, time.Second*5)
+	r.zipBatchStats = &zipBatchStats{}
 	return r
 }
 
 func (r *Job) SetManager(m *manager.Manager) {
 	if m == nil {
-		r.Manager = manager.Default()
+		r.Manager = manager.SharedDefault()
 	} else {
 		r.Manager = m
 	}
+	r.fileAdmissionPool = r.Manager.FilesManager.NewSubWorker()
+}
+
+func (r *Job) fileAdmissionManager() lib.ConcurrencyManager {
+	if r.Manager == nil {
+		r.SetManager(nil)
+	}
+	if r.fileAdmissionPool != nil {
+		return r.fileAdmissionPool
+	}
+	return r.FilesManager
 }
 
 func (r *Job) SetEventsReporter(e EventsReporter) {
-	if len(e) > 0 {
-		r.EventsReporter = e
+	for event, reporters := range e {
+		if len(reporters) > 0 {
+			r.EventsReporter[event] = append(r.EventsReporter[event], reporters...)
+		}
 	}
 }
 
@@ -155,14 +177,27 @@ func (r *Job) ClearStatuses() Job {
 	newJob := *r
 	newJob.Reset()
 	newJob.Statuses = []IFile{}
+	newJob.adaptiveUploadV2Mu = sync.Mutex{}
+	newJob.adaptiveUploadV2Clients = nil
+	newJob.adaptiveUploadV2Managers = nil
+	newJob.adaptiveDownloadV2Mu = sync.Mutex{}
+	newJob.adaptiveDownloadV2Managers = nil
+	newJob.zipBatchStats = &zipBatchStats{}
+	newJob.scanStartedAt = time.Time{}
+	newJob.scanEndedAt = time.Time{}
+	if newJob.Manager != nil {
+		newJob.fileAdmissionPool = newJob.Manager.FilesManager.NewSubWorker()
+	}
 	return newJob
 }
 
 func (r *Job) Scan() {
+	r.scanStartedAt = time.Now()
 	r.Scanning.Call()
 }
 
 func (r *Job) EndScan() {
+	r.scanEndedAt = time.Now()
 	r.EndScanning.Call()
 }
 
@@ -545,7 +580,7 @@ func WaitTellFinished[T any](job *Job, onStatusComplete chan T, beforeCallingFin
 	go func() {
 		wait := waitForAndCount(job.EndScanning.C, onStatusComplete)
 		n := len(job.Statuses) - wait
-		for range iter.N(n) {
+		for range n {
 			<-onStatusComplete
 		}
 		close(onStatusComplete)

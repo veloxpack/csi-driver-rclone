@@ -143,7 +143,7 @@ func Begin(ctx context.Context,
 	}
 
 	results := make(chan segmentResult, uploaderCount)
-	var successful int32
+	var successful atomic.Int32
 	uploadStart := time.Now()
 	uploadID := generateUploadID()
 	for range uploaderCount {
@@ -182,7 +182,7 @@ func Begin(ctx context.Context,
 			results <- segmentResult{uploaded: uploaded, err: err, stallCount: stallCount}
 			if uploaded {
 				// Piece upload was successful.
-				successfulSoFar := int(atomic.AddInt32(&successful, 1))
+				successfulSoFar := int(successful.Add(1))
 				// After BaseUploads successful uploads, calculate the stall threshold.
 				if updatedDetectionConfig != nil && successfulSoFar == updatedDetectionConfig.BaseUploads {
 					baseUploadsDuration := time.Since(uploadStart)

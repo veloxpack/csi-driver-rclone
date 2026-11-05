@@ -393,6 +393,9 @@ func (s *StripeReader) ReadStripes(ctx context.Context, nextStripe int64, out []
 		for _, idx := range ready {
 			data, release, err := s.pieces[idx].buffer.ReadShare(stripe)
 			if err != nil {
+				for _, r := range releases {
+					r()
+				}
 				return nil, 0, Error.New("unexpected error: %w", err)
 			}
 			releases = append(releases, release)

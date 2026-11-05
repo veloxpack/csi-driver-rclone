@@ -226,13 +226,15 @@ func (d *DownloadParts) slowDownTellFirstPart(part *Part) {
 	timeout := startTime.Add(time.Duration((part.number)*250) * time.Millisecond)
 	ctx, cancel := context.WithDeadline(d.Context, timeout)
 	defer cancel()
+	ticker := time.NewTicker(5 * time.Millisecond)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			d.Config.LogPath(d.path, map[string]interface{}{"message": fmt.Sprintf("Part1 to Finish: stopped waited %v after part %v", time.Now().Sub(startTime).Truncate(time.Microsecond), part.number)})
 			return
-		default:
+		case <-ticker.C:
 			if atomic.LoadUint32(&d.partsCompleted) != 0 || d.parts[0].Err() != nil {
 				d.Config.LogPath(d.path, map[string]interface{}{"message": fmt.Sprintf("Part1 to Finish: finish after waiting %v after part %v", time.Now().Sub(startTime).Truncate(time.Microsecond), part.number)})
 				cancel()

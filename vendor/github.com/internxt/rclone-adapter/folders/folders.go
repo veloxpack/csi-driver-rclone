@@ -90,6 +90,84 @@ func DeleteFolder(ctx context.Context, cfg *config.Config, uuid string) error {
 	return nil
 }
 
+// RenameFolder renames a folder by UUID with the given new name.
+func RenameFolder(ctx context.Context, cfg *config.Config, folderUUID, newPlainName string) error {
+	if err := consistency.AwaitFolder(ctx, folderUUID); err != nil {
+		return err
+	}
+
+	endpoint := cfg.Endpoints.Drive().Folders().Meta(folderUUID)
+
+	payload := map[string]string{
+		"plainName": newPlainName,
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal rename folder request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create rename folder request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := cfg.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute rename folder request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.NewHTTPError(resp, "rename folder")
+	}
+
+	return nil
+}
+
+// MoveFolder moves a folder to a new destination folder, optionally renaming it.
+// If newName is empty, it is omitted and the server keeps the current name.
+func MoveFolder(ctx context.Context, cfg *config.Config, folderUUID, destinationFolderUUID, newName string) error {
+	if err := consistency.AwaitFolder(ctx, folderUUID); err != nil {
+		return err
+	}
+
+	endpoint := cfg.Endpoints.Drive().Folders().Move(folderUUID)
+
+	payload := map[string]string{
+		"destinationFolder": destinationFolderUUID,
+	}
+	if newName != "" {
+		payload["name"] = newName
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal move folder request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create move folder request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := cfg.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute move folder request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.NewHTTPError(resp, "move folder")
+	}
+
+	return nil
+}
+
 // ListFolders lists child folders under the given parent UUID.
 // Returns a slice of folders or error otherwise
 func ListFolders(ctx context.Context, cfg *config.Config, parentUUID string, opts ListOptions) ([]Folder, error) {

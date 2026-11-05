@@ -106,6 +106,10 @@ func UploadFile(ctx context.Context, cfg *config.Config, filePath, targetFolderU
 	}
 	plainSize := fileInfo.Size()
 
+	if err := checkUploadSize(ctx, cfg, plainSize); err != nil {
+		return nil, err
+	}
+
 	// Setup encryption
 	encryptedReader, sha256Hasher, encIndex, err := encryptionSetup(f, cfg)
 	if err != nil {
@@ -133,6 +137,10 @@ func UploadFile(ctx context.Context, cfg *config.Config, filePath, targetFolderU
 // encrypting it on the fly and creating the metadata file in the target folder.
 // It returns the CreateMetaResponse of the created file entry.
 func UploadFileStream(ctx context.Context, cfg *config.Config, targetFolderUUID, fileName string, in io.Reader, plainSize int64, modTime time.Time) (*CreateMetaResponse, error) {
+	if err := checkUploadSize(ctx, cfg, plainSize); err != nil {
+		return nil, err
+	}
+
 	var ph [32]byte
 	if _, err := rand.Read(ph[:]); err != nil {
 		return nil, fmt.Errorf("cannot generate random index: %w", err)
@@ -231,6 +239,10 @@ func UploadFileStream(ctx context.Context, cfg *config.Config, targetFolderUUID,
 // UploadFileStreamMultipart uploads data from an io.Reader using multipart upload.
 // This is intended for large files (>100MB) and splits the file into multiple chunks
 func UploadFileStreamMultipart(ctx context.Context, cfg *config.Config, targetFolderUUID, fileName string, in io.Reader, plainSize int64, modTime time.Time) (*CreateMetaResponse, error) {
+	if err := checkUploadSize(ctx, cfg, plainSize); err != nil {
+		return nil, err
+	}
+
 	state, err := newMultipartUploadState(cfg, plainSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize multipart upload state: %w", err)
@@ -276,6 +288,9 @@ func UploadFileStreamAuto(ctx context.Context, cfg *config.Config, targetFolderU
 		}
 
 		plainSize = int64(len(bufferedData))
+		if err := checkUploadSize(ctx, cfg, plainSize); err != nil {
+			return nil, err
+		}
 		in = bytes.NewReader(bufferedData)
 	}
 

@@ -22,14 +22,14 @@ type Uploader interface {
 	CreateFolder(files_sdk.FolderCreateParams, ...files_sdk.RequestResponseOption) (files_sdk.File, error)
 }
 
-func uploader(parentCtx context.Context, c Uploader, params UploaderParams) *Job {
+func uploader(parentCtx context.Context, c Uploader, params UploaderParams, opts ...files_sdk.RequestResponseOption) *Job {
 	var job *Job
 	if params.Job == nil {
 		job = (&Job{}).Init()
+		SetJobParams(job, direction.UploadType, params, params.config.Logger, (&FS{}).Init(params.config, true))
 	} else {
 		job = params.Job
 	}
-	SetJobParams(job, direction.UploadType, params, params.config.Logger, (&FS{}).Init(params.config, true))
 	job.Config = params.config
 	jobCtx := job.WithContext(parentCtx)
 
@@ -50,7 +50,10 @@ func uploader(parentCtx context.Context, c Uploader, params UploaderParams) *Job
 		job.Scan()
 
 		go enqueueIndexedUploads(job, jobCtx, onComplete)
-		WaitTellFinished(job, onComplete, func() { RetryByPolicy(jobCtx, job, job.RetryPolicy.(RetryPolicy), false) })
+		WaitTellFinished(job, onComplete, func() {
+			RetryByPolicy(jobCtx, job, job.RetryPolicy.(RetryPolicy), false)
+			runSyncAfterEmptyFolders(job, params.SyncAfterActions, params.DryRun, params.config, opts...)
+		})
 
 		metaFile := UploadStatus{
 			job:             job,
@@ -220,21 +223,44 @@ func remotePath(ctx context.Context, localPath, remotePath string, c Uploader, j
 }
 
 func enqueueIndexedUploads(job *Job, jobCtx context.Context, onComplete chan *UploadStatus) {
+	params, _ := job.Params.(UploaderParams)
+	adaptiveAdmission := params.AdaptiveConcurrency && (params.AdaptiveConcurrencyUseSDKDefaultCaps || params.Manager == nil)
+	adaptiveTargets := uploadV2JobAdmissionTargets{job: job}
+	fileAdmissionManager := job.fileAdmissionManager()
 	for !job.EndScanning.Called() || job.Count(status.Indexed) > 0 {
 		if f, ok := job.EnqueueNext(); ok {
-			if job.FilesManager.WaitWithContext(jobCtx) {
-				go enqueueUpload(jobCtx, job, f.(*UploadStatus), onComplete)
+			uploadStatus := f.(*UploadStatus)
+			admitted := !shouldGateAdaptiveUploadAdmission(
+				uploadStatus,
+				adaptiveAdmission,
+				params.AdaptiveUploadV2TargetClassifier,
+				params.AdaptiveUploadV2Tuning,
+			) || waitForAdaptiveFileAdmission(jobCtx, fileAdmissionManager, adaptiveTargets, adaptiveFileAdmissionInitialTarget())
+			if admitted && fileAdmissionManager.WaitWithContext(jobCtx) {
+				go enqueueUpload(jobCtx, job, uploadStatus, onComplete)
 			} else {
-				job.UpdateStatus(status.Canceled, f.(*UploadStatus), nil)
-				onComplete <- f.(*UploadStatus)
+				job.UpdateStatus(status.Canceled, uploadStatus, nil)
+				onComplete <- uploadStatus
 			}
 		}
 	}
 }
 
+func shouldGateAdaptiveUploadAdmission(uploadStatus *UploadStatus, adaptiveAdmission bool, classifier UploadV2TargetClassifier, tuning UploadV2Tuning) bool {
+	if !(adaptiveAdmission &&
+		uploadStatus.error == nil &&
+		!uploadStatus.missingStat &&
+		!uploadStatus.dryRun &&
+		!uploadStatus.File().IsDir()) {
+		return false
+	}
+	part := uploadStatus.UploadResumable.FileUploadPart
+	return part.Ref == "" || uploadV2PartPlanEligible(part, uploadStatus.File().Size, classifier, tuning)
+}
+
 func enqueueUpload(ctx context.Context, job *Job, uploadStatus *UploadStatus, onComplete chan *UploadStatus) {
 	finish := func() {
-		job.FilesManager.Done()
+		job.fileAdmissionManager().Done()
 		onComplete <- uploadStatus
 	}
 	if uploadStatus.error != nil || uploadStatus.missingStat {
@@ -317,6 +343,8 @@ func enqueueUpload(ctx context.Context, job *Job, uploadStatus *UploadStatus, on
 			}
 		}
 
+		params, _ := job.Params.(UploaderParams)
+		useSDKDefaultAdaptiveCaps := params.AdaptiveConcurrency && (params.AdaptiveConcurrencyUseSDKDefaultCaps || params.Manager == nil)
 		opts := []UploadOption{
 			UploadWithContext(ctx),
 			UploadWithManager(job.FilePartsManager),
@@ -326,9 +354,32 @@ func enqueueUpload(ctx context.Context, job *Job, uploadStatus *UploadStatus, on
 			UploadWithProgress(progressFn),
 			UploadWithDestinationPath(uploadStatus.RemotePath()),
 		}
+		if useSDKDefaultAdaptiveCaps {
+			opts = append(opts, uploadWithV2SDKDefaultCaps())
+		}
 
-		if params, ok := job.Params.(UploaderParams); ok && params.PreserveTimes {
+		if params.PreserveTimes {
 			opts = append(opts, UploadWithProvidedMtime(*uploadStatus.File().Mtime))
+		}
+		if params.AdaptiveConcurrency {
+			opts = append(opts, UploadWithV2())
+			if params.AdaptiveUploadV2TargetClassifier != nil {
+				opts = append(opts, UploadWithV2TargetClassifier(params.AdaptiveUploadV2TargetClassifier))
+			}
+			tuning := params.AdaptiveUploadV2Tuning
+			if tuning.S3WorkloadBytes == 0 {
+				tuning.S3WorkloadBytes = job.uploadV2WorkloadBytes(uploadStatus.File().Size, tuning)
+			}
+			if useSDKDefaultAdaptiveCaps {
+				opts = append(opts, uploadWithV2AdaptiveManagerProvider(job.uploadV2AdaptiveManager))
+			}
+			opts = append(opts, uploadWithV2HTTPClientProvider(job.uploadV2HTTPClient))
+			if params.AdaptiveUploadReadyRunwaySet {
+				opts = append(opts, UploadWithV2ReadyRunway(params.AdaptiveUploadReadyRunwayParts, params.AdaptiveUploadReadyRunwayBytes))
+			}
+			if params.AdaptiveUploadV2TuningSet || tuning.S3WorkloadBytes > 0 {
+				opts = append(opts, UploadWithV2Tuning(tuning))
+			}
 		}
 
 		uploadStatus.UploadResumable, err = uploadStatus.UploadWithResume(opts...)

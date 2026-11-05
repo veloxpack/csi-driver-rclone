@@ -59,8 +59,10 @@ func (u ClickwrapUseWithUsersEnum) String() string {
 
 func (u ClickwrapUseWithUsersEnum) Enum() map[string]ClickwrapUseWithUsersEnum {
 	return map[string]ClickwrapUseWithUsersEnum{
-		"none":    ClickwrapUseWithUsersEnum("none"),
-		"require": ClickwrapUseWithUsersEnum("require"),
+		"none":                     ClickwrapUseWithUsersEnum("none"),
+		"require":                  ClickwrapUseWithUsersEnum("require"),
+		"require_all_users_once":   ClickwrapUseWithUsersEnum("require_all_users_once"),
+		"require_all_users_always": ClickwrapUseWithUsersEnum("require_all_users_always"),
 	}
 }
 

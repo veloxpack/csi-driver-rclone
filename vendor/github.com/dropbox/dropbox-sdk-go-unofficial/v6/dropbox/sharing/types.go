@@ -24,12 +24,12 @@ package sharing
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox"
 	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox/files"
 	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox/seen_state"
 	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox/team_common"
+	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox/team_policies"
 	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox/users"
 )
 
@@ -58,6 +58,7 @@ const (
 	AccessLevelViewer          = "viewer"
 	AccessLevelViewerNoComment = "viewer_no_comment"
 	AccessLevelTraverse        = "traverse"
+	AccessLevelNoAccess        = "no_access"
 	AccessLevelOther           = "other"
 )
 
@@ -89,10 +90,12 @@ type AddFileMemberArgs struct {
 	Quiet bool `json:"quiet"`
 	// AccessLevel : AccessLevel union object, describing what access level we
 	// want to give new members.
-	AccessLevel *AccessLevel `json:"access_level"`
+	AccessLevel *AccessLevel `json:"access_level,omitempty"`
 	// AddMessageAsComment : If the custom message should be added as a comment
-	// on the file.
+	// on the file. Only meant for Paper files.
 	AddMessageAsComment bool `json:"add_message_as_comment"`
+	// FpSealedResult : The FingerprintJS Sealed Client Result value
+	FpSealedResult string `json:"fp_sealed_result,omitempty"`
 }
 
 // NewAddFileMemberArgs returns a new AddFileMemberArgs instance
@@ -101,7 +104,6 @@ func NewAddFileMemberArgs(File string, Members []*MemberSelector) *AddFileMember
 	s.File = File
 	s.Members = Members
 	s.Quiet = false
-	s.AccessLevel = &AccessLevel{Tagged: dropbox.Tagged{Tag: "viewer"}}
 	s.AddMessageAsComment = false
 	return s
 }
@@ -121,6 +123,7 @@ const (
 	AddFileMemberErrorAccessError    = "access_error"
 	AddFileMemberErrorRateLimit      = "rate_limit"
 	AddFileMemberErrorInvalidComment = "invalid_comment"
+	AddFileMemberErrorBannedMember   = "banned_member"
 	AddFileMemberErrorOther          = "other"
 )
 
@@ -163,6 +166,8 @@ type AddFolderMemberArg struct {
 	// CustomMessage : Optional message to display to added members in their
 	// invitation.
 	CustomMessage string `json:"custom_message,omitempty"`
+	// FpSealedResult : The FingerprintJS Sealed Client Result value
+	FpSealedResult string `json:"fp_sealed_result,omitempty"`
 }
 
 // NewAddFolderMemberArg returns a new AddFolderMemberArg instance
@@ -252,14 +257,13 @@ type AddMember struct {
 	Member *MemberSelector `json:"member"`
 	// AccessLevel : The access level to grant `member` to the shared folder.
 	// `AccessLevel.owner` is disallowed.
-	AccessLevel *AccessLevel `json:"access_level"`
+	AccessLevel *AccessLevel `json:"access_level,omitempty"`
 }
 
 // NewAddMember returns a new AddMember instance
 func NewAddMember(Member *MemberSelector) *AddMember {
 	s := new(AddMember)
 	s.Member = Member
-	s.AccessLevel = &AccessLevel{Tagged: dropbox.Tagged{Tag: "viewer"}}
 	return s
 }
 
@@ -281,6 +285,7 @@ const (
 	AddMemberSelectorErrorAutomaticGroup      = "automatic_group"
 	AddMemberSelectorErrorInvalidDropboxId    = "invalid_dropbox_id"
 	AddMemberSelectorErrorInvalidEmail        = "invalid_email"
+	AddMemberSelectorErrorInvalidGroup        = "invalid_group"
 	AddMemberSelectorErrorUnverifiedDropboxId = "unverified_dropbox_id"
 	AddMemberSelectorErrorGroupDeleted        = "group_deleted"
 	AddMemberSelectorErrorGroupNotOnTeam      = "group_not_on_team"
@@ -427,6 +432,19 @@ func NewAudienceRestrictingSharedFolder(SharedFolderId string, Name string, Audi
 	return s
 }
 
+// ChangeLinkExpirationPolicy : Enumerates acceptable values for team's
+// ChangeLinkExpirationPolicy setting.
+type ChangeLinkExpirationPolicy struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for ChangeLinkExpirationPolicy
+const (
+	ChangeLinkExpirationPolicyAllowed    = "allowed"
+	ChangeLinkExpirationPolicyNotAllowed = "not_allowed"
+	ChangeLinkExpirationPolicyOther      = "other"
+)
+
 // LinkMetadata : Metadata for a shared link. This can be either a
 // `PathLinkMetadata` or `CollectionLinkMetadata`.
 type LinkMetadata struct {
@@ -435,7 +453,7 @@ type LinkMetadata struct {
 	// Visibility : Who can access the link.
 	Visibility *Visibility `json:"visibility"`
 	// Expires : Expiration time, if set. By default the link won't expire.
-	Expires *time.Time `json:"expires,omitempty"`
+	Expires *dropbox.DBXTime `json:"expires,omitempty"`
 }
 
 // NewLinkMetadata returns a new LinkMetadata instance
@@ -528,7 +546,7 @@ func NewCollectionLinkMetadata(Url string, Visibility *Visibility) *CollectionLi
 type CreateSharedLinkArg struct {
 	// Path : The path to share.
 	Path string `json:"path"`
-	// ShortUrl : has no documentation (yet)
+	// ShortUrl : Field is deprecated. None
 	ShortUrl bool `json:"short_url"`
 	// PendingUpload : If it's okay to share a path that does not yet exist, set
 	// this to either `PendingUploadMode.file` or `PendingUploadMode.folder` to
@@ -599,8 +617,10 @@ type CreateSharedLinkWithSettingsError struct {
 	// Path : has no documentation (yet)
 	Path *files.LookupError `json:"path,omitempty"`
 	// SharedLinkAlreadyExists : The shared link already exists. You can call
-	// `listSharedLinks` to get the  existing link, or use the provided metadata
-	// if it is returned.
+	// `listSharedLinks` to get the existing link, or use the provided metadata
+	// if it is returned. Existing link metadata will not be returned if custom
+	// settings were specified in the request that could make the existing link
+	// incompatible with the requested settings.
 	SharedLinkAlreadyExists *SharedLinkAlreadyExistsMetadata `json:"shared_link_already_exists,omitempty"`
 	// SettingsError : There is an error with the given settings.
 	SettingsError *SharedLinkSettingsError `json:"settings_error,omitempty"`
@@ -613,6 +633,8 @@ const (
 	CreateSharedLinkWithSettingsErrorSharedLinkAlreadyExists = "shared_link_already_exists"
 	CreateSharedLinkWithSettingsErrorSettingsError           = "settings_error"
 	CreateSharedLinkWithSettingsErrorAccessDenied            = "access_denied"
+	CreateSharedLinkWithSettingsErrorBannedMember            = "banned_member"
+	CreateSharedLinkWithSettingsErrorTooManySharedFolders    = "too_many_shared_folders"
 )
 
 // UnmarshalJSON deserializes into a CreateSharedLinkWithSettingsError instance
@@ -622,8 +644,10 @@ func (u *CreateSharedLinkWithSettingsError) UnmarshalJSON(body []byte) error {
 		// Path : has no documentation (yet)
 		Path *files.LookupError `json:"path,omitempty"`
 		// SharedLinkAlreadyExists : The shared link already exists. You can
-		// call `listSharedLinks` to get the  existing link, or use the provided
-		// metadata if it is returned.
+		// call `listSharedLinks` to get the existing link, or use the provided
+		// metadata if it is returned. Existing link metadata will not be
+		// returned if custom settings were specified in the request that could
+		// make the existing link incompatible with the requested settings.
 		SharedLinkAlreadyExists *SharedLinkAlreadyExistsMetadata `json:"shared_link_already_exists,omitempty"`
 		// SettingsError : There is an error with the given settings.
 		SettingsError *SharedLinkSettingsError `json:"settings_error,omitempty"`
@@ -664,8 +688,8 @@ type SharedContentLinkMetadataBase struct {
 	// CurrentAudience : The current audience of the link.
 	CurrentAudience *LinkAudience `json:"current_audience"`
 	// Expiry : Whether the link has an expiry set on it. A link with an expiry
-	// will have its  audience changed to members when the expiry is reached.
-	Expiry *time.Time `json:"expiry,omitempty"`
+	// will have its audience changed to members when the expiry is reached.
+	Expiry *dropbox.DBXTime `json:"expiry,omitempty"`
 	// LinkPermissions : A list of permissions for actions you can perform on
 	// the link.
 	LinkPermissions []*LinkPermission `json:"link_permissions"`
@@ -786,15 +810,16 @@ type SharedLinkMetadata struct {
 	// slash.
 	Name string `json:"name"`
 	// Expires : Expiration time, if set. By default the link won't expire.
-	Expires *time.Time `json:"expires,omitempty"`
+	Expires *dropbox.DBXTime `json:"expires,omitempty"`
 	// PathLower : The lowercased full path in the user's Dropbox. This always
 	// starts with a slash. This field will only be present only if the linked
-	// file is in the authenticated user's  dropbox.
+	// file is in the authenticated user's dropbox and the user is the owner of
+	// the link.
 	PathLower string `json:"path_lower,omitempty"`
 	// LinkPermissions : The link's access permissions.
 	LinkPermissions *LinkPermissions `json:"link_permissions"`
 	// TeamMemberInfo : The team membership information of the link's owner.
-	// This field will only be present  if the link's owner is a team member.
+	// This field will only be present if the link's owner is a team member.
 	TeamMemberInfo *TeamMemberInfo `json:"team_member_info,omitempty"`
 	// ContentOwnerTeamInfo : The team information of the content's owner. This
 	// field will only be present if the content's owner is a team member and
@@ -884,9 +909,9 @@ type FileLinkMetadata struct {
 	// server stores whatever the desktop client sends up), this should only be
 	// used for display purposes (such as sorting) and not, for example, to
 	// determine if a file has changed or not.
-	ClientModified time.Time `json:"client_modified"`
+	ClientModified dropbox.DBXTime `json:"client_modified"`
 	// ServerModified : The last time the file was modified on Dropbox.
-	ServerModified time.Time `json:"server_modified"`
+	ServerModified dropbox.DBXTime `json:"server_modified"`
 	// Rev : A unique identifier for the current revision of a file. This field
 	// is the same rev as elsewhere in the API and can be used to detect changes
 	// and avoid conflicts.
@@ -896,7 +921,7 @@ type FileLinkMetadata struct {
 }
 
 // NewFileLinkMetadata returns a new FileLinkMetadata instance
-func NewFileLinkMetadata(Url string, Name string, LinkPermissions *LinkPermissions, ClientModified time.Time, ServerModified time.Time, Rev string, Size uint64) *FileLinkMetadata {
+func NewFileLinkMetadata(Url string, Name string, LinkPermissions *LinkPermissions, ClientModified dropbox.DBXTime, ServerModified dropbox.DBXTime, Rev string, Size uint64) *FileLinkMetadata {
 	s := new(FileLinkMetadata)
 	s.Url = Url
 	s.Name = Name
@@ -1109,6 +1134,8 @@ const (
 	FolderActionLeaveACopy            = "leave_a_copy"
 	FolderActionShareLink             = "share_link"
 	FolderActionCreateLink            = "create_link"
+	FolderActionCreateViewLink        = "create_view_link"
+	FolderActionCreateEditLink        = "create_edit_link"
 	FolderActionSetAccessInheritance  = "set_access_inheritance"
 	FolderActionOther                 = "other"
 )
@@ -1183,8 +1210,8 @@ type GetFileMetadataArg struct {
 	// File : The file to query.
 	File string `json:"file"`
 	// Actions : A list of `FileAction`s corresponding to `FilePermission`s that
-	// should appear in the  response's `SharedFileMetadata.permissions` field
-	// describing the actions the  authenticated user can perform on the file.
+	// should appear in the response's `SharedFileMetadata.permissions` field
+	// describing the actions the authenticated user can perform on the file.
 	Actions []*FileAction `json:"actions,omitempty"`
 }
 
@@ -1200,8 +1227,8 @@ type GetFileMetadataBatchArg struct {
 	// Files : The files to query.
 	Files []string `json:"files"`
 	// Actions : A list of `FileAction`s corresponding to `FilePermission`s that
-	// should appear in the  response's `SharedFileMetadata.permissions` field
-	// describing the actions the  authenticated user can perform on the file.
+	// should appear in the response's `SharedFileMetadata.permissions` field
+	// describing the actions the authenticated user can perform on the file.
 	Actions []*FileAction `json:"actions,omitempty"`
 }
 
@@ -1318,8 +1345,8 @@ type GetMetadataArgs struct {
 	// SharedFolderId : The ID for the shared folder.
 	SharedFolderId string `json:"shared_folder_id"`
 	// Actions : A list of `FolderAction`s corresponding to `FolderPermission`s
-	// that should appear in the  response's `SharedFolderMetadata.permissions`
-	// field describing the actions the  authenticated user can perform on the
+	// that should appear in the response's `SharedFolderMetadata.permissions`
+	// field describing the actions the authenticated user can perform on the
 	// folder.
 	Actions []*FolderAction `json:"actions,omitempty"`
 }
@@ -1338,10 +1365,11 @@ type SharedLinkError struct {
 
 // Valid tag values for SharedLinkError
 const (
-	SharedLinkErrorSharedLinkNotFound     = "shared_link_not_found"
-	SharedLinkErrorSharedLinkAccessDenied = "shared_link_access_denied"
-	SharedLinkErrorUnsupportedLinkType    = "unsupported_link_type"
-	SharedLinkErrorOther                  = "other"
+	SharedLinkErrorSharedLinkNotFound        = "shared_link_not_found"
+	SharedLinkErrorSharedLinkAccessDenied    = "shared_link_access_denied"
+	SharedLinkErrorUnsupportedLinkType       = "unsupported_link_type"
+	SharedLinkErrorUnsupportedParameterField = "unsupported_parameter_field"
+	SharedLinkErrorOther                     = "other"
 )
 
 // GetSharedLinkFileError : has no documentation (yet)
@@ -1351,11 +1379,12 @@ type GetSharedLinkFileError struct {
 
 // Valid tag values for GetSharedLinkFileError
 const (
-	GetSharedLinkFileErrorSharedLinkNotFound     = "shared_link_not_found"
-	GetSharedLinkFileErrorSharedLinkAccessDenied = "shared_link_access_denied"
-	GetSharedLinkFileErrorUnsupportedLinkType    = "unsupported_link_type"
-	GetSharedLinkFileErrorOther                  = "other"
-	GetSharedLinkFileErrorSharedLinkIsDirectory  = "shared_link_is_directory"
+	GetSharedLinkFileErrorSharedLinkNotFound        = "shared_link_not_found"
+	GetSharedLinkFileErrorSharedLinkAccessDenied    = "shared_link_access_denied"
+	GetSharedLinkFileErrorUnsupportedLinkType       = "unsupported_link_type"
+	GetSharedLinkFileErrorUnsupportedParameterField = "unsupported_parameter_field"
+	GetSharedLinkFileErrorOther                     = "other"
+	GetSharedLinkFileErrorSharedLinkIsDirectory     = "shared_link_is_directory"
 )
 
 // GetSharedLinkMetadataArg : has no documentation (yet)
@@ -1459,10 +1488,10 @@ func (u *GetSharedLinksResult) UnmarshalJSON(b []byte) error {
 }
 
 // GroupInfo : The information about a group. Groups is a way to manage a list
-// of users  who need same access permission to the shared folder.
+// of users who need same access permission to the shared folder.
 type GroupInfo struct {
 	team_common.GroupSummary
-	// GroupType : The type of group.
+	// GroupType : Field is deprecated. The type of group.
 	GroupType *team_common.GroupType `json:"group_type"`
 	// IsMember : If the current user is a member of the group.
 	IsMember bool `json:"is_member"`
@@ -1494,9 +1523,9 @@ type MembershipInfo struct {
 	// Permissions : The permissions that requesting user has on this member.
 	// The set of permissions corresponds to the MemberActions in the request.
 	Permissions []*MemberPermission `json:"permissions,omitempty"`
-	// Initials : Never set.
+	// Initials : Field is deprecated. Never set.
 	Initials string `json:"initials,omitempty"`
-	// IsInherited : True if the member has access from a parent folder.
+	// IsInherited : True if the member has access on a parent folder.
 	IsInherited bool `json:"is_inherited"`
 }
 
@@ -1809,7 +1838,7 @@ func NewLinkAudienceOption(Audience *LinkAudience, Allowed bool) *LinkAudienceOp
 type LinkExpiry struct {
 	dropbox.Tagged
 	// SetExpiry : Set a new expiry or change an existing expiry.
-	SetExpiry time.Time `json:"set_expiry,omitempty"`
+	SetExpiry dropbox.DBXTime `json:"set_expiry,omitempty"`
 }
 
 // Valid tag values for LinkExpiry
@@ -1824,7 +1853,7 @@ func (u *LinkExpiry) UnmarshalJSON(body []byte) error {
 	type wrap struct {
 		dropbox.Tagged
 		// SetExpiry : Set a new expiry or change an existing expiry.
-		SetExpiry time.Time `json:"set_expiry,omitempty"`
+		SetExpiry dropbox.DBXTime `json:"set_expiry,omitempty"`
 	}
 	var w wrap
 	var err error
@@ -1944,11 +1973,11 @@ type LinkPermissions struct {
 	// link. This refers to the ability to impose a no-download restriction on
 	// the link.
 	CanDisallowDownload bool `json:"can_disallow_download"`
-	// AllowComments : Whether comments are enabled for the linked file. This
-	// takes the team commenting policy into account.
+	// AllowComments : Field is deprecated. Whether comments are enabled for the
+	// linked file. This takes the team commenting policy into account.
 	AllowComments bool `json:"allow_comments"`
-	// TeamRestrictsComments : Whether the team has disabled commenting
-	// globally.
+	// TeamRestrictsComments : Field is deprecated. Whether the team has
+	// disabled commenting globally.
 	TeamRestrictsComments bool `json:"team_restricts_comments"`
 	// AudienceOptions : A list of link audience options the user might be able
 	// to set as the new audience.
@@ -1963,6 +1992,25 @@ type LinkPermissions struct {
 	// CanUseExtendedSharingControls : Whether the user can use extended sharing
 	// controls, based on their account type.
 	CanUseExtendedSharingControls bool `json:"can_use_extended_sharing_controls,omitempty"`
+	// CanSync : Whether a user can save the content to their Dropbox account.
+	CanSync bool `json:"can_sync,omitempty"`
+	// CanRequestAccess : Whether the user can request access to the content.
+	CanRequestAccess bool `json:"can_request_access,omitempty"`
+	// EnforceSharedLinkPasswordPolicy : Whether the updated externally
+	// available shared link must have password set. Not provided if the link is
+	// not team owned.
+	EnforceSharedLinkPasswordPolicy *team_policies.EnforceLinkPasswordPolicy `json:"enforce_shared_link_password_policy,omitempty"`
+	// DaysToExpirePolicy : Existing owning team's policy for default number of
+	// days from today to link's expiration. Not provided if the link is not
+	// team owned.
+	DaysToExpirePolicy *team_policies.DefaultLinkExpirationDaysPolicy `json:"days_to_expire_policy,omitempty"`
+	// ChangeSharedLinkExpirationPolicy : When owning team's policy
+	// `change_shared_link_expiration_policy` is
+	// `ChangeLinkExpirationPolicy.not_allowed`, the updated externally
+	// available shared link expiration value cannot be less strict than
+	// `days_to_expire_policy`. In this case `days_to_expire_policy` is expected
+	// to be different from `none`. Not provided if the link is not team owned.
+	ChangeSharedLinkExpirationPolicy *ChangeLinkExpirationPolicy `json:"change_shared_link_expiration_policy,omitempty"`
 }
 
 // NewLinkPermissions returns a new LinkPermissions instance
@@ -2026,7 +2074,7 @@ func NewListFileMembersArg(File string) *ListFileMembersArg {
 type ListFileMembersBatchArg struct {
 	// Files : Files for which to return members.
 	Files []string `json:"files"`
-	// Limit : Number of members to return max per query. Defaults to 10 if no
+	// Limit : Number of members to return max per query. Defaults to 1000 if no
 	// limit is specified.
 	Limit uint32 `json:"limit"`
 }
@@ -2035,7 +2083,7 @@ type ListFileMembersBatchArg struct {
 func NewListFileMembersBatchArg(Files []string) *ListFileMembersBatchArg {
 	s := new(ListFileMembersBatchArg)
 	s.Files = Files
-	s.Limit = 10
+	s.Limit = 1000
 	return s
 }
 
@@ -2220,8 +2268,8 @@ type ListFilesArg struct {
 	// limit is specified.
 	Limit uint32 `json:"limit"`
 	// Actions : A list of `FileAction`s corresponding to `FilePermission`s that
-	// should appear in the  response's `SharedFileMetadata.permissions` field
-	// describing the actions the  authenticated user can perform on the file.
+	// should appear in the response's `SharedFileMetadata.permissions` field
+	// describing the actions the authenticated user can perform on the file.
 	Actions []*FileAction `json:"actions,omitempty"`
 }
 
@@ -2316,8 +2364,14 @@ func NewListFolderMembersCursorArg() *ListFolderMembersCursorArg {
 // ListFolderMembersArgs : has no documentation (yet)
 type ListFolderMembersArgs struct {
 	ListFolderMembersCursorArg
-	// SharedFolderId : The ID for the shared folder.
+	// SharedFolderId : The ID for the shared folder. When path is provided, the
+	// folder ID will be extracted from the path instead.
 	SharedFolderId string `json:"shared_folder_id"`
+	// Path : Optional path to get inherited members. When omitted, uses
+	// shared_folder_id to return direct members. When provided, extracts folder
+	// ID from this path and returns users who have access through parent shared
+	// folder.
+	Path string `json:"path,omitempty"`
 }
 
 // NewListFolderMembersArgs returns a new ListFolderMembersArgs instance
@@ -2382,8 +2436,8 @@ type ListFoldersArgs struct {
 	// Limit : The maximum number of results to return per request.
 	Limit uint32 `json:"limit"`
 	// Actions : A list of `FolderAction`s corresponding to `FolderPermission`s
-	// that should appear in the  response's `SharedFolderMetadata.permissions`
-	// field describing the actions the  authenticated user can perform on the
+	// that should appear in the response's `SharedFolderMetadata.permissions`
+	// field describing the actions the authenticated user can perform on the
 	// folder.
 	Actions []*FolderAction `json:"actions,omitempty"`
 }
@@ -2607,9 +2661,10 @@ type MemberPolicy struct {
 
 // Valid tag values for MemberPolicy
 const (
-	MemberPolicyTeam   = "team"
-	MemberPolicyAnyone = "anyone"
-	MemberPolicyOther  = "other"
+	MemberPolicyTeam            = "team"
+	MemberPolicyAnyone          = "anyone"
+	MemberPolicyTeamAndApproved = "team_and_approved"
+	MemberPolicyOther           = "other"
 )
 
 // MemberSelector : Includes different ways to identify a member of a shared
@@ -2684,12 +2739,13 @@ type ModifySharedLinkSettingsError struct {
 
 // Valid tag values for ModifySharedLinkSettingsError
 const (
-	ModifySharedLinkSettingsErrorSharedLinkNotFound     = "shared_link_not_found"
-	ModifySharedLinkSettingsErrorSharedLinkAccessDenied = "shared_link_access_denied"
-	ModifySharedLinkSettingsErrorUnsupportedLinkType    = "unsupported_link_type"
-	ModifySharedLinkSettingsErrorOther                  = "other"
-	ModifySharedLinkSettingsErrorSettingsError          = "settings_error"
-	ModifySharedLinkSettingsErrorEmailNotVerified       = "email_not_verified"
+	ModifySharedLinkSettingsErrorSharedLinkNotFound        = "shared_link_not_found"
+	ModifySharedLinkSettingsErrorSharedLinkAccessDenied    = "shared_link_access_denied"
+	ModifySharedLinkSettingsErrorUnsupportedLinkType       = "unsupported_link_type"
+	ModifySharedLinkSettingsErrorUnsupportedParameterField = "unsupported_parameter_field"
+	ModifySharedLinkSettingsErrorOther                     = "other"
+	ModifySharedLinkSettingsErrorSettingsError             = "settings_error"
+	ModifySharedLinkSettingsErrorEmailNotVerified          = "email_not_verified"
 )
 
 // UnmarshalJSON deserializes into a ModifySharedLinkSettingsError instance
@@ -2744,6 +2800,7 @@ const (
 	MountFolderErrorAlreadyMounted     = "already_mounted"
 	MountFolderErrorNoPermission       = "no_permission"
 	MountFolderErrorNotMountable       = "not_mountable"
+	MountFolderErrorMustAutomount      = "must_automount"
 	MountFolderErrorOther              = "other"
 )
 
@@ -2871,6 +2928,49 @@ func (u *PermissionDeniedReason) UnmarshalJSON(body []byte) error {
 
 	}
 	return nil
+}
+
+// RelinquishAccessArg : Removes all self-removable access from a file or
+// folder. For folders: always relinquishes without keeping a local copy
+// (leave_a_copy=false behavior). If you need control over keeping folder
+// contents, use the relinquish_folder_membership endpoint instead.
+type RelinquishAccessArg struct {
+	// FileId : The id for the file or folder.
+	FileId string `json:"file_id"`
+}
+
+// NewRelinquishAccessArg returns a new RelinquishAccessArg instance
+func NewRelinquishAccessArg(FileId string) *RelinquishAccessArg {
+	s := new(RelinquishAccessArg)
+	s.FileId = FileId
+	return s
+}
+
+// RelinquishAccessError : Error result for the relinquish_access endpoint.
+type RelinquishAccessError struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for RelinquishAccessError
+const (
+	RelinquishAccessErrorInvalidFileId    = "invalid_file_id"
+	RelinquishAccessErrorEmailUnverified  = "email_unverified"
+	RelinquishAccessErrorOwner            = "owner"
+	RelinquishAccessErrorNoExplicitAccess = "no_explicit_access"
+	RelinquishAccessErrorTeamFolder       = "team_folder"
+	RelinquishAccessErrorNoPermission     = "no_permission"
+	RelinquishAccessErrorOther            = "other"
+)
+
+// RelinquishAccessResult : Returns an empty response for the relinquish_access
+// endpoint.
+type RelinquishAccessResult struct {
+}
+
+// NewRelinquishAccessResult returns a new RelinquishAccessResult instance
+func NewRelinquishAccessResult() *RelinquishAccessResult {
+	s := new(RelinquishAccessResult)
+	return s
 }
 
 // RelinquishFileMembershipArg : has no documentation (yet)
@@ -3170,10 +3270,11 @@ type RequestedLinkAccessLevel struct {
 
 // Valid tag values for RequestedLinkAccessLevel
 const (
-	RequestedLinkAccessLevelViewer = "viewer"
-	RequestedLinkAccessLevelEditor = "editor"
-	RequestedLinkAccessLevelMax    = "max"
-	RequestedLinkAccessLevelOther  = "other"
+	RequestedLinkAccessLevelViewer  = "viewer"
+	RequestedLinkAccessLevelEditor  = "editor"
+	RequestedLinkAccessLevelMax     = "max"
+	RequestedLinkAccessLevelDefault = "default"
+	RequestedLinkAccessLevelOther   = "other"
 )
 
 // RevokeSharedLinkArg : has no documentation (yet)
@@ -3196,11 +3297,12 @@ type RevokeSharedLinkError struct {
 
 // Valid tag values for RevokeSharedLinkError
 const (
-	RevokeSharedLinkErrorSharedLinkNotFound     = "shared_link_not_found"
-	RevokeSharedLinkErrorSharedLinkAccessDenied = "shared_link_access_denied"
-	RevokeSharedLinkErrorUnsupportedLinkType    = "unsupported_link_type"
-	RevokeSharedLinkErrorOther                  = "other"
-	RevokeSharedLinkErrorSharedLinkMalformed    = "shared_link_malformed"
+	RevokeSharedLinkErrorSharedLinkNotFound        = "shared_link_not_found"
+	RevokeSharedLinkErrorSharedLinkAccessDenied    = "shared_link_access_denied"
+	RevokeSharedLinkErrorUnsupportedLinkType       = "unsupported_link_type"
+	RevokeSharedLinkErrorUnsupportedParameterField = "unsupported_parameter_field"
+	RevokeSharedLinkErrorOther                     = "other"
+	RevokeSharedLinkErrorSharedLinkMalformed       = "shared_link_malformed"
 )
 
 // SetAccessInheritanceArg : has no documentation (yet)
@@ -3263,8 +3365,8 @@ type ShareFolderArgBase struct {
 	// MemberPolicy : Who can be a member of this shared folder. Only applicable
 	// if the current user is on a team.
 	MemberPolicy *MemberPolicy `json:"member_policy,omitempty"`
-	// Path : The path to the folder to share. If it does not exist, then a new
-	// one is created.
+	// Path : The path or the file id to the folder to share. If it does not
+	// exist, then a new one is created.
 	Path string `json:"path"`
 	// SharedLinkPolicy : The policy to apply to shared links created for
 	// content inside this shared folder.  The current user must be on a team to
@@ -3290,8 +3392,8 @@ func NewShareFolderArgBase(Path string) *ShareFolderArgBase {
 type ShareFolderArg struct {
 	ShareFolderArgBase
 	// Actions : A list of `FolderAction`s corresponding to `FolderPermission`s
-	// that should appear in the  response's `SharedFolderMetadata.permissions`
-	// field describing the actions the  authenticated user can perform on the
+	// that should appear in the response's `SharedFolderMetadata.permissions`
+	// field describing the actions the authenticated user can perform on the
 	// folder.
 	Actions []*FolderAction `json:"actions,omitempty"`
 	// LinkSettings : Settings on the link for this folder.
@@ -3381,6 +3483,33 @@ func (u *ShareFolderError) UnmarshalJSON(body []byte) error {
 	}
 	return nil
 }
+
+// ShareFolderErrorBaseV2 : has no documentation (yet)
+type ShareFolderErrorBaseV2 struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for ShareFolderErrorBaseV2
+const (
+	ShareFolderErrorBaseV2EmailUnverified                 = "email_unverified"
+	ShareFolderErrorBaseV2TeamPolicyDisallowsMemberPolicy = "team_policy_disallows_member_policy"
+	ShareFolderErrorBaseV2DisallowedSharedLinkPolicy      = "disallowed_shared_link_policy"
+	ShareFolderErrorBaseV2Other                           = "other"
+)
+
+// ShareFolderErrorV2 : has no documentation (yet)
+type ShareFolderErrorV2 struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for ShareFolderErrorV2
+const (
+	ShareFolderErrorV2EmailUnverified                 = "email_unverified"
+	ShareFolderErrorV2TeamPolicyDisallowsMemberPolicy = "team_policy_disallows_member_policy"
+	ShareFolderErrorV2DisallowedSharedLinkPolicy      = "disallowed_shared_link_policy"
+	ShareFolderErrorV2Other                           = "other"
+	ShareFolderErrorV2NoPermission                    = "no_permission"
+)
 
 // ShareFolderJobStatus : has no documentation (yet)
 type ShareFolderJobStatus struct {
@@ -3520,6 +3649,104 @@ func (u *SharePathError) UnmarshalJSON(body []byte) error {
 	return nil
 }
 
+// SharePathErrorBaseV2 : has no documentation (yet)
+type SharePathErrorBaseV2 struct {
+	dropbox.Tagged
+	// AlreadyShared : Folder is already shared. Contains metadata about the
+	// existing shared folder.
+	AlreadyShared *SharedFolderMetadata `json:"already_shared,omitempty"`
+}
+
+// Valid tag values for SharePathErrorBaseV2
+const (
+	SharePathErrorBaseV2IsFile               = "is_file"
+	SharePathErrorBaseV2InsideSharedFolder   = "inside_shared_folder"
+	SharePathErrorBaseV2ContainsSharedFolder = "contains_shared_folder"
+	SharePathErrorBaseV2ContainsTeamFolder   = "contains_team_folder"
+	SharePathErrorBaseV2IsAppFolder          = "is_app_folder"
+	SharePathErrorBaseV2InsideAppFolder      = "inside_app_folder"
+	SharePathErrorBaseV2IsPublicFolder       = "is_public_folder"
+	SharePathErrorBaseV2InsidePublicFolder   = "inside_public_folder"
+	SharePathErrorBaseV2AlreadyShared        = "already_shared"
+	SharePathErrorBaseV2InvalidPath          = "invalid_path"
+	SharePathErrorBaseV2IsOsxPackage         = "is_osx_package"
+	SharePathErrorBaseV2InsideOsxPackage     = "inside_osx_package"
+	SharePathErrorBaseV2IsVault              = "is_vault"
+	SharePathErrorBaseV2IsVaultLocked        = "is_vault_locked"
+	SharePathErrorBaseV2Other                = "other"
+)
+
+// UnmarshalJSON deserializes into a SharePathErrorBaseV2 instance
+func (u *SharePathErrorBaseV2) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "already_shared":
+		if err = json.Unmarshal(body, &u.AlreadyShared); err != nil {
+			return err
+		}
+
+	}
+	return nil
+}
+
+// SharePathErrorV2 : has no documentation (yet)
+type SharePathErrorV2 struct {
+	dropbox.Tagged
+	// AlreadyShared : Folder is already shared. Contains metadata about the
+	// existing shared folder.
+	AlreadyShared *SharedFolderMetadata `json:"already_shared,omitempty"`
+}
+
+// Valid tag values for SharePathErrorV2
+const (
+	SharePathErrorV2IsFile               = "is_file"
+	SharePathErrorV2InsideSharedFolder   = "inside_shared_folder"
+	SharePathErrorV2ContainsSharedFolder = "contains_shared_folder"
+	SharePathErrorV2ContainsTeamFolder   = "contains_team_folder"
+	SharePathErrorV2IsAppFolder          = "is_app_folder"
+	SharePathErrorV2InsideAppFolder      = "inside_app_folder"
+	SharePathErrorV2IsPublicFolder       = "is_public_folder"
+	SharePathErrorV2InsidePublicFolder   = "inside_public_folder"
+	SharePathErrorV2AlreadyShared        = "already_shared"
+	SharePathErrorV2InvalidPath          = "invalid_path"
+	SharePathErrorV2IsOsxPackage         = "is_osx_package"
+	SharePathErrorV2InsideOsxPackage     = "inside_osx_package"
+	SharePathErrorV2IsVault              = "is_vault"
+	SharePathErrorV2IsVaultLocked        = "is_vault_locked"
+	SharePathErrorV2Other                = "other"
+	SharePathErrorV2IsFamily             = "is_family"
+	SharePathErrorV2ContainsAppFolder    = "contains_app_folder"
+)
+
+// UnmarshalJSON deserializes into a SharePathErrorV2 instance
+func (u *SharePathErrorV2) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "already_shared":
+		if err = json.Unmarshal(body, &u.AlreadyShared); err != nil {
+			return err
+		}
+
+	}
+	return nil
+}
+
 // SharedContentLinkMetadata : Metadata of a shared link for a file or folder.
 type SharedContentLinkMetadata struct {
 	SharedContentLinkMetadataBase
@@ -3614,7 +3841,7 @@ type SharedFileMetadata struct {
 	// this shared file. If the user was not invited to the shared file, the
 	// timestamp will indicate when the user was invited to the parent shared
 	// folder. This value may be absent.
-	TimeInvited *time.Time `json:"time_invited,omitempty"`
+	TimeInvited *dropbox.DBXTime `json:"time_invited,omitempty"`
 }
 
 // NewSharedFileMetadata returns a new SharedFileMetadata instance
@@ -3636,6 +3863,7 @@ type SharedFolderAccessError struct {
 const (
 	SharedFolderAccessErrorInvalidId       = "invalid_id"
 	SharedFolderAccessErrorNotAMember      = "not_a_member"
+	SharedFolderAccessErrorInvalidMember   = "invalid_member"
 	SharedFolderAccessErrorEmailUnverified = "email_unverified"
 	SharedFolderAccessErrorUnmounted       = "unmounted"
 	SharedFolderAccessErrorOther           = "other"
@@ -3721,6 +3949,9 @@ type SharedFolderMetadataBase struct {
 	// ParentSharedFolderId : The ID of the parent shared folder. This field is
 	// present only if the folder is contained within another shared folder.
 	ParentSharedFolderId string `json:"parent_shared_folder_id,omitempty"`
+	// PathDisplay : The full path of this shared folder. Absent for unmounted
+	// folders.
+	PathDisplay string `json:"path_display,omitempty"`
 	// PathLower : The lower-cased full path of this shared folder. Absent for
 	// unmounted folders.
 	PathLower string `json:"path_lower,omitempty"`
@@ -3759,14 +3990,16 @@ type SharedFolderMetadata struct {
 	SharedFolderId string `json:"shared_folder_id"`
 	// TimeInvited : Timestamp indicating when the current user was invited to
 	// this shared folder.
-	TimeInvited time.Time `json:"time_invited"`
+	TimeInvited dropbox.DBXTime `json:"time_invited"`
 	// AccessInheritance : Whether the folder inherits its members from its
 	// parent.
 	AccessInheritance *AccessInheritance `json:"access_inheritance"`
+	// FolderId : The ID of the content.
+	FolderId string `json:"folder_id,omitempty"`
 }
 
 // NewSharedFolderMetadata returns a new SharedFolderMetadata instance
-func NewSharedFolderMetadata(AccessType *AccessLevel, IsInsideTeamFolder bool, IsTeamFolder bool, Name string, Policy *FolderPolicy, PreviewUrl string, SharedFolderId string, TimeInvited time.Time) *SharedFolderMetadata {
+func NewSharedFolderMetadata(AccessType *AccessLevel, IsInsideTeamFolder bool, IsTeamFolder bool, Name string, Policy *FolderPolicy, PreviewUrl string, SharedFolderId string, TimeInvited dropbox.DBXTime) *SharedFolderMetadata {
 	s := new(SharedFolderMetadata)
 	s.AccessType = AccessType
 	s.IsInsideTeamFolder = IsInsideTeamFolder
@@ -3831,6 +4064,21 @@ func (u *SharedLinkAlreadyExistsMetadata) UnmarshalJSON(body []byte) error {
 	return nil
 }
 
+// SharedLinkMetadataError : The potential errors for a call to
+// get_shared_link_metadata.
+type SharedLinkMetadataError struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for SharedLinkMetadataError
+const (
+	SharedLinkMetadataErrorSharedLinkNotFound        = "shared_link_not_found"
+	SharedLinkMetadataErrorSharedLinkAccessDenied    = "shared_link_access_denied"
+	SharedLinkMetadataErrorUnsupportedLinkType       = "unsupported_link_type"
+	SharedLinkMetadataErrorUnsupportedParameterField = "unsupported_parameter_field"
+	SharedLinkMetadataErrorOther                     = "other"
+)
+
 // SharedLinkPolicy : Who can view shared links in this folder.
 type SharedLinkPolicy struct {
 	dropbox.Tagged
@@ -3853,7 +4101,7 @@ type SharedLinkSettings struct {
 	LinkPassword string `json:"link_password,omitempty"`
 	// Expires : Expiration time of the shared link. By default the link won't
 	// expire.
-	Expires *time.Time `json:"expires,omitempty"`
+	Expires *dropbox.DBXTime `json:"expires,omitempty"`
 	// Audience : The new audience who can benefit from the access level
 	// specified by the link's access level specified in the `link_access_level`
 	// field of `LinkPermissions`. This is used in conjunction with team
@@ -3863,8 +4111,8 @@ type SharedLinkSettings struct {
 	// Access : Requested access level you want the audience to gain from this
 	// link. Note, modifying access level for an existing link is not supported.
 	Access *RequestedLinkAccessLevel `json:"access,omitempty"`
-	// RequestedVisibility : Use `audience` instead.  The requested access for
-	// this shared link.
+	// RequestedVisibility : Field is deprecated. Use `audience` instead.  The
+	// requested access for this shared link.
 	RequestedVisibility *RequestedVisibility `json:"requested_visibility,omitempty"`
 	// AllowDownload : Boolean flag to allow or not download capabilities for
 	// shared links.
@@ -4168,6 +4416,63 @@ func NewUpdateFileMemberArgs(File string, Member *MemberSelector, AccessLevel *A
 	return s
 }
 
+// UpdateFilePolicyArg : Arguments for `updateFilePolicy`.
+type UpdateFilePolicyArg struct {
+	// File : File that we are changing the policy for.
+	File string `json:"file"`
+	// Actions : A list of `FileAction`s corresponding to `FilePermission`s that
+	// should appear in the response's `SharedFileMetadata.permissions` field
+	// describing the actions the authenticated user can perform on the file.
+	Actions []*FileAction `json:"actions,omitempty"`
+	// LinkSettings : Field is deprecated. Settings on the link for the file.
+	LinkSettings *LinkSettings `json:"link_settings,omitempty"`
+	// ViewerInfoPolicy : The presence and seen state policy on the file.
+	ViewerInfoPolicy *ViewerInfoPolicy `json:"viewer_info_policy,omitempty"`
+}
+
+// NewUpdateFilePolicyArg returns a new UpdateFilePolicyArg instance
+func NewUpdateFilePolicyArg(File string) *UpdateFilePolicyArg {
+	s := new(UpdateFilePolicyArg)
+	s.File = File
+	return s
+}
+
+// UpdateFilePolicyError : Error result for `updateFilePolicy`.
+type UpdateFilePolicyError struct {
+	dropbox.Tagged
+	// AccessError : has no documentation (yet)
+	AccessError *SharingFileAccessError `json:"access_error,omitempty"`
+}
+
+// Valid tag values for UpdateFilePolicyError
+const (
+	UpdateFilePolicyErrorAccessError         = "access_error"
+	UpdateFilePolicyErrorInvalidFileSettings = "invalid_file_settings"
+	UpdateFilePolicyErrorNoPermission        = "no_permission"
+	UpdateFilePolicyErrorOther               = "other"
+)
+
+// UnmarshalJSON deserializes into a UpdateFilePolicyError instance
+func (u *UpdateFilePolicyError) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+		// AccessError : has no documentation (yet)
+		AccessError *SharingFileAccessError `json:"access_error,omitempty"`
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "access_error":
+		u.AccessError = w.AccessError
+
+	}
+	return nil
+}
+
 // UpdateFolderMemberArg : has no documentation (yet)
 type UpdateFolderMemberArg struct {
 	// SharedFolderId : The ID for the shared folder.
@@ -4264,8 +4569,8 @@ type UpdateFolderPolicyArg struct {
 	// LinkSettings : Settings on the link for this folder.
 	LinkSettings *LinkSettings `json:"link_settings,omitempty"`
 	// Actions : A list of `FolderAction`s corresponding to `FolderPermission`s
-	// that should appear in the  response's `SharedFolderMetadata.permissions`
-	// field describing the actions the  authenticated user can perform on the
+	// that should appear in the response's `SharedFolderMetadata.permissions`
+	// field describing the actions the authenticated user can perform on the
 	// folder.
 	Actions []*FolderAction `json:"actions,omitempty"`
 }
@@ -4340,7 +4645,7 @@ type UserFileMembershipInfo struct {
 	// TimeLastSeen : The UTC timestamp of when the user has last seen the
 	// content. Only populated if the user has seen the content and the caller
 	// has a plan that includes viewer history.
-	TimeLastSeen *time.Time `json:"time_last_seen,omitempty"`
+	TimeLastSeen *dropbox.DBXTime `json:"time_last_seen,omitempty"`
 	// PlatformType : The platform on which the user has last seen the content,
 	// or unknown.
 	PlatformType *seen_state.PlatformType `json:"platform_type,omitempty"`

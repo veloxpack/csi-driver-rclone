@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/ProtonMail/gluon/async"
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/bradenaw/juniper/iterator"
 	"github.com/bradenaw/juniper/parallel"
 	"github.com/bradenaw/juniper/stream"

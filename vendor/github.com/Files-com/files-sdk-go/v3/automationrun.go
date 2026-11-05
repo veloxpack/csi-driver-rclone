@@ -8,20 +8,28 @@ import (
 )
 
 type AutomationRun struct {
-	Id                   int64      `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
-	AutomationId         int64      `json:"automation_id,omitempty" path:"automation_id,omitempty" url:"automation_id,omitempty"`
-	WorkspaceId          int64      `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
-	CompletedAt          *time.Time `json:"completed_at,omitempty" path:"completed_at,omitempty" url:"completed_at,omitempty"`
-	CreatedAt            *time.Time `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
-	RetryAt              *time.Time `json:"retry_at,omitempty" path:"retry_at,omitempty" url:"retry_at,omitempty"`
-	RetriedAt            *time.Time `json:"retried_at,omitempty" path:"retried_at,omitempty" url:"retried_at,omitempty"`
-	RetriedInRunId       int64      `json:"retried_in_run_id,omitempty" path:"retried_in_run_id,omitempty" url:"retried_in_run_id,omitempty"`
-	RetryOfRunId         int64      `json:"retry_of_run_id,omitempty" path:"retry_of_run_id,omitempty" url:"retry_of_run_id,omitempty"`
-	Runtime              float64    `json:"runtime,omitempty" path:"runtime,omitempty" url:"runtime,omitempty"`
-	Status               string     `json:"status,omitempty" path:"status,omitempty" url:"status,omitempty"`
-	SuccessfulOperations int64      `json:"successful_operations,omitempty" path:"successful_operations,omitempty" url:"successful_operations,omitempty"`
-	FailedOperations     int64      `json:"failed_operations,omitempty" path:"failed_operations,omitempty" url:"failed_operations,omitempty"`
-	StatusMessagesUrl    string     `json:"status_messages_url,omitempty" path:"status_messages_url,omitempty" url:"status_messages_url,omitempty"`
+	Id                   int64                     `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	AutomationId         int64                     `json:"automation_id,omitempty" path:"automation_id,omitempty" url:"automation_id,omitempty"`
+	AutomationVersionId  int64                     `json:"automation_version_id,omitempty" path:"automation_version_id,omitempty" url:"automation_version_id,omitempty"`
+	WorkspaceId          int64                     `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
+	CancelRequestedAt    *time.Time                `json:"cancel_requested_at,omitempty" path:"cancel_requested_at,omitempty" url:"cancel_requested_at,omitempty"`
+	CompletedAt          *time.Time                `json:"completed_at,omitempty" path:"completed_at,omitempty" url:"completed_at,omitempty"`
+	CreatedAt            *time.Time                `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
+	RetryAt              *time.Time                `json:"retry_at,omitempty" path:"retry_at,omitempty" url:"retry_at,omitempty"`
+	RetriedAt            *time.Time                `json:"retried_at,omitempty" path:"retried_at,omitempty" url:"retried_at,omitempty"`
+	RetriedInRunId       int64                     `json:"retried_in_run_id,omitempty" path:"retried_in_run_id,omitempty" url:"retried_in_run_id,omitempty"`
+	RetryOfRunId         int64                     `json:"retry_of_run_id,omitempty" path:"retry_of_run_id,omitempty" url:"retry_of_run_id,omitempty"`
+	RerunOfRunId         int64                     `json:"rerun_of_run_id,omitempty" path:"rerun_of_run_id,omitempty" url:"rerun_of_run_id,omitempty"`
+	RerunFromNodeId      string                    `json:"rerun_from_node_id,omitempty" path:"rerun_from_node_id,omitempty" url:"rerun_from_node_id,omitempty"`
+	Runtime              float64                   `json:"runtime,omitempty" path:"runtime,omitempty" url:"runtime,omitempty"`
+	Status               string                    `json:"status,omitempty" path:"status,omitempty" url:"status,omitempty"`
+	SuccessfulOperations int64                     `json:"successful_operations,omitempty" path:"successful_operations,omitempty" url:"successful_operations,omitempty"`
+	FailedOperations     int64                     `json:"failed_operations,omitempty" path:"failed_operations,omitempty" url:"failed_operations,omitempty"`
+	Definition           interface{}               `json:"definition,omitempty" path:"definition,omitempty" url:"definition,omitempty"`
+	NodeStates           interface{}               `json:"node_states,omitempty" path:"node_states,omitempty" url:"node_states,omitempty"`
+	ExecutionNodes       []AutomationExecutionNode `json:"execution_nodes,omitempty" path:"execution_nodes,omitempty" url:"execution_nodes,omitempty"`
+	JournalUrl           string                    `json:"journal_url,omitempty" path:"journal_url,omitempty" url:"journal_url,omitempty"`
+	StatusMessagesUrl    string                    `json:"status_messages_url,omitempty" path:"status_messages_url,omitempty" url:"status_messages_url,omitempty"`
 }
 
 func (a AutomationRun) Identifier() interface{} {
@@ -40,6 +48,22 @@ type AutomationRunListParams struct {
 
 type AutomationRunFindParams struct {
 	Id int64 `url:"-,omitempty" json:"-,omitempty" path:"id"`
+}
+
+type AutomationRunFindNodeParams struct {
+	Id     int64  `url:"-,omitempty" json:"-,omitempty" path:"id"`
+	NodeId string `url:"node_id" json:"node_id" path:"node_id"`
+}
+
+// Cancel Automation Run
+type AutomationRunCancelParams struct {
+	Id int64 `url:"-,omitempty" json:"-,omitempty" path:"id"`
+}
+
+// Re-run Automation from Node
+type AutomationRunRerunParams struct {
+	Id     int64  `url:"-,omitempty" json:"-,omitempty" path:"id"`
+	NodeId string `url:"node_id" json:"node_id" path:"node_id"`
 }
 
 func (a *AutomationRun) UnmarshalJSON(data []byte) error {

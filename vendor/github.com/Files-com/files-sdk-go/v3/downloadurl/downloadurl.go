@@ -1,6 +1,7 @@
 package downloadurl
 
 import (
+	"errors"
 	"net/url"
 	"strconv"
 	"time"
@@ -13,23 +14,28 @@ type URL struct {
 }
 
 func New(urlStr string) (d *URL, err error) {
-	d = &URL{}
-	err = d.parseUrl(urlStr)
+	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
 		return
 	}
 
-	err = d.parseTime()
+	return NewFromURL(parsedURL)
+}
 
+func NewFromURL(parsedURL *url.URL) (d *URL, err error) {
+	d = &URL{}
+	err = d.Init(parsedURL)
 	return
 }
 
-func (d *URL) parseUrl(urlStr string) (err error) {
-	d.URL, err = url.Parse(urlStr)
-	if err != nil {
-		return
+func (d *URL) Init(parsedURL *url.URL) error {
+	if parsedURL == nil {
+		return errors.New("downloadurl: nil URL")
 	}
-	return
+	d.URL = parsedURL
+	d.Time = time.Time{}
+	d.Type = ""
+	return d.parseTime()
 }
 
 type expire struct {
@@ -81,6 +87,7 @@ func (d *URL) parseTime() (err error) {
 			}
 		}
 		if err == nil {
+			d.Type = parser.urlType
 			break
 		}
 	}

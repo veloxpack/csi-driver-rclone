@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ProtonMail/gluon/rfc822"
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 )
 
 type EncryptionScheme int
@@ -169,7 +169,7 @@ func newMIMEPackage(
 				return nil, fmt.Errorf("missing public key for %s", addr)
 			}
 
-			encBodyKey, err := prefs.PubKey.EncryptSessionKey(decBodyKey)
+			encBodyKey, err := encryptSessionKey(prefs.PubKey, decBodyKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to encrypt session key: %w", err)
 			}
@@ -264,7 +264,7 @@ func newTextPackage(
 				return nil, fmt.Errorf("invalid signature type for package: %d", prefs.SignatureType)
 			}
 
-			encBodyKey, err := prefs.PubKey.EncryptSessionKey(decBodyKey)
+			encBodyKey, err := encryptSessionKey(prefs.PubKey, decBodyKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to encrypt session key: %w", err)
 			}
@@ -272,7 +272,7 @@ func newTextPackage(
 			recipient.BodyKeyPacket = base64.StdEncoding.EncodeToString(encBodyKey)
 
 			for attID, attKey := range attKeys {
-				encAttKey, err := prefs.PubKey.EncryptSessionKey(attKey)
+				encAttKey, err := encryptSessionKey(prefs.PubKey, attKey)
 				if err != nil {
 					return nil, fmt.Errorf("failed to encrypt attachment key: %w", err)
 				}
@@ -289,20 +289,15 @@ func newTextPackage(
 }
 
 func encSplit(kr *crypto.KeyRing, body string) (*crypto.SessionKey, []byte, error) {
-	encBody, err := kr.Encrypt(crypto.NewPlainMessageFromString(body), kr)
+	encBody, err := encryptMessage(kr, []byte(body), kr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to encrypt MIME body: %w", err)
 	}
 
-	splitEncBody, err := encBody.SplitMessage()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to split message: %w", err)
-	}
-
-	decBodyKey, err := kr.DecryptSessionKey(splitEncBody.GetBinaryKeyPacket())
+	decBodyKey, err := decryptSessionKey(kr, encBody.BinaryKeyPacket())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decrypt session key: %w", err)
 	}
 
-	return decBodyKey, splitEncBody.GetBinaryDataPacket(), nil
+	return decBodyKey, encBody.BinaryDataPacket(), nil
 }

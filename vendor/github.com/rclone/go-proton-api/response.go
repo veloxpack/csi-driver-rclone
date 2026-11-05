@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
 	"github.com/go-resty/resty/v2"
 	"github.com/sirupsen/logrus"
 )
@@ -146,7 +145,7 @@ func updateTime(_ *resty.Client, res *resty.Response) error {
 		return err
 	}
 
-	crypto.UpdateTime(date.Unix())
+	setServerTime(date.Unix())
 
 	return nil
 }

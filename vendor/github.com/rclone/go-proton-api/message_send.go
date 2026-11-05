@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -18,12 +18,12 @@ func (c *Client) CreateDraft(ctx context.Context, addrKR *crypto.KeyRing, req Cr
 		return Message{}, fmt.Errorf("failed to get first key: %w", err)
 	}
 
-	enc, err := kr.Encrypt(crypto.NewPlainMessageFromString(req.Message.Body), nil)
+	enc, err := encryptMessage(kr, []byte(req.Message.Body), nil)
 	if err != nil {
 		return Message{}, fmt.Errorf("failed to encrypt draft: %w", err)
 	}
 
-	arm, err := enc.GetArmored()
+	arm, err := enc.Armor()
 	if err != nil {
 		return Message{}, fmt.Errorf("failed to armor draft: %w", err)
 	}
@@ -50,12 +50,12 @@ func (c *Client) UpdateDraft(ctx context.Context, draftID string, addrKR *crypto
 			return Message{}, fmt.Errorf("failed to get first key: %w", err)
 		}
 
-		enc, err := kr.Encrypt(crypto.NewPlainMessageFromString(req.Message.Body), nil)
+		enc, err := encryptMessage(kr, []byte(req.Message.Body), nil)
 		if err != nil {
 			return Message{}, fmt.Errorf("failed to encrypt draft: %w", err)
 		}
 
-		arm, err := enc.GetArmored()
+		arm, err := enc.Armor()
 		if err != nil {
 			return Message{}, fmt.Errorf("failed to armor draft: %w", err)
 		}

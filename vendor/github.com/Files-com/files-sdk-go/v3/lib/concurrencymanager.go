@@ -20,6 +20,9 @@ type ConcurrencyManager interface {
 
 	// WaitForADone Blocks until at least one goroutine has completed.
 	WaitForADone() bool
+
+	// WaitForADoneWithContext blocks until at least one goroutine has completed or returns false if the context is done.
+	WaitForADoneWithContext(ctx context.Context) bool
 }
 
 type ConcurrencyManagerWithSubWorker interface {

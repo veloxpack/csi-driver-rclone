@@ -7,24 +7,21 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 )
 
 /* Helper function */
 func getEncryptedName(name string, addrKR, nodeKR *crypto.KeyRing) (string, error) {
-	clearTextName := crypto.NewPlainMessageFromString(name)
-
-	encName, err := nodeKR.Encrypt(clearTextName, addrKR)
+	// Names are currently always encrypted to a v4 parent node key, but
+	// Proton Drive forbids AEAD for names regardless of the recipient key's
+	// preferences, so use the format-pinning helper to stay correct if
+	// parent keys ever become v6.
+	encName, err := EncryptMessageNonAead(nodeKR, []byte(name), addrKR)
 	if err != nil {
 		return "", err
 	}
 
-	encNameString, err := encName.GetArmored()
-	if err != nil {
-		return "", err
-	}
-
-	return encNameString, nil
+	return encName.Armor()
 }
 
 func GetNameHash(name string, hashKey []byte) (string, error) {
@@ -119,22 +116,24 @@ func (createFileReq *CreateFileReq) SetHash(name string, hashKey []byte) error {
 }
 
 func (createFileReq *CreateFileReq) SetContentKeyPacketAndSignature(kr *crypto.KeyRing) (*crypto.SessionKey, error) {
-	newSessionKey, err := crypto.GenerateSessionKey()
+	// New files use the pre-crypto-refresh content format: a non-v6 session
+	// key wrapped in a v3 PKESK, giving v1 SEIPD data blocks. The official
+	// Proton clients (web included) do not yet create or reliably read files
+	// in the crypto-refresh format, so originating it makes the file
+	// undecryptable in the Proton apps. Revisions of existing crypto-refresh
+	// files are unaffected: they reuse the file's stored (v6) content key,
+	// which selects the v2 SEIPD block format automatically.
+	newSessionKey, err := crypto.PGP().GenerateSessionKey()
 	if err != nil {
 		return nil, err
 	}
 
-	encSessionKey, err := kr.EncryptSessionKey(newSessionKey)
+	encSessionKey, err := encryptSessionKey(kr, newSessionKey)
 	if err != nil {
 		return nil, err
 	}
 
-	sessionKeyPlainMessage := crypto.NewPlainMessage(newSessionKey.Key)
-	sessionKeySignature, err := kr.SignDetached(sessionKeyPlainMessage)
-	if err != nil {
-		return nil, err
-	}
-	armoredSessionKeySignature, err := sessionKeySignature.GetArmored()
+	armoredSessionKeySignature, err := signDetachedArmored(kr, newSessionKey.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -191,12 +190,14 @@ func (commitRevisionReq *CommitRevisionReq) SetEncXAttrString(addrKR, nodeKR *cr
 		return err
 	}
 
-	encXattr, err := nodeKR.Encrypt(crypto.NewPlainMessage(jsonByteArr), addrKR)
+	// The xattr is encrypted to the node key, which for files is a v6 key;
+	// AEAD must not be used here (see EncryptMessageNonAead).
+	encXattr, err := EncryptMessageNonAead(nodeKR, jsonByteArr, addrKR)
 	if err != nil {
 		return err
 	}
 
-	encXattrString, err := encXattr.GetArmored()
+	encXattrString, err := encXattr.Armor()
 	if err != nil {
 		return err
 	}

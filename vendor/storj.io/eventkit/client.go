@@ -217,7 +217,7 @@ func (c *UDPClient) Run(ctx context.Context) {
 			}
 		case <-ctx.Done():
 			left := len(c.submitQueue)
-			for i := 0; i < left; i++ {
+			for range left {
 				if p.addEvent(<-c.submitQueue) {
 					sendAndReset()
 				}

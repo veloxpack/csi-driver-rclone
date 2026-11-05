@@ -77,7 +77,7 @@ type connRequest struct {
 
 type connDetails struct {
 	conn        atomicConn
-	connClaimed int32
+	connClaimed atomic.Int32
 	cancel      func()
 	reqs        *sync2.ReceiverClosableChan[connRequest]
 }
@@ -230,7 +230,7 @@ func (s *setup) Read(p []byte) (n int, conn net.Conn, err error) {
 
 func (cd *connDetails) Close() error {
 	cd.cancel()
-	if conn, ok := cd.conn.Load(); ok && atomic.LoadInt32(&cd.connClaimed) == 0 {
+	if conn, ok := cd.conn.Load(); ok && cd.connClaimed.Load() == 0 {
 		return conn.Close()
 	}
 	// note that a Read may be happening concurrently, and we might be in the
@@ -339,7 +339,7 @@ func (cd *connDetails) manage(ctx context.Context, dialer DialFunc, network, add
 				return
 			}
 		case typeChoose:
-			atomic.StoreInt32(&cd.connClaimed, 1)
+			cd.connClaimed.Store(1)
 			req.Response <- connResponse{
 				Source: cd,
 				Conn:   conn,

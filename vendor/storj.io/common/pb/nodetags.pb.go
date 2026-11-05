@@ -208,3 +208,85 @@ func (m *SignedNodeTagSets) GetTags() []*SignedNodeTagSet {
 	}
 	return nil
 }
+
+// SignTagsRequest is the request for default, signed tags for a node.
+type SignTagsRequest struct {
+	NodeId               []byte   `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	Secret               string   `protobuf:"bytes,2,opt,name=secret,proto3" json:"secret,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SignTagsRequest) Reset()         { *m = SignTagsRequest{} }
+func (m *SignTagsRequest) String() string { return proto.CompactTextString(m) }
+func (*SignTagsRequest) ProtoMessage()    {}
+
+func (m *SignTagsRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SignTagsRequest.Unmarshal(m, b)
+}
+func (m *SignTagsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SignTagsRequest.Marshal(b, m, deterministic)
+}
+func (m *SignTagsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SignTagsRequest.Merge(m, src)
+}
+func (m *SignTagsRequest) XXX_Size() int {
+	return xxx_messageInfo_SignTagsRequest.Size(m)
+}
+func (m *SignTagsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SignTagsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SignTagsRequest proto.InternalMessageInfo
+
+func (m *SignTagsRequest) GetNodeId() []byte {
+	if m != nil {
+		return m.NodeId
+	}
+	return nil
+}
+
+func (m *SignTagsRequest) GetSecret() string {
+	if m != nil {
+		return m.Secret
+	}
+	return ""
+}
+
+// SignTagsResponse is the response with signed tags for a node.
+type SignTagsResponse struct {
+	Tags                 []*SignedNodeTagSet `protobuf:"bytes,1,rep,name=tags,proto3" json:"tags,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
+}
+
+func (m *SignTagsResponse) Reset()         { *m = SignTagsResponse{} }
+func (m *SignTagsResponse) String() string { return proto.CompactTextString(m) }
+func (*SignTagsResponse) ProtoMessage()    {}
+
+func (m *SignTagsResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SignTagsResponse.Unmarshal(m, b)
+}
+func (m *SignTagsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SignTagsResponse.Marshal(b, m, deterministic)
+}
+func (m *SignTagsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SignTagsResponse.Merge(m, src)
+}
+func (m *SignTagsResponse) XXX_Size() int {
+	return xxx_messageInfo_SignTagsResponse.Size(m)
+}
+func (m *SignTagsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_SignTagsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SignTagsResponse proto.InternalMessageInfo
+
+func (m *SignTagsResponse) GetTags() []*SignedNodeTagSet {
+	if m != nil {
+		return m.Tags
+	}
+	return nil
+}

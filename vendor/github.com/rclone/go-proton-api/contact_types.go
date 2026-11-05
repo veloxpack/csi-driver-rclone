@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/ProtonMail/gluon/rfc822"
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/emersion/go-vcard"
 )
 

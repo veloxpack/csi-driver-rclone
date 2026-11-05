@@ -7,7 +7,7 @@ import (
 
 	"github.com/ProtonMail/gluon/rfc822"
 	"github.com/ProtonMail/go-crypto/openpgp/armor"
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"golang.org/x/exp/slices"
 )
 
@@ -155,12 +155,7 @@ func (m Message) Decrypt(kr *crypto.KeyRing) ([]byte, error) {
 		return nil, err
 	}
 
-	dec, err := kr.Decrypt(enc, nil, crypto.GetUnixTime())
-	if err != nil {
-		return nil, err
-	}
-
-	return dec.GetBinary(), nil
+	return decryptMessage(kr, enc, nil, 0)
 }
 
 func (m Message) DecryptInto(kr *crypto.KeyRing, buffer io.ReaderFrom) error {
@@ -169,7 +164,13 @@ func (m Message) DecryptInto(kr *crypto.KeyRing, buffer io.ReaderFrom) error {
 		return err
 	}
 
-	stream, err := kr.DecryptStream(armored.Body, nil, crypto.GetUnixTime())
+	dh, err := crypto.PGP().Decryption().DecryptionKeys(kr).DisableVerifyTimeCheck().New()
+	if err != nil {
+		return err
+	}
+	defer dh.ClearPrivateParams()
+
+	stream, err := dh.DecryptingReader(armored.Body, crypto.Bytes)
 	if err != nil {
 		return err
 	}
@@ -189,7 +190,7 @@ type FullMessage struct {
 
 type Signature struct {
 	Hash string
-	Data *crypto.PGPSignature
+	Data []byte
 }
 
 type MessageActionReq struct {

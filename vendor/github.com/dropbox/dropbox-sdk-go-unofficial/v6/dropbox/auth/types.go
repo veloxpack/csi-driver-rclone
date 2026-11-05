@@ -35,12 +35,16 @@ type AccessError struct {
 	InvalidAccountType *InvalidAccountTypeError `json:"invalid_account_type,omitempty"`
 	// PaperAccessDenied : Current account cannot access Paper.
 	PaperAccessDenied *PaperAccessError `json:"paper_access_denied,omitempty"`
+	// NoPermission : Caller does not have permission to access the resource.
+	NoPermission *NoPermissionError `json:"no_permission,omitempty"`
 }
 
 // Valid tag values for AccessError
 const (
 	AccessErrorInvalidAccountType = "invalid_account_type"
 	AccessErrorPaperAccessDenied  = "paper_access_denied"
+	AccessErrorTeamAccessDenied   = "team_access_denied"
+	AccessErrorNoPermission       = "no_permission"
 	AccessErrorOther              = "other"
 )
 
@@ -52,6 +56,9 @@ func (u *AccessError) UnmarshalJSON(body []byte) error {
 		InvalidAccountType *InvalidAccountTypeError `json:"invalid_account_type,omitempty"`
 		// PaperAccessDenied : Current account cannot access Paper.
 		PaperAccessDenied *PaperAccessError `json:"paper_access_denied,omitempty"`
+		// NoPermission : Caller does not have permission to access the
+		// resource.
+		NoPermission *NoPermissionError `json:"no_permission,omitempty"`
 	}
 	var w wrap
 	var err error
@@ -65,6 +72,9 @@ func (u *AccessError) UnmarshalJSON(body []byte) error {
 
 	case "paper_access_denied":
 		u.PaperAccessDenied = w.PaperAccessDenied
+
+	case "no_permission":
+		u.NoPermission = w.NoPermission
 
 	}
 	return nil
@@ -122,6 +132,42 @@ const (
 	InvalidAccountTypeErrorFeature  = "feature"
 	InvalidAccountTypeErrorOther    = "other"
 )
+
+// NoPermissionError : has no documentation (yet)
+type NoPermissionError struct {
+	dropbox.Tagged
+	// UnauthorizedAccountIdUsage : Current caller does not have permission to
+	// access the account information for one or more of the specified account
+	// IDs.
+	UnauthorizedAccountIdUsage *UnauthorizedAccountIdUsageError `json:"unauthorized_account_id_usage,omitempty"`
+}
+
+// Valid tag values for NoPermissionError
+const (
+	NoPermissionErrorUnauthorizedAccountIdUsage = "unauthorized_account_id_usage"
+	NoPermissionErrorOther                      = "other"
+)
+
+// UnmarshalJSON deserializes into a NoPermissionError instance
+func (u *NoPermissionError) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "unauthorized_account_id_usage":
+		if err = json.Unmarshal(body, &u.UnauthorizedAccountIdUsage); err != nil {
+			return err
+		}
+
+	}
+	return nil
+}
 
 // PaperAccessError : has no documentation (yet)
 type PaperAccessError struct {
@@ -217,5 +263,19 @@ type TokenScopeError struct {
 func NewTokenScopeError(RequiredScope string) *TokenScopeError {
 	s := new(TokenScopeError)
 	s.RequiredScope = RequiredScope
+	return s
+}
+
+// UnauthorizedAccountIdUsageError : has no documentation (yet)
+type UnauthorizedAccountIdUsageError struct {
+	// UnauthorizedAccountIds : The account IDs that the caller does not have
+	// permission to use.
+	UnauthorizedAccountIds []string `json:"unauthorized_account_ids"`
+}
+
+// NewUnauthorizedAccountIdUsageError returns a new UnauthorizedAccountIdUsageError instance
+func NewUnauthorizedAccountIdUsageError(UnauthorizedAccountIds []string) *UnauthorizedAccountIdUsageError {
+	s := new(UnauthorizedAccountIdUsageError)
+	s.UnauthorizedAccountIds = UnauthorizedAccountIds
 	return s
 }

@@ -29,12 +29,12 @@ func init() {
 }
 
 var (
-	rngState uint64
+	rngState atomic.Uint64
 	rngInc   = uint64(time.Now().UnixNano())
 )
 
 func intn(n int) int {
-	return rand.New(rand.NewSource(int64(atomic.AddUint64(&rngState, rngInc)))).Intn(n)
+	return rand.New(rand.NewSource(int64(rngState.Add(rngInc)))).Intn(n)
 }
 
 type quicRolloutPercentKey struct{}

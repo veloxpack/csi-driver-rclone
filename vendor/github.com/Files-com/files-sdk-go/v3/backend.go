@@ -74,23 +74,44 @@ func ParseResponse(res *http.Response, resource string) (*[]byte, *http.Response
 }
 
 type CallParams struct {
-	Method  string
-	Config  Config
-	Uri     string
-	Params  lib.Values
-	BodyIo  io.ReadCloser
+	Method string
+	Config Config
+	Uri    string
+	Params lib.Values
+	BodyIo io.ReadCloser
+	// RetryableBody builds a fresh body reader for retries.
+	// Leave nil unless this request needs retryable streaming body support.
+	RetryableBody retryablehttp.ReaderFunc
+	// Client overrides the HTTP client for this raw request.
+	// Leave nil to use the configured SDK client.
+	Client  *retryablehttp.Client
 	Headers *http.Header
 	context.Context
 }
 
 func CallRaw(params *CallParams) (*http.Response, error) {
+	if params.Headers == nil {
+		params.Headers = &http.Header{}
+	}
+	params.Config.SetUserAgentHeader(params.Headers)
+
 	request, err := buildRequest(params)
 	if err != nil {
 		return &http.Response{}, err
 	}
 	retryRequest := &retryablehttp.Request{Request: request}
-	retryRequest.Body = request.Body
-	return params.Config.Client.Do(retryRequest)
+	if params.RetryableBody != nil {
+		if err := retryRequest.SetBody(params.RetryableBody); err != nil {
+			return &http.Response{}, err
+		}
+	} else {
+		retryRequest.Body = request.Body
+	}
+	client := params.Config.Client
+	if params.Client != nil {
+		client = params.Client
+	}
+	return client.Do(retryRequest)
 }
 
 func buildRequest(opts *CallParams) (*http.Request, error) {

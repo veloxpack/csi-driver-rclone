@@ -40,6 +40,7 @@ type RemoteServerCredential struct {
 	LinodeSecretKey                         string `json:"linode_secret_key,omitempty" path:"linode_secret_key,omitempty" url:"linode_secret_key,omitempty"`
 	S3CompatibleSecretKey                   string `json:"s3_compatible_secret_key,omitempty" path:"s3_compatible_secret_key,omitempty" url:"s3_compatible_secret_key,omitempty"`
 	WasabiSecretKey                         string `json:"wasabi_secret_key,omitempty" path:"wasabi_secret_key,omitempty" url:"wasabi_secret_key,omitempty"`
+	CopyValuesFromCredentialId              int64  `json:"copy_values_from_credential_id,omitempty" path:"copy_values_from_credential_id,omitempty" url:"copy_values_from_credential_id,omitempty"`
 }
 
 func (r RemoteServerCredential) Identifier() interface{} {
@@ -75,6 +76,7 @@ func (u RemoteServerCredentialServerTypeEnum) Enum() map[string]RemoteServerCred
 		"filebase":             RemoteServerCredentialServerTypeEnum("filebase"),
 		"cloudflare":           RemoteServerCredentialServerTypeEnum("cloudflare"),
 		"linode":               RemoteServerCredentialServerTypeEnum("linode"),
+		"files_com":            RemoteServerCredentialServerTypeEnum("files_com"),
 	}
 }
 
@@ -121,6 +123,7 @@ type RemoteServerCredentialCreateParams struct {
 	S3CompatibleSecretKey                   string                               `url:"s3_compatible_secret_key,omitempty" json:"s3_compatible_secret_key,omitempty" path:"s3_compatible_secret_key"`
 	WasabiSecretKey                         string                               `url:"wasabi_secret_key,omitempty" json:"wasabi_secret_key,omitempty" path:"wasabi_secret_key"`
 	WorkspaceId                             int64                                `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
+	CopyValuesFromCredentialId              int64                                `url:"copy_values_from_credential_id,omitempty" json:"copy_values_from_credential_id,omitempty" path:"copy_values_from_credential_id"`
 }
 
 type RemoteServerCredentialUpdateParams struct {

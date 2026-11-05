@@ -3,7 +3,7 @@ package proton
 import (
 	"errors"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 )
 
 type Calendar struct {
@@ -122,19 +122,14 @@ func (passphrase MemberPassphrase) decrypt(addrKR *crypto.KeyRing) ([]byte, erro
 		return nil, err
 	}
 
-	sig, err := crypto.NewPGPSignatureFromArmored(passphrase.Signature)
+	dec, err := decryptMessage(addrKR, msg, nil, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	dec, err := addrKR.Decrypt(msg, nil, crypto.GetUnixTime())
-	if err != nil {
+	if err := verifyDetachedArmored(addrKR, dec, passphrase.Signature, 0); err != nil {
 		return nil, err
 	}
 
-	if err := addrKR.VerifyDetached(dec, sig, crypto.GetUnixTime()); err != nil {
-		return nil, err
-	}
-
-	return dec.GetBinary(), nil
+	return dec, nil
 }

@@ -8,28 +8,29 @@ import (
 )
 
 type SyncRun struct {
-	Id                   int64      `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
-	Body                 string     `json:"body,omitempty" path:"body,omitempty" url:"body,omitempty"`
-	BytesSynced          int64      `json:"bytes_synced,omitempty" path:"bytes_synced,omitempty" url:"bytes_synced,omitempty"`
-	ComparedFiles        int64      `json:"compared_files,omitempty" path:"compared_files,omitempty" url:"compared_files,omitempty"`
-	ComparedFolders      int64      `json:"compared_folders,omitempty" path:"compared_folders,omitempty" url:"compared_folders,omitempty"`
-	CompletedAt          *time.Time `json:"completed_at,omitempty" path:"completed_at,omitempty" url:"completed_at,omitempty"`
-	CreatedAt            *time.Time `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
-	DestRemoteServerType string     `json:"dest_remote_server_type,omitempty" path:"dest_remote_server_type,omitempty" url:"dest_remote_server_type,omitempty"`
-	DryRun               *bool      `json:"dry_run,omitempty" path:"dry_run,omitempty" url:"dry_run,omitempty"`
-	ErroredFiles         int64      `json:"errored_files,omitempty" path:"errored_files,omitempty" url:"errored_files,omitempty"`
-	EstimatedBytesCount  int64      `json:"estimated_bytes_count,omitempty" path:"estimated_bytes_count,omitempty" url:"estimated_bytes_count,omitempty"`
-	EventErrors          []string   `json:"event_errors,omitempty" path:"event_errors,omitempty" url:"event_errors,omitempty"`
-	LogUrl               string     `json:"log_url,omitempty" path:"log_url,omitempty" url:"log_url,omitempty"`
-	Runtime              float64    `json:"runtime,omitempty" path:"runtime,omitempty" url:"runtime,omitempty"`
-	SiteId               int64      `json:"site_id,omitempty" path:"site_id,omitempty" url:"site_id,omitempty"`
-	WorkspaceId          int64      `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
-	SrcRemoteServerType  string     `json:"src_remote_server_type,omitempty" path:"src_remote_server_type,omitempty" url:"src_remote_server_type,omitempty"`
-	Status               string     `json:"status,omitempty" path:"status,omitempty" url:"status,omitempty"`
-	SuccessfulFiles      int64      `json:"successful_files,omitempty" path:"successful_files,omitempty" url:"successful_files,omitempty"`
-	SyncId               int64      `json:"sync_id,omitempty" path:"sync_id,omitempty" url:"sync_id,omitempty"`
-	SyncName             string     `json:"sync_name,omitempty" path:"sync_name,omitempty" url:"sync_name,omitempty"`
-	UpdatedAt            *time.Time `json:"updated_at,omitempty" path:"updated_at,omitempty" url:"updated_at,omitempty"`
+	Id                   int64                 `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	Body                 string                `json:"body,omitempty" path:"body,omitempty" url:"body,omitempty"`
+	BytesSynced          int64                 `json:"bytes_synced,omitempty" path:"bytes_synced,omitempty" url:"bytes_synced,omitempty"`
+	ComparedFiles        int64                 `json:"compared_files,omitempty" path:"compared_files,omitempty" url:"compared_files,omitempty"`
+	ComparedFolders      int64                 `json:"compared_folders,omitempty" path:"compared_folders,omitempty" url:"compared_folders,omitempty"`
+	CompletedAt          *time.Time            `json:"completed_at,omitempty" path:"completed_at,omitempty" url:"completed_at,omitempty"`
+	CreatedAt            *time.Time            `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
+	DestRemoteServerType string                `json:"dest_remote_server_type,omitempty" path:"dest_remote_server_type,omitempty" url:"dest_remote_server_type,omitempty"`
+	DryRun               *bool                 `json:"dry_run,omitempty" path:"dry_run,omitempty" url:"dry_run,omitempty"`
+	ErroredFiles         int64                 `json:"errored_files,omitempty" path:"errored_files,omitempty" url:"errored_files,omitempty"`
+	EstimatedBytesCount  int64                 `json:"estimated_bytes_count,omitempty" path:"estimated_bytes_count,omitempty" url:"estimated_bytes_count,omitempty"`
+	EventErrors          []string              `json:"event_errors,omitempty" path:"event_errors,omitempty" url:"event_errors,omitempty"`
+	LogUrl               string                `json:"log_url,omitempty" path:"log_url,omitempty" url:"log_url,omitempty"`
+	Runtime              float64               `json:"runtime,omitempty" path:"runtime,omitempty" url:"runtime,omitempty"`
+	SiteId               int64                 `json:"site_id,omitempty" path:"site_id,omitempty" url:"site_id,omitempty"`
+	WorkspaceId          int64                 `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
+	SrcRemoteServerType  string                `json:"src_remote_server_type,omitempty" path:"src_remote_server_type,omitempty" url:"src_remote_server_type,omitempty"`
+	Status               string                `json:"status,omitempty" path:"status,omitempty" url:"status,omitempty"`
+	SuccessfulFiles      int64                 `json:"successful_files,omitempty" path:"successful_files,omitempty" url:"successful_files,omitempty"`
+	SyncId               int64                 `json:"sync_id,omitempty" path:"sync_id,omitempty" url:"sync_id,omitempty"`
+	SyncName             string                `json:"sync_name,omitempty" path:"sync_name,omitempty" url:"sync_name,omitempty"`
+	UpdatedAt            *time.Time            `json:"updated_at,omitempty" path:"updated_at,omitempty" url:"updated_at,omitempty"`
+	LiveTransfers        []SyncRunLiveTransfer `json:"live_transfers,omitempty" path:"live_transfers,omitempty" url:"live_transfers,omitempty"`
 }
 
 func (s SyncRun) Identifier() interface{} {

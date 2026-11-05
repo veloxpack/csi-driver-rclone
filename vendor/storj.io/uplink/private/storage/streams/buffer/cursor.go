@@ -18,14 +18,14 @@ type Cursor struct {
 	mu   sync.Mutex
 	cond sync.Cond
 
-	doneReading uint32
-	doneWriting uint32
+	doneReading atomic.Bool
+	doneWriting atomic.Bool
 
 	readErr  error
 	writeErr error
 
-	maxRead int64
-	written int64
+	maxRead atomic.Int64
+	written atomic.Int64
 }
 
 // NewCursor constructs a new cursor that keeps track of reads and writes
@@ -42,24 +42,24 @@ func NewCursor(writeAhead int64) *Cursor {
 // error, then 0 and that error are returned. If writing is done with no error and the requested
 // amount is at least the amount written, it returns the written amount, false, and nil.
 func (c *Cursor) WaitRead(n int64) (m int64, ok bool, err error) {
-	if atomic.LoadUint32(&c.doneReading) != 0 {
+	if c.doneReading.Load() {
 		return 0, false, errs.New("WaitRead called after DoneReading")
 	}
-	if written := atomic.LoadInt64(&c.written); n < written {
+	if written := c.written.Load(); n < written {
 		return n, true, nil
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if atomic.LoadUint32(&c.doneReading) != 0 {
+	if c.doneReading.Load() {
 		return 0, false, errs.New("WaitRead called after DoneReading")
 	}
 
 	for {
-		doneWriting := atomic.LoadUint32(&c.doneWriting) != 0
-		maxRead := atomic.LoadInt64(&c.maxRead)
-		written := atomic.LoadInt64(&c.written)
+		doneWriting := c.doneWriting.Load()
+		maxRead := c.maxRead.Load()
+		written := c.written.Load()
 
 		switch {
 		// first, return any write error if there is one.
@@ -93,29 +93,38 @@ func (c *Cursor) WaitRead(n int64) (m int64, ok bool, err error) {
 // with an error, then 0 and that error are returned. If reading is done with no error, then
 // it returns the amount written, false, and nil.
 func (c *Cursor) WaitWrite(n int64) (m int64, ok bool, err error) {
-	if atomic.LoadUint32(&c.doneWriting) != 0 {
+	if c.doneWriting.Load() {
 		return 0, false, errs.New("WaitWrite called after DoneWriting")
 	}
-	if maxRead := atomic.LoadInt64(&c.maxRead); n <= maxRead+c.writeAhead {
+	if maxRead := c.maxRead.Load(); n <= maxRead+c.writeAhead {
 		return n, true, nil
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if atomic.LoadUint32(&c.doneWriting) != 0 {
+	if c.doneWriting.Load() {
 		return 0, false, errs.New("WaitWrite called after DoneWriting")
 	}
 
 	for {
-		doneReading := atomic.LoadUint32(&c.doneReading) != 0
-		maxRead := atomic.LoadInt64(&c.maxRead)
-		written := atomic.LoadInt64(&c.written)
+		doneReading := c.doneReading.Load()
+		doneWriting := c.doneWriting.Load()
+		maxRead := c.maxRead.Load()
+		written := c.written.Load()
 
 		switch {
 		// first, return any read error if there is one.
 		case c.readErr != nil:
 			return 0, false, c.readErr
+
+		// next, if DoneWriting has been signalled concurrently (e.g. the
+		// upload is being aborted while a writer is blocked in backpressure),
+		// return with whatever write-side error was recorded so the writer
+		// can unwind instead of waiting indefinitely for a reader that will
+		// never advance.
+		case doneWriting:
+			return written, false, c.writeErr
 
 		// next, don't allow more writes if the reader is done.
 		case doneReading:
@@ -140,12 +149,12 @@ func (c *Cursor) DoneWriting(err error) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if atomic.LoadUint32(&c.doneWriting) == 0 {
-		atomic.StoreUint32(&c.doneWriting, 1)
+	if !c.doneWriting.Load() {
+		c.doneWriting.Store(true)
 		c.writeErr = err
 		c.cond.Broadcast()
 
-		return atomic.LoadUint32(&c.doneReading) != 0
+		return c.doneReading.Load()
 	}
 
 	return false
@@ -157,12 +166,12 @@ func (c *Cursor) DoneReading(err error) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if atomic.LoadUint32(&c.doneReading) == 0 {
-		atomic.StoreUint32(&c.doneReading, 1)
+	if !c.doneReading.Load() {
+		c.doneReading.Store(true)
 		c.readErr = err
 		c.cond.Broadcast()
 
-		return atomic.LoadUint32(&c.doneWriting) != 0
+		return c.doneWriting.Load()
 	}
 
 	return false
@@ -171,11 +180,11 @@ func (c *Cursor) DoneReading(err error) bool {
 // ReadTo reports to the cursor that some reader read up to byte offset n.
 func (c *Cursor) ReadTo(n int64) {
 	for {
-		maxRead := atomic.LoadInt64(&c.maxRead)
+		maxRead := c.maxRead.Load()
 		if n <= maxRead {
 			return
 		}
-		if atomic.CompareAndSwapInt64(&c.maxRead, maxRead, n) {
+		if c.maxRead.CompareAndSwap(maxRead, n) {
 			c.mu.Lock()
 			defer c.mu.Unlock() //nolint go-critic, this defer is immediately executed near return
 
@@ -188,11 +197,11 @@ func (c *Cursor) ReadTo(n int64) {
 // WroteTo reports to the cursor that the writer wrote up to byte offset n.
 func (c *Cursor) WroteTo(n int64) {
 	for {
-		written := atomic.LoadInt64(&c.written)
+		written := c.written.Load()
 		if n <= written {
 			return
 		}
-		if atomic.CompareAndSwapInt64(&c.written, written, n) {
+		if c.written.CompareAndSwap(written, n) {
 			c.mu.Lock()
 			defer c.mu.Unlock() //nolint go-critic, this defer is immediately executed near return
 

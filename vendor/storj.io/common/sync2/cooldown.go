@@ -21,8 +21,8 @@ import (
 type Cooldown struct {
 	noCopy noCopy //nolint:structcheck
 
-	stopsent int32
-	runexec  int32
+	stopsent atomic.Int32
+	runexec  atomic.Int32
 
 	interval time.Duration
 
@@ -54,7 +54,7 @@ func (cooldown *Cooldown) initialize() {
 
 // Start runs the specified function with an errgroup.
 func (cooldown *Cooldown) Start(ctx context.Context, group *errgroup.Group, fn func(ctx context.Context) error) {
-	atomic.StoreInt32(&cooldown.runexec, 1)
+	cooldown.runexec.Store(1)
 	group.Go(func() error {
 		return cooldown.Run(ctx, fn)
 	})
@@ -65,7 +65,7 @@ func (cooldown *Cooldown) Start(ctx context.Context, group *errgroup.Group, fn f
 //
 // Run PANICS if it's called after Stop has been called.
 func (cooldown *Cooldown) Run(ctx context.Context, fn func(ctx context.Context) error) error {
-	atomic.StoreInt32(&cooldown.runexec, 1)
+	cooldown.runexec.Store(1)
 	cooldown.initialize()
 	defer close(cooldown.stopped)
 	for {
@@ -109,7 +109,7 @@ func (cooldown *Cooldown) Run(ctx context.Context, fn func(ctx context.Context) 
 func (cooldown *Cooldown) Close() {
 	cooldown.Stop()
 
-	if atomic.LoadInt32(&cooldown.runexec) == 1 {
+	if cooldown.runexec.Load() == 1 {
 		<-cooldown.stopped
 	}
 
@@ -119,11 +119,11 @@ func (cooldown *Cooldown) Close() {
 // Stop stops the cooldown permanently.
 func (cooldown *Cooldown) Stop() {
 	cooldown.initialize()
-	if atomic.CompareAndSwapInt32(&cooldown.stopsent, 0, 1) {
+	if cooldown.stopsent.CompareAndSwap(0, 1) {
 		close(cooldown.stopping)
 	}
 
-	if atomic.LoadInt32(&cooldown.runexec) == 1 {
+	if cooldown.runexec.Load() == 1 {
 		<-cooldown.stopped
 	}
 }

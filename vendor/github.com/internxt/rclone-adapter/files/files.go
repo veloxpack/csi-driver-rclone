@@ -128,15 +128,13 @@ func DeleteFile(ctx context.Context, cfg *config.Config, uuid string) error {
 	return nil
 }
 
-// RenameFile renames a file by UUID with the given new name and optional type.
+// RenameFile renames a file by UUID with the given new name and type.
 func RenameFile(ctx context.Context, cfg *config.Config, fileUUID, newPlainName, newType string) error {
 	endpoint := cfg.Endpoints.Drive().Files().Meta(fileUUID)
 
 	payload := map[string]string{
 		"plainName": newPlainName,
-	}
-	if newType != "" {
-		payload["type"] = newType
+		"type":      newType,
 	}
 
 	body, err := json.Marshal(payload)
@@ -159,6 +157,48 @@ func RenameFile(ctx context.Context, cfg *config.Config, fileUUID, newPlainName,
 
 	if resp.StatusCode != http.StatusOK {
 		return errors.NewHTTPError(resp, "rename file")
+	}
+
+	return nil
+}
+
+// MoveFile moves a file to a new destination folder, optionally renaming it.
+//
+// If newName is empty it is omitted and the server keeps the current name.
+// newType, however, is always sent whenever a rename is requested, so passing
+// an empty string clears the file's extension (e.g. "foo.txt" -> "foo").
+// Omitting it would leave the old extension in place on the server.
+func MoveFile(ctx context.Context, cfg *config.Config, fileUUID, destinationFolderUUID, newName, newType string) error {
+	endpoint := cfg.Endpoints.Drive().Files().Move(fileUUID)
+
+	payload := map[string]string{
+		"destinationFolder": destinationFolderUUID,
+	}
+	if newName != "" {
+		payload["name"] = newName
+		payload["type"] = newType
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal move file request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create move file request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := cfg.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute move file request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.NewHTTPError(resp, "move file")
 	}
 
 	return nil

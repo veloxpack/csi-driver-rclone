@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/rclone/Proton-API-Bridge/utility"
 	"github.com/rclone/go-proton-api"
 )
@@ -23,40 +23,49 @@ func (protonDrive *ProtonDrive) handleRevisionConflict(ctx context.Context, link
 	if link != nil {
 		linkID := link.LinkID
 
+		// A draft link (no active revision) is a leftover from a failed or
+		// incomplete upload. Listing the revisions of such a link returns a
+		// "File or folder not found" (2501) error, so don't: handle it
+		// directly by deleting the link and resubmitting the file creation.
+		// There is a restriction of one draft revision per file.
+		if link.State == proton.LinkStateDraft {
+			// TODO: maintain clientUID to mark that this is our own draft (which can indicate failed upload attempt!)
+			if !protonDrive.Config.ReplaceExistingDraft {
+				// based on the web behavior, it will ask if the user wants to replace the failed upload attempt
+				// current behavior, we report an error to not upload the file (conservative)
+				return "", false, ErrDraftExists
+			}
+
+			// delete the link (skipping trash, otherwise it won't work) and
+			// signal the caller to resubmit the file creation request
+			err := protonDrive.c.DeleteChildren(ctx, protonDrive.MainShare.ShareID, link.ParentLinkID, linkID)
+			if err != nil {
+				return "", false, err
+			}
+
+			return "", true, nil
+		}
+
+		// The link has an active revision. A concurrent/failed upload may also
+		// have left a draft revision on it; depending on the user config, we
+		// can abort the upload or delete that draft revision before creating a
+		// new one.
 		draftRevision, err := protonDrive.GetRevisions(ctx, link, proton.RevisionStateDraft)
 		if err != nil {
 			return "", false, err
 		}
 
-		// if we have a draft revision, depending on the user config, we can abort the upload or recreate a draft
-		// if we have no draft revision, then we can create a new draft revision directly (there is a restriction of 1 draft revision per file)
 		if len(draftRevision) > 0 {
-			// TODO: maintain clientUID to mark that this is our own draft (which can indicate failed upload attempt!)
-			if protonDrive.Config.ReplaceExistingDraft {
-				// Question: how do we observe for file upload cancellation -> clientUID?
-				// Random thoughts: if there are concurrent modification to the draft, the server should be able to catch this when commiting the revision
-				// since the manifestSignature (hash) will fail to match
-
-				// delete the draft revision (will fail if the file only have a draft but no active revisions)
-				if link.State == proton.LinkStateDraft {
-					// delete the link (skipping trash, otherwise it won't work)
-					err = protonDrive.c.DeleteChildren(ctx, protonDrive.MainShare.ShareID, link.ParentLinkID, linkID)
-					if err != nil {
-						return "", false, err
-					}
-
-					return "", true, nil
-				}
-
-				// delete the draft revision
-				err = protonDrive.c.DeleteRevision(ctx, protonDrive.MainShare.ShareID, linkID, draftRevision[0].ID)
-				if err != nil {
-					return "", false, err
-				}
-			} else {
-				// if there is a draft, based on the web behavior, it will ask if the user wants to replace the failed upload attempt
-				// current behavior, we report an error to not upload the file (conservative)
+			if !protonDrive.Config.ReplaceExistingDraft {
 				return "", false, ErrDraftExists
+			}
+
+			// Question: how do we observe for file upload cancellation -> clientUID?
+			// Random thoughts: if there are concurrent modification to the draft, the server should be able to catch this when commiting the revision
+			// since the manifestSignature (hash) will fail to match
+			err = protonDrive.c.DeleteRevision(ctx, protonDrive.MainShare.ShareID, linkID, draftRevision[0].ID)
+			if err != nil {
+				return "", false, err
 			}
 		}
 
@@ -85,7 +94,13 @@ func (protonDrive *ProtonDrive) createFileUploadDraft(ctx context.Context, paren
 		Encryption: parent link's node key
 		Signature: share's signature address keys
 	*/
-	newNodeKey, newNodePassphraseEnc, newNodePassphraseSignature, err := generateNodeKeys(parentNodeKR, protonDrive.DefaultAddrKR)
+	// New files get a v4 node key and the pre-crypto-refresh content format:
+	// the official Proton clients (web included) cannot yet decrypt files that
+	// originate in the crypto-refresh format, whether or not the auxiliary
+	// fields stay non-AEAD. Revisions of files that already have a v6 node key
+	// keep their format: the stored content key's v6 flag selects the v2 SEIPD
+	// block encryption (see the block encryption below).
+	newNodeKey, newNodePassphraseEnc, newNodePassphraseSignature, err := generateNodeKeys(parentNodeKR, protonDrive.DefaultAddrKR, false)
 	if err != nil {
 		return "", "", nil, nil, err
 	}
@@ -342,17 +357,41 @@ func (protonDrive *ProtonDrive) uploadAndCollectBlockData(ctx context.Context, n
 			Encryption: current link's session key
 			Signature: share's signature address keys
 		*/
-		dataPlainMessage := crypto.NewPlainMessage(data)
-		encData, err := newSessionKey.Encrypt(dataPlainMessage)
-		if err != nil {
-			return nil, 0, nil, "", err
-		}
+		pgp := crypto.PGP()
 
-		encSignature, err := protonDrive.DefaultAddrKR.SignDetachedEncrypted(dataPlainMessage, newNodeKR)
+		// Block data is encrypted with the crypto-refresh handle. When
+		// newSessionKey carries the v6 flag (new files, and revisions of
+		// crypto-refresh files) this produces a v2 SEIPD packet using
+		// AES-256-GCM; for an older file's v4 content key it produces a v1
+		// SEIPD, keeping the revision consistent with the original format.
+		sessionEnc, err := protonDrivePGP().Encryption().SessionKey(newSessionKey).New()
 		if err != nil {
 			return nil, 0, nil, "", err
 		}
-		encSignatureStr, err := encSignature.GetArmored()
+		encMsg, err := sessionEnc.Encrypt(data)
+		if err != nil {
+			return nil, 0, nil, "", err
+		}
+		encData := encMsg.Bytes()
+
+		// v2's SignDetachedEncrypted: sign the data with addrKR, then encrypt
+		// the signature to newNodeKR. v3 does not expose a one-shot helper, so
+		// we sign first and encrypt the signature bytes separately. Unlike the
+		// block data, the signature must stay in the pre-crypto-refresh format
+		// even though the file node key is v6 (see EncryptMessageNonAead).
+		signHandle, err := pgp.Sign().SigningKeys(protonDrive.DefaultAddrKR).Detached().New()
+		if err != nil {
+			return nil, 0, nil, "", err
+		}
+		rawSig, err := signHandle.Sign(data, crypto.Bytes)
+		if err != nil {
+			return nil, 0, nil, "", err
+		}
+		encSignature, err := proton.EncryptMessageNonAead(newNodeKR, rawSig, nil)
+		if err != nil {
+			return nil, 0, nil, "", err
+		}
+		encSignatureStr, err := encSignature.Armor()
 		if err != nil {
 			return nil, 0, nil, "", err
 		}
@@ -387,14 +426,15 @@ func (protonDrive *ProtonDrive) uploadAndCollectBlockData(ctx context.Context, n
 }
 
 func (protonDrive *ProtonDrive) commitNewRevision(ctx context.Context, nodeKR *crypto.KeyRing, xAttrCommon *proton.RevisionXAttrCommon, manifestSignatureData []byte, linkID, revisionID string) error {
-	manifestSignature, err := protonDrive.DefaultAddrKR.SignDetached(crypto.NewPlainMessage(manifestSignatureData))
+	signHandle, err := crypto.PGP().Sign().SigningKeys(protonDrive.DefaultAddrKR).Detached().New()
 	if err != nil {
 		return err
 	}
-	manifestSignatureString, err := manifestSignature.GetArmored()
+	manifestSig, err := signHandle.Sign(manifestSignatureData, crypto.Armor)
 	if err != nil {
 		return err
 	}
+	manifestSignatureString := string(manifestSig)
 
 	commitRevisionReq := proton.CommitRevisionReq{
 		ManifestSignature: manifestSignatureString,

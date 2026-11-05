@@ -22,7 +22,7 @@ type ExpectationEvaluation struct {
 	ClosedAt               *time.Time               `json:"closed_at,omitempty" path:"closed_at,omitempty" url:"closed_at,omitempty"`
 	MatchedFiles           []map[string]interface{} `json:"matched_files,omitempty" path:"matched_files,omitempty" url:"matched_files,omitempty"`
 	MissingFiles           []map[string]interface{} `json:"missing_files,omitempty" path:"missing_files,omitempty" url:"missing_files,omitempty"`
-	CriteriaErrors         []map[string]interface{} `json:"criteria_errors,omitempty" path:"criteria_errors,omitempty" url:"criteria_errors,omitempty"`
+	CriteriaErrors         []string                 `json:"criteria_errors,omitempty" path:"criteria_errors,omitempty" url:"criteria_errors,omitempty"`
 	Summary                interface{}              `json:"summary,omitempty" path:"summary,omitempty" url:"summary,omitempty"`
 	CreatedAt              *time.Time               `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
 	UpdatedAt              *time.Time               `json:"updated_at,omitempty" path:"updated_at,omitempty" url:"updated_at,omitempty"`

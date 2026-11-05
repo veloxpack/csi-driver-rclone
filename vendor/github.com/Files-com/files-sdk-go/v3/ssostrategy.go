@@ -49,11 +49,14 @@ type SsoStrategy struct {
 	LdapBaseDn                       string `json:"ldap_base_dn,omitempty" path:"ldap_base_dn,omitempty" url:"ldap_base_dn,omitempty"`
 	LdapDomain                       string `json:"ldap_domain,omitempty" path:"ldap_domain,omitempty" url:"ldap_domain,omitempty"`
 	Enabled                          *bool  `json:"enabled,omitempty" path:"enabled,omitempty" url:"enabled,omitempty"`
+	DisplayOnLoginPage               *bool  `json:"display_on_login_page,omitempty" path:"display_on_login_page,omitempty" url:"display_on_login_page,omitempty"`
 	LdapHost                         string `json:"ldap_host,omitempty" path:"ldap_host,omitempty" url:"ldap_host,omitempty"`
 	LdapHost2                        string `json:"ldap_host_2,omitempty" path:"ldap_host_2,omitempty" url:"ldap_host_2,omitempty"`
 	LdapHost3                        string `json:"ldap_host_3,omitempty" path:"ldap_host_3,omitempty" url:"ldap_host_3,omitempty"`
 	LdapPort                         int64  `json:"ldap_port,omitempty" path:"ldap_port,omitempty" url:"ldap_port,omitempty"`
+	LdapProvisioningEnabled          *bool  `json:"ldap_provisioning_enabled,omitempty" path:"ldap_provisioning_enabled,omitempty" url:"ldap_provisioning_enabled,omitempty"`
 	LdapSecure                       *bool  `json:"ldap_secure,omitempty" path:"ldap_secure,omitempty" url:"ldap_secure,omitempty"`
+	LdapType                         string `json:"ldap_type,omitempty" path:"ldap_type,omitempty" url:"ldap_type,omitempty"`
 	LdapUsername                     string `json:"ldap_username,omitempty" path:"ldap_username,omitempty" url:"ldap_username,omitempty"`
 	LdapUsernameField                string `json:"ldap_username_field,omitempty" path:"ldap_username_field,omitempty" url:"ldap_username_field,omitempty"`
 }

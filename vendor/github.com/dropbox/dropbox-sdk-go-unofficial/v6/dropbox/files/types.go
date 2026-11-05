@@ -24,7 +24,6 @@ package files
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox"
 	"github.com/dropbox/dropbox-sdk-go-unofficial/v6/dropbox/file_properties"
@@ -127,7 +126,7 @@ type GetMetadataArg struct {
 	// file or folder, otherwise `LookupError.not_found` will be returned.
 	IncludeDeleted bool `json:"include_deleted"`
 	// IncludeHasExplicitSharedMembers : If true, the results will include a
-	// flag for each file indicating whether or not  that file has any explicit
+	// flag for each file indicating whether or not that file has any explicit
 	// members.
 	IncludeHasExplicitSharedMembers bool `json:"include_has_explicit_shared_members"`
 	// IncludePropertyGroups : If set to a valid list of template IDs,
@@ -149,8 +148,9 @@ func NewGetMetadataArg(Path string) *GetMetadataArg {
 // AlphaGetMetadataArg : has no documentation (yet)
 type AlphaGetMetadataArg struct {
 	GetMetadataArg
-	// IncludePropertyTemplates : If set to a valid list of template IDs,
-	// `FileMetadata.property_groups` is set for files with custom properties.
+	// IncludePropertyTemplates : Field is deprecated. If set to a valid list of
+	// template IDs, `FileMetadata.property_groups` is set for files with custom
+	// properties.
 	IncludePropertyTemplates []string `json:"include_property_templates,omitempty"`
 }
 
@@ -252,7 +252,7 @@ type CommitInfo struct {
 	// the Dropbox servers. It can also record an additional timestamp, provided
 	// by Dropbox desktop clients, mobile clients, and API apps of when the file
 	// was actually created or modified.
-	ClientModified *time.Time `json:"client_modified,omitempty"`
+	ClientModified *dropbox.DBXTime `json:"client_modified,omitempty"`
 	// Mute : Normally, users are made aware of any file modifications in their
 	// Dropbox account via notifications in the client software. If true, this
 	// tells the clients that this modification shouldn't result in a user
@@ -451,7 +451,7 @@ func (u *CreateFolderBatchLaunch) UnmarshalJSON(body []byte) error {
 	return nil
 }
 
-// FileOpsResult : has no documentation (yet)
+// FileOpsResult : Result for File Operations
 type FileOpsResult struct {
 }
 
@@ -920,7 +920,7 @@ type Metadata struct {
 	// only the casing of paths won't be returned by `listFolderContinue`. This
 	// field will be null if the file or folder is not mounted.
 	PathDisplay string `json:"path_display,omitempty"`
-	// ParentSharedFolderId : Please use
+	// ParentSharedFolderId : Field is deprecated. Please use
 	// `FileSharingInfo.parent_shared_folder_id` or
 	// `FolderSharingInfo.parent_shared_folder_id` instead.
 	ParentSharedFolderId string `json:"parent_shared_folder_id,omitempty"`
@@ -1015,6 +1015,9 @@ func IsMetadataFromJSON(data []byte) (IsMetadata, error) {
 // path, but it no longer exists.
 type DeletedMetadata struct {
 	Metadata
+	// IsRestorable : If present, indicates whether this deleted entry can be
+	// restored.
+	IsRestorable bool `json:"is_restorable,omitempty"`
 }
 
 // NewDeletedMetadata returns a new DeletedMetadata instance
@@ -1044,7 +1047,7 @@ func NewDimensions(Height uint64, Width uint64) *Dimensions {
 type DownloadArg struct {
 	// Path : The path of the file to download.
 	Path string `json:"path"`
-	// Rev : Please specify revision in `path` instead.
+	// Rev : Field is deprecated. Please specify revision in `path` instead.
 	Rev string `json:"rev,omitempty"`
 	// ExtraHeaders can be used to pass Range, If-None-Match headers
 	ExtraHeaders map[string]string `json:"-"`
@@ -1342,7 +1345,7 @@ type FileLockMetadata struct {
 	// LockholderAccountId : The account ID of the lock holder if known.
 	LockholderAccountId string `json:"lockholder_account_id,omitempty"`
 	// Created : The timestamp of the lock was created.
-	Created *time.Time `json:"created,omitempty"`
+	Created *dropbox.DBXTime `json:"created,omitempty"`
 }
 
 // NewFileLockMetadata returns a new FileLockMetadata instance
@@ -1361,9 +1364,9 @@ type FileMetadata struct {
 	// verified (the Dropbox server stores whatever the desktop client sends
 	// up), this should only be used for display purposes (such as sorting) and
 	// not, for example, to determine if a file has changed or not.
-	ClientModified time.Time `json:"client_modified"`
+	ClientModified dropbox.DBXTime `json:"client_modified"`
 	// ServerModified : The last time the file was modified on Dropbox.
-	ServerModified time.Time `json:"server_modified"`
+	ServerModified dropbox.DBXTime `json:"server_modified"`
 	// Rev : A unique identifier for the current revision of a file. This field
 	// is the same rev as elsewhere in the API and can be used to detect changes
 	// and avoid conflicts.
@@ -1388,11 +1391,11 @@ type FileMetadata struct {
 	// with the property template specified.
 	PropertyGroups []*file_properties.PropertyGroup `json:"property_groups,omitempty"`
 	// HasExplicitSharedMembers : This flag will only be present if
-	// include_has_explicit_shared_members  is true in `listFolder` or
-	// `getMetadata`. If this  flag is present, it will be true if this file has
-	// any explicit shared  members. This is different from sharing_info in that
-	// this could be true  in the case where a file has explicit members but is
-	// not contained within  a shared folder.
+	// include_has_explicit_shared_members is true in `listFolder` or
+	// `getMetadata`. If this flag is present, it will be true if this file has
+	// any explicit shared members. This is different from sharing_info in that
+	// this could be true in the case where a file has explicit members but is
+	// not contained within a shared folder.
 	HasExplicitSharedMembers bool `json:"has_explicit_shared_members,omitempty"`
 	// ContentHash : A hash of the file content. This field can be used to
 	// verify data integrity. For more information see our `Content hash`
@@ -1401,10 +1404,13 @@ type FileMetadata struct {
 	// FileLockInfo : If present, the metadata associated with the file's
 	// current lock.
 	FileLockInfo *FileLockMetadata `json:"file_lock_info,omitempty"`
+	// IsRestorable : If present, indicates whether this file revision can be
+	// restored.
+	IsRestorable bool `json:"is_restorable,omitempty"`
 }
 
 // NewFileMetadata returns a new FileMetadata instance
-func NewFileMetadata(Name string, Id string, ClientModified time.Time, ServerModified time.Time, Rev string, Size uint64) *FileMetadata {
+func NewFileMetadata(Name string, Id string, ClientModified dropbox.DBXTime, ServerModified dropbox.DBXTime, Rev string, Size uint64) *FileMetadata {
 	s := new(FileMetadata)
 	s.Name = Name
 	s.Id = Id
@@ -1466,7 +1472,7 @@ type FolderMetadata struct {
 	Metadata
 	// Id : A unique identifier for the folder.
 	Id string `json:"id"`
-	// SharedFolderId : Please use `sharing_info` instead.
+	// SharedFolderId : Field is deprecated. Please use `sharing_info` instead.
 	SharedFolderId string `json:"shared_folder_id,omitempty"`
 	// SharingInfo : Set if the folder is contained in a shared folder or is a
 	// shared folder mount point.
@@ -1570,11 +1576,11 @@ type GetCopyReferenceResult struct {
 	// Expires : The expiration date of the copy reference. This value is
 	// currently set to be far enough in the future so that expiration is
 	// effectively not an issue.
-	Expires time.Time `json:"expires"`
+	Expires dropbox.DBXTime `json:"expires"`
 }
 
 // NewGetCopyReferenceResult returns a new GetCopyReferenceResult instance
-func NewGetCopyReferenceResult(Metadata IsMetadata, CopyReference string, Expires time.Time) *GetCopyReferenceResult {
+func NewGetCopyReferenceResult(Metadata IsMetadata, CopyReference string, Expires dropbox.DBXTime) *GetCopyReferenceResult {
 	s := new(GetCopyReferenceResult)
 	s.Metadata = Metadata
 	s.CopyReference = CopyReference
@@ -1592,7 +1598,7 @@ func (u *GetCopyReferenceResult) UnmarshalJSON(b []byte) error {
 		// Expires : The expiration date of the copy reference. This value is
 		// currently set to be far enough in the future so that expiration is
 		// effectively not an issue.
-		Expires time.Time `json:"expires"`
+		Expires dropbox.DBXTime `json:"expires"`
 	}
 	var w wrap
 	if err := json.Unmarshal(b, &w); err != nil {
@@ -1705,9 +1711,9 @@ type GetTemporaryUploadLinkArg struct {
 	// CommitInfo : Contains the path and other optional modifiers for the
 	// future upload commit. Equivalent to the parameters provided to `upload`.
 	CommitInfo *CommitInfo `json:"commit_info"`
-	// Duration : How long before this link expires, in seconds.  Attempting to
-	// start an upload with this link longer than this period  of time after
-	// link creation will result in an error.
+	// Duration : How long before this link expires, in seconds. Attempting to
+	// start an upload with this link longer than this period of time after link
+	// creation will result in an error.
 	Duration float64 `json:"duration"`
 }
 
@@ -1881,17 +1887,21 @@ type ListFolderArg struct {
 	Path string `json:"path"`
 	// Recursive : If true, the list folder operation will be applied
 	// recursively to all subfolders and the response will contain contents of
-	// all subfolders.
+	// all subfolders. In some cases, setting `ListFolderArg.recursive` to true
+	// may lead to performance issues or errors, especially when traversing
+	// folder structures with a large number of items. A workaround for such
+	// cases is to set `ListFolderArg.recursive` to false and traverse
+	// subfolders one at a time.
 	Recursive bool `json:"recursive"`
-	// IncludeMediaInfo : If true, `FileMetadata.media_info` is set for photo
-	// and video. This parameter will no longer have an effect starting December
-	// 2, 2019.
+	// IncludeMediaInfo : Field is deprecated. If true,
+	// `FileMetadata.media_info` is set for photo and video. This parameter will
+	// no longer have an effect starting December 2, 2019.
 	IncludeMediaInfo bool `json:"include_media_info"`
 	// IncludeDeleted : If true, the results will include entries for files and
 	// folders that used to exist but were deleted.
 	IncludeDeleted bool `json:"include_deleted"`
 	// IncludeHasExplicitSharedMembers : If true, the results will include a
-	// flag for each file indicating whether or not  that file has any explicit
+	// flag for each file indicating whether or not that file has any explicit
 	// members.
 	IncludeHasExplicitSharedMembers bool `json:"include_has_explicit_shared_members"`
 	// IncludeMountedFolders : If true, the results will include entries under
@@ -1913,6 +1923,9 @@ type ListFolderArg struct {
 	// IncludeNonDownloadableFiles : If true, include files that are not
 	// downloadable, i.e. Google Docs.
 	IncludeNonDownloadableFiles bool `json:"include_non_downloadable_files"`
+	// IncludeRestorableInfo : If true, each returned deleted entry will include
+	// whether that entry can be restored.
+	IncludeRestorableInfo bool `json:"include_restorable_info"`
 }
 
 // NewListFolderArg returns a new ListFolderArg instance
@@ -1925,6 +1938,7 @@ func NewListFolderArg(Path string) *ListFolderArg {
 	s.IncludeHasExplicitSharedMembers = false
 	s.IncludeMountedFolders = true
 	s.IncludeNonDownloadableFiles = true
+	s.IncludeRestorableInfo = false
 	return s
 }
 
@@ -2141,6 +2155,14 @@ type ListRevisionsArg struct {
 	Mode *ListRevisionsMode `json:"mode"`
 	// Limit : The maximum number of revision entries returned.
 	Limit uint64 `json:"limit"`
+	// BeforeRev : If set, ListRevisions will only return revisions prior to
+	// before_rev. Can be set using the last revision from a previous call to
+	// list_revisions to fetch the next page of revisions. Only supported in
+	// path mode.
+	BeforeRev string `json:"before_rev,omitempty"`
+	// IncludeRestorableInfo : If true, each returned revision will include
+	// whether that revision can be restored.
+	IncludeRestorableInfo bool `json:"include_restorable_info"`
 }
 
 // NewListRevisionsArg returns a new ListRevisionsArg instance
@@ -2149,6 +2171,7 @@ func NewListRevisionsArg(Path string) *ListRevisionsArg {
 	s.Path = Path
 	s.Mode = &ListRevisionsMode{Tagged: dropbox.Tagged{Tag: "path"}}
 	s.Limit = 10
+	s.IncludeRestorableInfo = false
 	return s
 }
 
@@ -2161,8 +2184,10 @@ type ListRevisionsError struct {
 
 // Valid tag values for ListRevisionsError
 const (
-	ListRevisionsErrorPath  = "path"
-	ListRevisionsErrorOther = "other"
+	ListRevisionsErrorPath                  = "path"
+	ListRevisionsErrorInvalidBeforeRev      = "invalid_before_rev"
+	ListRevisionsErrorBeforeRevNotSupported = "before_rev_not_supported"
+	ListRevisionsErrorOther                 = "other"
 )
 
 // UnmarshalJSON deserializes into a ListRevisionsError instance
@@ -2201,20 +2226,26 @@ const (
 // ListRevisionsResult : has no documentation (yet)
 type ListRevisionsResult struct {
 	// IsDeleted : If the file identified by the latest revision in the response
-	// is either deleted or moved.
+	// is either deleted or moved. If before_rev is set, this refers to the
+	// latest revision of the file older than before_rev.
 	IsDeleted bool `json:"is_deleted"`
 	// ServerDeleted : The time of deletion if the file was deleted.
-	ServerDeleted *time.Time `json:"server_deleted,omitempty"`
+	ServerDeleted *dropbox.DBXTime `json:"server_deleted,omitempty"`
 	// Entries : The revisions for the file. Only revisions that are not deleted
 	// will show up here.
 	Entries []*FileMetadata `json:"entries"`
+	// HasMore : If true, then there are more entries available. Call
+	// list_revisions again with before_rev equal to the revision of the last
+	// returned entry to retrieve the rest.
+	HasMore bool `json:"has_more"`
 }
 
 // NewListRevisionsResult returns a new ListRevisionsResult instance
-func NewListRevisionsResult(IsDeleted bool, Entries []*FileMetadata) *ListRevisionsResult {
+func NewListRevisionsResult(IsDeleted bool, Entries []*FileMetadata, HasMore bool) *ListRevisionsResult {
 	s := new(ListRevisionsResult)
 	s.IsDeleted = IsDeleted
 	s.Entries = Entries
+	s.HasMore = HasMore
 	return s
 }
 
@@ -2328,7 +2359,7 @@ func (u *LockFileError) UnmarshalJSON(body []byte) error {
 type LockFileResult struct {
 	// Metadata : Metadata of the file.
 	Metadata IsMetadata `json:"metadata"`
-	// Lock : The file lock state after the operation.
+	// Lock : Field is deprecated. The file lock state after the operation.
 	Lock *FileLock `json:"lock"`
 }
 
@@ -2345,7 +2376,7 @@ func (u *LockFileResult) UnmarshalJSON(b []byte) error {
 	type wrap struct {
 		// Metadata : Metadata of the file.
 		Metadata json.RawMessage `json:"metadata"`
-		// Lock : The file lock state after the operation.
+		// Lock : Field is deprecated. The file lock state after the operation.
 		Lock *FileLock `json:"lock"`
 	}
 	var w wrap
@@ -2451,7 +2482,8 @@ func (u *LookupError) UnmarshalJSON(body []byte) error {
 // MediaInfo : has no documentation (yet)
 type MediaInfo struct {
 	dropbox.Tagged
-	// Metadata : The metadata for the photo/video.
+	// Metadata : The metadata for the photo/video. Uses MediaMetadataAbstract
+	// to preserve photo/video subtypes (e.g. VideoMetadata.duration).
 	Metadata IsMediaMetadata `json:"metadata,omitempty"`
 }
 
@@ -2465,7 +2497,9 @@ const (
 func (u *MediaInfo) UnmarshalJSON(body []byte) error {
 	type wrap struct {
 		dropbox.Tagged
-		// Metadata : The metadata for the photo/video.
+		// Metadata : The metadata for the photo/video. Uses
+		// MediaMetadataAbstract to preserve photo/video subtypes (e.g.
+		// VideoMetadata.duration).
 		Metadata json.RawMessage `json:"metadata,omitempty"`
 	}
 	var w wrap
@@ -2491,7 +2525,7 @@ type MediaMetadata struct {
 	// Location : The GPS coordinate of the photo/video.
 	Location *GpsCoordinates `json:"location,omitempty"`
 	// TimeTaken : The timestamp when the photo/video is taken.
-	TimeTaken *time.Time `json:"time_taken,omitempty"`
+	TimeTaken *dropbox.DBXTime `json:"time_taken,omitempty"`
 }
 
 // NewMediaMetadata returns a new MediaMetadata instance
@@ -2921,7 +2955,7 @@ func NewPhotoMetadata() *PhotoMetadata {
 type PreviewArg struct {
 	// Path : The path of the file to preview.
 	Path string `json:"path"`
-	// Rev : Please specify revision in `path` instead.
+	// Rev : Field is deprecated. Please specify revision in `path` instead.
 	Rev string `json:"rev,omitempty"`
 }
 
@@ -3005,7 +3039,7 @@ func NewRelocationPath(FromPath string, ToPath string) *RelocationPath {
 // RelocationArg : has no documentation (yet)
 type RelocationArg struct {
 	RelocationPath
-	// AllowSharedFolder : This flag has no effect.
+	// AllowSharedFolder : Field is deprecated. This flag has no effect.
 	AllowSharedFolder bool `json:"allow_shared_folder"`
 	// Autorename : If there's a conflict, have the Dropbox server try to
 	// autorename the file to avoid the conflict.
@@ -3030,7 +3064,7 @@ func NewRelocationArg(FromPath string, ToPath string) *RelocationArg {
 // RelocationBatchArg : has no documentation (yet)
 type RelocationBatchArg struct {
 	RelocationBatchArgBase
-	// AllowSharedFolder : This flag has no effect.
+	// AllowSharedFolder : Field is deprecated. This flag has no effect.
 	AllowSharedFolder bool `json:"allow_shared_folder"`
 	// AllowOwnershipTransfer : Allow moves by owner even if it would result in
 	// an ownership transfer for the content being moved. This does not apply to
@@ -4038,6 +4072,7 @@ const (
 	SearchMatchTypeV2FileContent        = "file_content"
 	SearchMatchTypeV2FilenameAndContent = "filename_and_content"
 	SearchMatchTypeV2ImageContent       = "image_content"
+	SearchMatchTypeV2Metadata           = "metadata"
 	SearchMatchTypeV2Other              = "other"
 )
 
@@ -4146,8 +4181,8 @@ type SearchV2Arg struct {
 	Options *SearchOptions `json:"options,omitempty"`
 	// MatchFieldOptions : Options for search results match fields.
 	MatchFieldOptions *SearchMatchFieldOptions `json:"match_field_options,omitempty"`
-	// IncludeHighlights : Deprecated and moved this option to
-	// SearchMatchFieldOptions.
+	// IncludeHighlights : Field is deprecated. Deprecated and moved this option
+	// to SearchMatchFieldOptions.
 	IncludeHighlights bool `json:"include_highlights,omitempty"`
 }
 
@@ -4218,7 +4253,7 @@ type SharedLinkFileInfo struct {
 	// Required for shared links to folders.
 	Path string `json:"path,omitempty"`
 	// Password : Password for the shared link. Required for password-protected
-	// shared links to files  unless it can be read from a cookie.
+	// shared links to files unless it can be read from a cookie.
 	Password string `json:"password,omitempty"`
 }
 
@@ -4232,7 +4267,7 @@ func NewSharedLinkFileInfo(Url string) *SharedLinkFileInfo {
 // SingleUserLock : has no documentation (yet)
 type SingleUserLock struct {
 	// Created : The time the lock was created.
-	Created time.Time `json:"created"`
+	Created dropbox.DBXTime `json:"created"`
 	// LockHolderAccountId : The account ID of the lock holder if known.
 	LockHolderAccountId string `json:"lock_holder_account_id"`
 	// LockHolderTeamId : The id of the team of the account holder if it exists.
@@ -4240,7 +4275,7 @@ type SingleUserLock struct {
 }
 
 // NewSingleUserLock returns a new SingleUserLock instance
-func NewSingleUserLock(Created time.Time, LockHolderAccountId string) *SingleUserLock {
+func NewSingleUserLock(Created dropbox.DBXTime, LockHolderAccountId string) *SingleUserLock {
 	s := new(SingleUserLock)
 	s.Created = Created
 	s.LockHolderAccountId = LockHolderAccountId
@@ -4359,14 +4394,21 @@ func (u *Tag) UnmarshalJSON(body []byte) error {
 type ThumbnailArg struct {
 	// Path : The path to the image file you want to thumbnail.
 	Path string `json:"path"`
-	// Format : The format for the thumbnail image, jpeg (default) or png. For
-	// images that are photos, jpeg should be preferred, while png is  better
-	// for screenshots and digital arts.
+	// Format : The format for the thumbnail image, jpeg (default), png, or
+	// webp. For images that are photos, jpeg should be preferred, while png is
+	// better for screenshots and digital arts, and web for compression.
 	Format *ThumbnailFormat `json:"format"`
 	// Size : The size for the thumbnail image.
 	Size *ThumbnailSize `json:"size"`
 	// Mode : How to resize and crop the image to achieve the desired size.
 	Mode *ThumbnailMode `json:"mode"`
+	// Quality : Quality of the thumbnail image.
+	Quality *ThumbnailQuality `json:"quality"`
+	// ExcludeMediaInfo : Normally, `FileMetadata.media_info` is set for photo
+	// and video. When this flag is true, `FileMetadata.media_info` is not
+	// populated. This improves latency for use cases where `media_info` is not
+	// needed.
+	ExcludeMediaInfo bool `json:"exclude_media_info,omitempty"`
 }
 
 // NewThumbnailArg returns a new ThumbnailArg instance
@@ -4376,6 +4418,7 @@ func NewThumbnailArg(Path string) *ThumbnailArg {
 	s.Format = &ThumbnailFormat{Tagged: dropbox.Tagged{Tag: "jpeg"}}
 	s.Size = &ThumbnailSize{Tagged: dropbox.Tagged{Tag: "w64h64"}}
 	s.Mode = &ThumbnailMode{Tagged: dropbox.Tagged{Tag: "strict"}}
+	s.Quality = &ThumbnailQuality{Tagged: dropbox.Tagged{Tag: "quality_80"}}
 	return s
 }
 
@@ -4391,6 +4434,7 @@ const (
 	ThumbnailErrorPath                 = "path"
 	ThumbnailErrorUnsupportedExtension = "unsupported_extension"
 	ThumbnailErrorUnsupportedImage     = "unsupported_image"
+	ThumbnailErrorEncryptedContent     = "encrypted_content"
 	ThumbnailErrorConversionError      = "conversion_error"
 )
 
@@ -4424,6 +4468,7 @@ type ThumbnailFormat struct {
 const (
 	ThumbnailFormatJpeg = "jpeg"
 	ThumbnailFormatPng  = "png"
+	ThumbnailFormatWebp = "webp"
 )
 
 // ThumbnailMode : has no documentation (yet)
@@ -4436,6 +4481,18 @@ const (
 	ThumbnailModeStrict        = "strict"
 	ThumbnailModeBestfit       = "bestfit"
 	ThumbnailModeFitoneBestfit = "fitone_bestfit"
+	ThumbnailModeOriginal      = "original"
+)
+
+// ThumbnailQuality : has no documentation (yet)
+type ThumbnailQuality struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for ThumbnailQuality
+const (
+	ThumbnailQualityQuality80 = "quality_80"
+	ThumbnailQualityQuality90 = "quality_90"
 )
 
 // ThumbnailSize : has no documentation (yet)
@@ -4454,6 +4511,7 @@ const (
 	ThumbnailSizeW960h640   = "w960h640"
 	ThumbnailSizeW1024h768  = "w1024h768"
 	ThumbnailSizeW2048h1536 = "w2048h1536"
+	ThumbnailSizeW3200h2400 = "w3200h2400"
 )
 
 // ThumbnailV2Arg : has no documentation (yet)
@@ -4462,14 +4520,21 @@ type ThumbnailV2Arg struct {
 	// path to a file, a shared link pointing to a file, or a shared link
 	// pointing to a folder, with a relative path.
 	Resource *PathOrLink `json:"resource"`
-	// Format : The format for the thumbnail image, jpeg (default) or png. For
-	// images that are photos, jpeg should be preferred, while png is  better
-	// for screenshots and digital arts.
+	// Format : The format for the thumbnail image, jpeg (default), png, or
+	// webp. For images that are photos, jpeg should be preferred, while png is
+	// better for screenshots and digital arts, and web for compression.
 	Format *ThumbnailFormat `json:"format"`
 	// Size : The size for the thumbnail image.
 	Size *ThumbnailSize `json:"size"`
 	// Mode : How to resize and crop the image to achieve the desired size.
 	Mode *ThumbnailMode `json:"mode"`
+	// Quality : Quality of the thumbnail image.
+	Quality *ThumbnailQuality `json:"quality"`
+	// ExcludeMediaInfo : Normally, `FileMetadata.media_info` is set for photo
+	// and video. When this flag is true, `FileMetadata.media_info` is not
+	// populated. This improves latency for use cases where `media_info` is not
+	// needed.
+	ExcludeMediaInfo bool `json:"exclude_media_info,omitempty"`
 }
 
 // NewThumbnailV2Arg returns a new ThumbnailV2Arg instance
@@ -4479,6 +4544,7 @@ func NewThumbnailV2Arg(Resource *PathOrLink) *ThumbnailV2Arg {
 	s.Format = &ThumbnailFormat{Tagged: dropbox.Tagged{Tag: "jpeg"}}
 	s.Size = &ThumbnailSize{Tagged: dropbox.Tagged{Tag: "w64h64"}}
 	s.Mode = &ThumbnailMode{Tagged: dropbox.Tagged{Tag: "strict"}}
+	s.Quality = &ThumbnailQuality{Tagged: dropbox.Tagged{Tag: "quality_80"}}
 	return s
 }
 
@@ -4494,6 +4560,7 @@ const (
 	ThumbnailV2ErrorPath                 = "path"
 	ThumbnailV2ErrorUnsupportedExtension = "unsupported_extension"
 	ThumbnailV2ErrorUnsupportedImage     = "unsupported_image"
+	ThumbnailV2ErrorEncryptedContent     = "encrypted_content"
 	ThumbnailV2ErrorConversionError      = "conversion_error"
 	ThumbnailV2ErrorAccessDenied         = "access_denied"
 	ThumbnailV2ErrorNotFound             = "not_found"
@@ -4582,11 +4649,12 @@ type UploadError struct {
 
 // Valid tag values for UploadError
 const (
-	UploadErrorPath                = "path"
-	UploadErrorPropertiesError     = "properties_error"
-	UploadErrorPayloadTooLarge     = "payload_too_large"
-	UploadErrorContentHashMismatch = "content_hash_mismatch"
-	UploadErrorOther               = "other"
+	UploadErrorPath                   = "path"
+	UploadErrorPropertiesError        = "properties_error"
+	UploadErrorPayloadTooLarge        = "payload_too_large"
+	UploadErrorContentHashMismatch    = "content_hash_mismatch"
+	UploadErrorEncryptionNotSupported = "encryption_not_supported"
+	UploadErrorOther                  = "other"
 )
 
 // UnmarshalJSON deserializes into a UploadError instance
@@ -4639,8 +4707,50 @@ func NewUploadSessionAppendArg(Cursor *UploadSessionCursor) *UploadSessionAppend
 	return s
 }
 
-// UploadSessionLookupError : has no documentation (yet)
-type UploadSessionLookupError struct {
+// UploadSessionAppendBatchArg : has no documentation (yet)
+type UploadSessionAppendBatchArg struct {
+	// Entries : Append information for each file in the batch.
+	Entries []*UploadSessionAppendBatchArgEntry `json:"entries"`
+	// ContentHash : A hash of the entire request body which is all the
+	// concatenated pieces of file content that were uploaded in this call. If
+	// provided and the uploaded content does not match this hash, an error will
+	// be returned. For more information see our `Content hash`
+	// <https://www.dropbox.com/developers/reference/content-hash> page.
+	ContentHash string `json:"content_hash,omitempty"`
+}
+
+// NewUploadSessionAppendBatchArg returns a new UploadSessionAppendBatchArg instance
+func NewUploadSessionAppendBatchArg(Entries []*UploadSessionAppendBatchArgEntry) *UploadSessionAppendBatchArg {
+	s := new(UploadSessionAppendBatchArg)
+	s.Entries = Entries
+	return s
+}
+
+// UploadSessionAppendBatchArgEntry : has no documentation (yet)
+type UploadSessionAppendBatchArgEntry struct {
+	// Cursor : Contains the upload session ID and the offset.
+	Cursor *UploadSessionCursor `json:"cursor"`
+	// Length : Length in bytes of the data that should be appended for this
+	// session. Used to split the batched upload data for multiple upload
+	// sessions.
+	Length uint64 `json:"length"`
+	// Close : If true, the current session will be closed, at which point you
+	// won't be able to call `uploadSessionAppendBatch` anymore with the current
+	// session.
+	Close bool `json:"close"`
+}
+
+// NewUploadSessionAppendBatchArgEntry returns a new UploadSessionAppendBatchArgEntry instance
+func NewUploadSessionAppendBatchArgEntry(Cursor *UploadSessionCursor, Length uint64) *UploadSessionAppendBatchArgEntry {
+	s := new(UploadSessionAppendBatchArgEntry)
+	s.Cursor = Cursor
+	s.Length = Length
+	s.Close = false
+	return s
+}
+
+// UploadSessionAppendBatchEntryError : has no documentation (yet)
+type UploadSessionAppendBatchEntryError struct {
 	dropbox.Tagged
 	// IncorrectOffset : The specified offset was incorrect. See the value for
 	// the correct offset. This error may occur when a previous request was
@@ -4649,21 +4759,19 @@ type UploadSessionLookupError struct {
 	IncorrectOffset *UploadSessionOffsetError `json:"incorrect_offset,omitempty"`
 }
 
-// Valid tag values for UploadSessionLookupError
+// Valid tag values for UploadSessionAppendBatchEntryError
 const (
-	UploadSessionLookupErrorNotFound                         = "not_found"
-	UploadSessionLookupErrorIncorrectOffset                  = "incorrect_offset"
-	UploadSessionLookupErrorClosed                           = "closed"
-	UploadSessionLookupErrorNotClosed                        = "not_closed"
-	UploadSessionLookupErrorTooLarge                         = "too_large"
-	UploadSessionLookupErrorConcurrentSessionInvalidOffset   = "concurrent_session_invalid_offset"
-	UploadSessionLookupErrorConcurrentSessionInvalidDataSize = "concurrent_session_invalid_data_size"
-	UploadSessionLookupErrorPayloadTooLarge                  = "payload_too_large"
-	UploadSessionLookupErrorOther                            = "other"
+	UploadSessionAppendBatchEntryErrorNotFound                         = "not_found"
+	UploadSessionAppendBatchEntryErrorIncorrectOffset                  = "incorrect_offset"
+	UploadSessionAppendBatchEntryErrorClosed                           = "closed"
+	UploadSessionAppendBatchEntryErrorTooLarge                         = "too_large"
+	UploadSessionAppendBatchEntryErrorConcurrentSessionInvalidOffset   = "concurrent_session_invalid_offset"
+	UploadSessionAppendBatchEntryErrorConcurrentSessionInvalidDataSize = "concurrent_session_invalid_data_size"
+	UploadSessionAppendBatchEntryErrorOther                            = "other"
 )
 
-// UnmarshalJSON deserializes into a UploadSessionLookupError instance
-func (u *UploadSessionLookupError) UnmarshalJSON(body []byte) error {
+// UnmarshalJSON deserializes into a UploadSessionAppendBatchEntryError instance
+func (u *UploadSessionAppendBatchEntryError) UnmarshalJSON(body []byte) error {
 	type wrap struct {
 		dropbox.Tagged
 	}
@@ -4678,6 +4786,67 @@ func (u *UploadSessionLookupError) UnmarshalJSON(body []byte) error {
 		if err = json.Unmarshal(body, &u.IncorrectOffset); err != nil {
 			return err
 		}
+
+	}
+	return nil
+}
+
+// UploadSessionAppendBatchError : has no documentation (yet)
+type UploadSessionAppendBatchError struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for UploadSessionAppendBatchError
+const (
+	UploadSessionAppendBatchErrorPayloadTooLarge     = "payload_too_large"
+	UploadSessionAppendBatchErrorContentHashMismatch = "content_hash_mismatch"
+	UploadSessionAppendBatchErrorLengthMismatch      = "length_mismatch"
+	UploadSessionAppendBatchErrorOther               = "other"
+)
+
+// UploadSessionAppendBatchResult : has no documentation (yet)
+type UploadSessionAppendBatchResult struct {
+	// Entries : Each entry in `UploadSessionAppendBatchArg.entries` will appear
+	// at the same position inside `UploadSessionAppendBatchResult.entries`.
+	Entries []*UploadSessionAppendBatchResultEntry `json:"entries"`
+}
+
+// NewUploadSessionAppendBatchResult returns a new UploadSessionAppendBatchResult instance
+func NewUploadSessionAppendBatchResult(Entries []*UploadSessionAppendBatchResultEntry) *UploadSessionAppendBatchResult {
+	s := new(UploadSessionAppendBatchResult)
+	s.Entries = Entries
+	return s
+}
+
+// UploadSessionAppendBatchResultEntry : has no documentation (yet)
+type UploadSessionAppendBatchResultEntry struct {
+	dropbox.Tagged
+	// Failure : has no documentation (yet)
+	Failure *UploadSessionAppendBatchEntryError `json:"failure,omitempty"`
+}
+
+// Valid tag values for UploadSessionAppendBatchResultEntry
+const (
+	UploadSessionAppendBatchResultEntrySuccess = "success"
+	UploadSessionAppendBatchResultEntryFailure = "failure"
+)
+
+// UnmarshalJSON deserializes into a UploadSessionAppendBatchResultEntry instance
+func (u *UploadSessionAppendBatchResultEntry) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+		// Failure : has no documentation (yet)
+		Failure *UploadSessionAppendBatchEntryError `json:"failure,omitempty"`
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "failure":
+		u.Failure = w.Failure
 
 	}
 	return nil
@@ -4698,13 +4867,12 @@ const (
 	UploadSessionAppendErrorNotFound                         = "not_found"
 	UploadSessionAppendErrorIncorrectOffset                  = "incorrect_offset"
 	UploadSessionAppendErrorClosed                           = "closed"
-	UploadSessionAppendErrorNotClosed                        = "not_closed"
 	UploadSessionAppendErrorTooLarge                         = "too_large"
 	UploadSessionAppendErrorConcurrentSessionInvalidOffset   = "concurrent_session_invalid_offset"
 	UploadSessionAppendErrorConcurrentSessionInvalidDataSize = "concurrent_session_invalid_data_size"
 	UploadSessionAppendErrorPayloadTooLarge                  = "payload_too_large"
-	UploadSessionAppendErrorOther                            = "other"
 	UploadSessionAppendErrorContentHashMismatch              = "content_hash_mismatch"
+	UploadSessionAppendErrorOther                            = "other"
 )
 
 // UnmarshalJSON deserializes into a UploadSessionAppendError instance
@@ -4944,6 +5112,7 @@ const (
 	UploadSessionFinishErrorConcurrentSessionMissingData    = "concurrent_session_missing_data"
 	UploadSessionFinishErrorPayloadTooLarge                 = "payload_too_large"
 	UploadSessionFinishErrorContentHashMismatch             = "content_hash_mismatch"
+	UploadSessionFinishErrorEncryptionNotSupported          = "encryption_not_supported"
 	UploadSessionFinishErrorOther                           = "other"
 )
 
@@ -4977,6 +5146,50 @@ func (u *UploadSessionFinishError) UnmarshalJSON(body []byte) error {
 
 	case "properties_error":
 		u.PropertiesError = w.PropertiesError
+
+	}
+	return nil
+}
+
+// UploadSessionLookupError : has no documentation (yet)
+type UploadSessionLookupError struct {
+	dropbox.Tagged
+	// IncorrectOffset : The specified offset was incorrect. See the value for
+	// the correct offset. This error may occur when a previous request was
+	// received and processed successfully but the client did not receive the
+	// response, e.g. due to a network error.
+	IncorrectOffset *UploadSessionOffsetError `json:"incorrect_offset,omitempty"`
+}
+
+// Valid tag values for UploadSessionLookupError
+const (
+	UploadSessionLookupErrorNotFound                         = "not_found"
+	UploadSessionLookupErrorIncorrectOffset                  = "incorrect_offset"
+	UploadSessionLookupErrorClosed                           = "closed"
+	UploadSessionLookupErrorNotClosed                        = "not_closed"
+	UploadSessionLookupErrorTooLarge                         = "too_large"
+	UploadSessionLookupErrorConcurrentSessionInvalidOffset   = "concurrent_session_invalid_offset"
+	UploadSessionLookupErrorConcurrentSessionInvalidDataSize = "concurrent_session_invalid_data_size"
+	UploadSessionLookupErrorPayloadTooLarge                  = "payload_too_large"
+	UploadSessionLookupErrorOther                            = "other"
+)
+
+// UnmarshalJSON deserializes into a UploadSessionLookupError instance
+func (u *UploadSessionLookupError) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "incorrect_offset":
+		if err = json.Unmarshal(body, &u.IncorrectOffset); err != nil {
+			return err
+		}
 
 	}
 	return nil
@@ -5168,6 +5381,7 @@ const (
 	WriteErrorTeamFolder             = "team_folder"
 	WriteErrorOperationSuppressed    = "operation_suppressed"
 	WriteErrorTooManyWriteOperations = "too_many_write_operations"
+	WriteErrorAccessRestricted       = "access_restricted"
 	WriteErrorOther                  = "other"
 )
 

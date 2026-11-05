@@ -4,22 +4,22 @@ import (
 	"encoding/json"
 
 	lib "github.com/Files-com/files-sdk-go/v3/lib"
-	"github.com/lpar/date"
+	"github.com/lpar/calendar"
 )
 
 type UsageDailySnapshot struct {
-	Id                           int64                    `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
-	Date                         *date.Date               `json:"date,omitempty" path:"date,omitempty" url:"date,omitempty"`
-	ApiUsageAvailable            *bool                    `json:"api_usage_available,omitempty" path:"api_usage_available,omitempty" url:"api_usage_available,omitempty"`
-	ReadApiUsage                 int64                    `json:"read_api_usage,omitempty" path:"read_api_usage,omitempty" url:"read_api_usage,omitempty"`
-	WriteApiUsage                int64                    `json:"write_api_usage,omitempty" path:"write_api_usage,omitempty" url:"write_api_usage,omitempty"`
-	TransformationCreditsUsage   int64                    `json:"transformation_credits_usage,omitempty" path:"transformation_credits_usage,omitempty" url:"transformation_credits_usage,omitempty"`
-	UserCount                    int64                    `json:"user_count,omitempty" path:"user_count,omitempty" url:"user_count,omitempty"`
-	CurrentStorage               int64                    `json:"current_storage,omitempty" path:"current_storage,omitempty" url:"current_storage,omitempty"`
-	DeletedFilesStorage          int64                    `json:"deleted_files_storage,omitempty" path:"deleted_files_storage,omitempty" url:"deleted_files_storage,omitempty"`
-	DeletedFilesCountedInMinimum int64                    `json:"deleted_files_counted_in_minimum,omitempty" path:"deleted_files_counted_in_minimum,omitempty" url:"deleted_files_counted_in_minimum,omitempty"`
-	RootStorage                  int64                    `json:"root_storage,omitempty" path:"root_storage,omitempty" url:"root_storage,omitempty"`
-	UsageByTopLevelDir           []map[string]interface{} `json:"usage_by_top_level_dir,omitempty" path:"usage_by_top_level_dir,omitempty" url:"usage_by_top_level_dir,omitempty"`
+	Id                           int64                `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	Date                         *calendar.Date       `json:"date,omitempty" path:"date,omitempty" url:"date,omitempty"`
+	ApiUsageAvailable            *bool                `json:"api_usage_available,omitempty" path:"api_usage_available,omitempty" url:"api_usage_available,omitempty"`
+	ReadApiUsage                 int64                `json:"read_api_usage,omitempty" path:"read_api_usage,omitempty" url:"read_api_usage,omitempty"`
+	WriteApiUsage                int64                `json:"write_api_usage,omitempty" path:"write_api_usage,omitempty" url:"write_api_usage,omitempty"`
+	TransformationCreditsUsage   int64                `json:"transformation_credits_usage,omitempty" path:"transformation_credits_usage,omitempty" url:"transformation_credits_usage,omitempty"`
+	UserCount                    int64                `json:"user_count,omitempty" path:"user_count,omitempty" url:"user_count,omitempty"`
+	CurrentStorage               int64                `json:"current_storage,omitempty" path:"current_storage,omitempty" url:"current_storage,omitempty"`
+	DeletedFilesStorage          int64                `json:"deleted_files_storage,omitempty" path:"deleted_files_storage,omitempty" url:"deleted_files_storage,omitempty"`
+	DeletedFilesCountedInMinimum int64                `json:"deleted_files_counted_in_minimum,omitempty" path:"deleted_files_counted_in_minimum,omitempty" url:"deleted_files_counted_in_minimum,omitempty"`
+	RootStorage                  int64                `json:"root_storage,omitempty" path:"root_storage,omitempty" url:"root_storage,omitempty"`
+	UsageByTopLevelDir           []UsageByTopLevelDir `json:"usage_by_top_level_dir,omitempty" path:"usage_by_top_level_dir,omitempty" url:"usage_by_top_level_dir,omitempty"`
 }
 
 func (u UsageDailySnapshot) Identifier() interface{} {

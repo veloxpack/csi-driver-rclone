@@ -25,6 +25,7 @@ type ApiKey struct {
 	SiteName            string     `json:"site_name,omitempty" path:"site_name,omitempty" url:"site_name,omitempty"`
 	Url                 string     `json:"url,omitempty" path:"url,omitempty" url:"url,omitempty"`
 	UserId              int64      `json:"user_id,omitempty" path:"user_id,omitempty" url:"user_id,omitempty"`
+	WorkspaceId         int64      `json:"workspace_id,omitempty" path:"workspace_id,omitempty" url:"workspace_id,omitempty"`
 	Path                string     `json:"path,omitempty" path:"path,omitempty" url:"path,omitempty"`
 }
 
@@ -48,6 +49,7 @@ func (u ApiKeyPermissionSetEnum) Enum() map[string]ApiKeyPermissionSetEnum {
 		"sync_app":           ApiKeyPermissionSetEnum("sync_app"),
 		"office_integration": ApiKeyPermissionSetEnum("office_integration"),
 		"mobile_app":         ApiKeyPermissionSetEnum("mobile_app"),
+		"files_only":         ApiKeyPermissionSetEnum("files_only"),
 	}
 }
 
@@ -74,6 +76,7 @@ type ApiKeyCreateParams struct {
 	AwsStyleCredentials *bool                   `url:"aws_style_credentials,omitempty" json:"aws_style_credentials,omitempty" path:"aws_style_credentials"`
 	Path                string                  `url:"path,omitempty" json:"path,omitempty" path:"path"`
 	PermissionSet       ApiKeyPermissionSetEnum `url:"permission_set,omitempty" json:"permission_set,omitempty" path:"permission_set"`
+	WorkspaceId         int64                   `url:"workspace_id,omitempty" json:"workspace_id,omitempty" path:"workspace_id"`
 }
 
 type ApiKeyUpdateCurrentParams struct {

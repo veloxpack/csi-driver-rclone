@@ -13,12 +13,21 @@ func (c *Client) DownloadRetry(job Job, opts ...files_sdk.RequestResponseOption)
 	newJob := job.ClearStatuses()
 	return c.Downloader(
 		DownloaderParams{
-			RemotePath:     newJob.RemotePath,
-			Sync:           newJob.Sync,
-			Manager:        newJob.Manager,
-			LocalPath:      newJob.LocalPath,
-			RetryPolicy:    newJob.RetryPolicy.(RetryPolicy),
-			EventsReporter: newJob.EventsReporter,
+			RemotePath:                           newJob.RemotePath,
+			Sync:                                 newJob.Sync,
+			Manager:                              newJob.Manager,
+			LocalPath:                            newJob.LocalPath,
+			RetryPolicy:                          newJob.RetryPolicy.(RetryPolicy),
+			EventsReporter:                       newJob.EventsReporter,
+			Ignore:                               newJob.Params.(DownloaderParams).Ignore,
+			Include:                              newJob.Params.(DownloaderParams).Include,
+			SyncAfterActions:                     newJob.Params.(DownloaderParams).SyncAfterActions,
+			AdaptiveConcurrency:                  newJob.Params.(DownloaderParams).AdaptiveConcurrency,
+			AdaptiveConcurrencyUseSDKDefaultCaps: newJob.Params.(DownloaderParams).AdaptiveConcurrencyUseSDKDefaultCaps,
+			AdaptiveDownloadV2TargetClassifier:   newJob.Params.(DownloaderParams).AdaptiveDownloadV2TargetClassifier,
+			AdaptiveDownloadV2TuningSet:          newJob.Params.(DownloaderParams).AdaptiveDownloadV2TuningSet,
+			AdaptiveDownloadV2Tuning:             newJob.Params.(DownloaderParams).AdaptiveDownloadV2Tuning,
+			ZipBatch:                             newJob.Params.(DownloaderParams).ZipBatch,
 		},
 		opts...)
 }
@@ -46,6 +55,8 @@ type DownloaderParams struct {
 	Sync          bool
 	PreserveTimes bool
 	NoOverwrite   bool
+	// SyncAfterActions optionally run source cleanup/move actions after sync comparison.
+	SyncAfterActions SyncAfterActions
 	RetryPolicy
 	*manager.Manager
 	EventsReporter
@@ -53,11 +64,32 @@ type DownloaderParams struct {
 	DryRun             bool
 	PriorJobCheckpoint *JobDownloadCheckpoint
 	ResumeTmpPath      string // Full path to the temp file from a prior paused download session.
+	// AdaptiveConcurrency enables opt-in download V2 adaptive range concurrency.
+	AdaptiveConcurrency bool
+	// AdaptiveConcurrencyUseSDKDefaultCaps uses SDK V2 caps instead of treating an
+	// explicitly supplied Manager as an isolation boundary.
+	AdaptiveConcurrencyUseSDKDefaultCaps bool
+	// AdaptiveDownloadV2TargetClassifier optionally overrides the SDK's download
+	// V2 target classifier. Custom targets use default SDK transfer behavior but
+	// keep separate adaptive manager cache entries and telemetry target labels.
+	AdaptiveDownloadV2TargetClassifier DownloadV2TargetClassifier
+	// AdaptiveDownloadV2TuningSet applies V2 tuning overrides below.
+	// When false, V2 uses built-in defaults.
+	AdaptiveDownloadV2TuningSet bool
+	// AdaptiveDownloadV2Tuning holds opt-in V2 transfer tuning.
+	AdaptiveDownloadV2Tuning UploadV2Tuning
+	// ZipBatch controls batched small-file downloads through the ZIP download endpoint.
+	ZipBatch ZipBatchParams
 }
 
 func (c *Client) Downloader(params DownloaderParams, opts ...files_sdk.RequestResponseOption) *Job {
 	params.config = c.Config
-	return downloader(files_sdk.ContextOption(opts), (&FS{}).Init(c.Config, true), params)
+	if params.AdaptiveConcurrency && (params.AdaptiveConcurrencyUseSDKDefaultCaps || params.Manager == nil) {
+		params.config = params.config.SetCustomClient(manager.New(manager.AdaptiveDownloadV2ConcurrentFiles, manager.EffectiveAdaptiveDownloadV2ConcurrentFileParts(), manager.ConcurrentDirectoryList).CreateMatchingClient(params.config.HTTPClient))
+	}
+	job := downloader(files_sdk.ContextOption(opts), (&FS{}).Init(params.config, true), params, opts...)
+	registerSyncAfterActions(job, params.SyncAfterActions, params.DryRun, params.config, opts...)
+	return job
 }
 
 type Entity struct {

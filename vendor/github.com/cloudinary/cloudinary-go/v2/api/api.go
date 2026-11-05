@@ -25,7 +25,7 @@ import (
 type EndPoint = string
 
 // Version is the Cloudinary Go package version.
-const Version = "2.15.0"
+const Version = "2.16.0"
 
 // UserAgent contains information about the SDK user agent. Passed to the Cloudinary servers.
 var UserAgent = fmt.Sprintf("CloudinaryGo/%s (Go %s)", Version, strings.TrimPrefix(runtime.Version(), "go"))

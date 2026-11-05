@@ -179,12 +179,12 @@ func (u *Uploader) Close() error {
 	return u.metainfo.Close()
 }
 
-var uploadCounter int64
+var uploadCounter atomic.Int64
 
 // UploadObject starts an upload of an object to the given location. The object
 // contents can be written to the returned upload, which can then be committed.
 func (u *Uploader) UploadObject(ctx context.Context, bucket, unencryptedKey string, metadata Metadata, sched segmentupload.Scheduler, opts *metaclient.UploadOptions) (_ *Upload, err error) {
-	ctx = testuplink.WithLogWriterContext(ctx, "upload", strconv.FormatInt(atomic.AddInt64(&uploadCounter, 1), 10))
+	ctx = testuplink.WithLogWriterContext(ctx, "upload", strconv.FormatInt(uploadCounter.Add(1), 10))
 	testuplink.Log(ctx, "Starting upload")
 	defer testuplink.Log(ctx, "Done starting upload")
 
@@ -276,7 +276,7 @@ func (u *Uploader) UploadObject(ctx context.Context, bucket, unencryptedKey stri
 // been fully written to the returned upload, but before calling Commit.
 func (u *Uploader) UploadPart(ctx context.Context, bucket, unencryptedKey string, streamID storj.StreamID, partNumber int32, eTag <-chan []byte, sched segmentupload.Scheduler) (_ *Upload, err error) {
 	ctx = testuplink.WithLogWriterContext(ctx,
-		"upload", strconv.FormatInt(atomic.AddInt64(&uploadCounter, 1), 10),
+		"upload", strconv.FormatInt(uploadCounter.Add(1), 10),
 		"part_number", strconv.Itoa(int(partNumber)),
 	)
 	testuplink.Log(ctx, "Starting upload")

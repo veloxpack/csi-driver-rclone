@@ -18,6 +18,7 @@ import (
 	"github.com/rclone/rclone/fs/hash"
 	"github.com/rclone/rclone/fs/log"
 	"github.com/rclone/rclone/lib/readers"
+	"github.com/rclone/rclone/lib/sanitize"
 	"github.com/rclone/rclone/vfs"
 	"github.com/rclone/rclone/vfs/vfscommon"
 )
@@ -135,15 +136,20 @@ func (f *Fs) readZip() (singleObject bool, err error) {
 		return singleObject, fmt.Errorf("failed to read zip file: %w", err)
 	}
 	dt := dirtree.New()
+	skipped := 0
 	for _, file := range zr.File {
-		remote := strings.Trim(path.Clean(file.Name), "/")
-		if remote == "." {
-			remote = ""
+		// Skip entries whose name escapes the archive's own namespace
+		remote, err := sanitize.Path(file.Name)
+		if err != nil {
+			skipped++
+			continue
 		}
 		remote = path.Join(f.prefix, remote)
 		if f.root != "" {
-			// Ignore all files outside the root
-			if !strings.HasPrefix(remote, f.root) {
+			// Ignore all files outside the root, requiring a path
+			// boundary so that root "foo" does not also match a
+			// sibling entry such as "foobar"
+			if remote != f.root && !strings.HasPrefix(remote, f.root+"/") {
 				continue
 			}
 			if remote == f.root {
@@ -157,6 +163,14 @@ func (f *Fs) readZip() (singleObject bool, err error) {
 			dt.AddDir(dir)
 		} else {
 			if remote == "" {
+				// A file at the root itself can only be the
+				// archive member f.root points at - with no root
+				// it is a crafted name for the archive's own
+				// directory, which can't be a file
+				if f.root == "" {
+					skipped++
+					continue
+				}
 				remote = path.Base(f.root)
 				singleObject = true
 				dt = dirtree.New()
@@ -172,6 +186,9 @@ func (f *Fs) readZip() (singleObject bool, err error) {
 				break
 			}
 		}
+	}
+	if skipped > 0 {
+		fs.Logf(f, "Skipped %d zip entries which escape the archive", skipped)
 	}
 	dt.CheckParents("")
 	dt.Sort()

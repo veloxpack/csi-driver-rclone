@@ -53,45 +53,6 @@ func getVFS(in rc.Params) (vfs *VFS, err error) {
 	return activeVFS[0], nil
 }
 
-// getVFSes gets all VFSes with config name "fs" from the cache, or returns an
-// error.
-//
-// Unlike getVFS it does NOT error when more than one VFS shares the same name.
-// The CSI driver disables VFS reuse (issue #69), so an RWX volume mounted into
-// several pods on one node creates one VFS per mount for the same remote.
-// Directory-cache operations like vfs/refresh and vfs/forget must therefore
-// apply to every matching VFS, otherwise stale caches remain on the other
-// mounts (and getVFS would reject the call outright).
-//
-// If "fs" is not set, all active VFSes are returned. This deletes the "fs"
-// parameter from in if it is valid.
-// See: https://github.com/veloxpack/csi-driver-rclone/issues/88
-func getVFSes(in rc.Params) (vfses []*VFS, err error) {
-	fsString, err := in.GetString("fs")
-	if rc.IsErrParamNotFound(err) {
-		activeMu.Lock()
-		defer activeMu.Unlock()
-		for _, activeVFS := range active {
-			vfses = append(vfses, activeVFS...)
-		}
-		if len(vfses) == 0 {
-			return nil, errors.New(`no VFS active and "fs" parameter not supplied`)
-		}
-		return vfses, nil
-	} else if err != nil {
-		return nil, err
-	}
-	activeMu.Lock()
-	defer activeMu.Unlock()
-	fsString = cache.Canonicalize(fsString)
-	vfses = active[fsString]
-	if len(vfses) == 0 {
-		return nil, fmt.Errorf("no VFS found with name %q", fsString)
-	}
-	delete(in, "fs") // delete the fs parameter
-	return vfses, nil
-}
-
 func init() {
 	rc.Add(rc.Call{
 		Path:  "vfs/refresh",
@@ -116,24 +77,17 @@ will get refreshed. This refresh will use --fast-list if enabled.
 	})
 }
 
-// mergeResult records status for path in result, preferring an error status
-// over "OK" so that a failure on any one VFS is not masked by success on another.
-func mergeResult(result map[string]string, path, status string) {
-	if prev, ok := result[path]; ok && prev != "OK" {
-		return // an error was already recorded for this path; keep it
+func rcRefresh(ctx context.Context, in rc.Params) (out rc.Params, err error) {
+	vfs, err := getVFS(in)
+	if err != nil {
+		return nil, err
 	}
-	result[path] = status
-}
 
-// refreshVFS applies vfs/refresh to a single VFS, merging its per-path status
-// into result. Parameters in `in` are assumed to have been validated already.
-func refreshVFS(vfs *VFS, in rc.Params, recursive bool, result map[string]string) error {
 	root, err := vfs.Root()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	getDir := func(path string) (*Dir, error) {
-		var err error
 		path = strings.Trim(path, "/")
 		segments := strings.Split(path, "/")
 		var node Node = root
@@ -149,46 +103,6 @@ func refreshVFS(vfs *VFS, in rc.Params, recursive bool, result map[string]string
 			return dir, nil
 		}
 		return nil, EINVAL
-	}
-
-	if len(in) == 0 {
-		if recursive {
-			err = root.readDirTree()
-		} else {
-			err = root.readDir()
-		}
-		if err != nil {
-			mergeResult(result, "", err.Error())
-		} else {
-			mergeResult(result, "", "OK")
-		}
-		return nil
-	}
-	for _, v := range in {
-		path := v.(string) // validated by caller
-		dir, err := getDir(path)
-		if err != nil {
-			mergeResult(result, path, err.Error())
-			continue
-		}
-		if recursive {
-			err = dir.readDirTree()
-		} else {
-			err = dir.readDir()
-		}
-		if err != nil {
-			mergeResult(result, path, err.Error())
-		} else {
-			mergeResult(result, path, "OK")
-		}
-	}
-	return nil
-}
-
-func rcRefresh(ctx context.Context, in rc.Params) (out rc.Params, err error) {
-	vfses, err := getVFSes(in)
-	if err != nil {
-		return nil, err
 	}
 
 	recursive := false
@@ -208,21 +122,43 @@ func rcRefresh(ctx context.Context, in rc.Params) (out rc.Params, err error) {
 		}
 	}
 
-	// Validate the remaining dir* parameters up front so the call fails
-	// consistently before touching any VFS.
-	for k, v := range in {
-		if _, ok := v.(string); !ok {
-			return out, fmt.Errorf("value must be string %q=%v", k, v)
-		}
-		if !strings.HasPrefix(k, "dir") {
-			return out, fmt.Errorf("unknown key %q", k)
-		}
-	}
-
 	result := map[string]string{}
-	for _, vfs := range vfses {
-		if err := refreshVFS(vfs, in, recursive, result); err != nil {
-			return out, err
+	if len(in) == 0 {
+		if recursive {
+			err = root.readDirTree()
+		} else {
+			err = root.readDir()
+		}
+		if err != nil {
+			result[""] = err.Error()
+		} else {
+			result[""] = "OK"
+		}
+	} else {
+		for k, v := range in {
+			path, ok := v.(string)
+			if !ok {
+				return out, fmt.Errorf("value must be string %q=%v", k, v)
+			}
+			if strings.HasPrefix(k, "dir") {
+				dir, err := getDir(path)
+				if err != nil {
+					result[path] = err.Error()
+				} else {
+					if recursive {
+						err = dir.readDirTree()
+					} else {
+						err = dir.readDir()
+					}
+					if err != nil {
+						result[path] = err.Error()
+					} else {
+						result[path] = "OK"
+					}
+				}
+			} else {
+				return out, fmt.Errorf("unknown key %q", k)
+			}
 		}
 	}
 	out = rc.Params{
@@ -256,47 +192,34 @@ starting with dir will forget that dir, e.g.
 }
 
 func rcForget(ctx context.Context, in rc.Params) (out rc.Params, err error) {
-	vfses, err := getVFSes(in)
+	vfs, err := getVFS(in)
 	if err != nil {
 		return nil, err
 	}
 
-	// Validate the parameters up front so the call fails consistently before
-	// touching any VFS.
-	for k, v := range in {
-		if _, ok := v.(string); !ok {
-			return out, fmt.Errorf("value must be string %q=%v", k, v)
-		}
-		if !strings.HasPrefix(k, "file") && !strings.HasPrefix(k, "dir") {
-			return out, fmt.Errorf("unknown key %q", k)
-		}
+	root, err := vfs.Root()
+	if err != nil {
+		return nil, err
 	}
 
 	forgotten := []string{}
-	seen := map[string]bool{}
-	addForgotten := func(path string) {
-		if !seen[path] {
-			seen[path] = true
-			forgotten = append(forgotten, path)
-		}
-	}
-	for _, vfs := range vfses {
-		root, err := vfs.Root()
-		if err != nil {
-			return nil, err
-		}
-		if len(in) == 0 {
-			root.ForgetAll()
-			continue
-		}
+	if len(in) == 0 {
+		root.ForgetAll()
+	} else {
 		for k, v := range in {
-			path := strings.Trim(v.(string), "/") // validated above
+			path, ok := v.(string)
+			if !ok {
+				return out, fmt.Errorf("value must be string %q=%v", k, v)
+			}
+			path = strings.Trim(path, "/")
 			if strings.HasPrefix(k, "file") {
 				root.ForgetPath(path, fs.EntryObject)
-			} else {
+			} else if strings.HasPrefix(k, "dir") {
 				root.ForgetPath(path, fs.EntryDirectory)
+			} else {
+				return out, fmt.Errorf("unknown key %q", k)
 			}
-			addForgotten(path)
+			forgotten = append(forgotten, path)
 		}
 	}
 	out = rc.Params{
@@ -352,6 +275,8 @@ func getStatus(vfs *VFS, in rc.Params) (out rc.Params, err error) {
 	for k, v := range in {
 		return nil, fmt.Errorf("invalid parameter: %s=%s", k, v)
 	}
+	vfs.pollMu.Lock()
+	defer vfs.pollMu.Unlock()
 	return rc.Params{
 		"enabled":   vfs.Opt.PollInterval != 0,
 		"supported": vfs.pollChan != nil,
@@ -361,6 +286,32 @@ func getStatus(vfs *VFS, in rc.Params) (out rc.Params, err error) {
 			"string":  vfs.Opt.PollInterval.String(),
 		},
 	}, nil
+}
+
+func setPollInterval(vfs *VFS, interval, timeout time.Duration) (timeoutHit bool, err error) {
+	vfs.pollMu.Lock()
+	defer vfs.pollMu.Unlock()
+	if vfs.ctx.Err() != nil {
+		return false, errors.New("VFS is shutting down")
+	}
+	if vfs.pollChan == nil {
+		return false, errors.New("poll-interval is not supported by this remote")
+	}
+	var timeoutChan <-chan time.Time
+	if timeout > 0 {
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+		timeoutChan = timer.C
+	}
+	select {
+	case vfs.pollChan <- interval:
+		vfs.Opt.PollInterval = fs.Duration(interval)
+	case <-timeoutChan:
+		timeoutHit = true
+	case <-vfs.ctx.Done():
+		return false, errors.New("VFS is shutting down")
+	}
+	return timeoutHit, nil
 }
 
 func init() {
@@ -409,25 +360,18 @@ func rcPollInterval(ctx context.Context, in rc.Params) (out rc.Params, err error
 	for k, v := range in {
 		return nil, fmt.Errorf("invalid parameter: %s=%s", k, v)
 	}
-	if vfs.pollChan == nil {
-		return nil, errors.New("poll-interval is not supported by this remote")
-	}
-
 	if !intervalPresent {
+		vfs.pollMu.Lock()
+		supported := vfs.pollChan != nil
+		vfs.pollMu.Unlock()
+		if !supported {
+			return nil, errors.New("poll-interval is not supported by this remote")
+		}
 		return getStatus(vfs, in)
 	}
-	var timeoutHit bool
-	var timeoutChan <-chan time.Time
-	if timeout > 0 {
-		timer := time.NewTimer(timeout)
-		defer timer.Stop()
-		timeoutChan = timer.C
-	}
-	select {
-	case vfs.pollChan <- interval:
-		vfs.Opt.PollInterval = fs.Duration(interval)
-	case <-timeoutChan:
-		timeoutHit = true
+	timeoutHit, err := setPollInterval(vfs, interval, timeout)
+	if err != nil {
+		return nil, err
 	}
 	out, err = getStatus(vfs, in)
 	if out != nil {

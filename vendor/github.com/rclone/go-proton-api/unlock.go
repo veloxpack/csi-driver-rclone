@@ -5,7 +5,7 @@ import (
 	"runtime"
 
 	"github.com/ProtonMail/gluon/async"
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 	"github.com/bradenaw/juniper/parallel"
 )
 
@@ -13,7 +13,7 @@ func Unlock(user User, addresses []Address, saltedKeyPass []byte, panicHandler a
 	userKR, err := user.Keys.Unlock(saltedKeyPass, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to unlock user keys: %w", err)
-	} else if userKR.CountDecryptionEntities() == 0 {
+	} else if userKR.CountDecryptionEntities(0) == 0 {
 		return nil, nil, fmt.Errorf("failed to unlock any user keys")
 	}
 
@@ -26,7 +26,7 @@ func Unlock(user User, addresses []Address, saltedKeyPass []byte, panicHandler a
 	}) {
 		if addrKR == nil {
 			continue
-		} else if addrKR.CountDecryptionEntities() == 0 {
+		} else if addrKR.CountDecryptionEntities(0) == 0 {
 			continue
 		}
 

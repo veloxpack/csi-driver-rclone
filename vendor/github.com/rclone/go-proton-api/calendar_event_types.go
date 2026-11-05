@@ -3,7 +3,7 @@ package proton
 import (
 	"encoding/base64"
 
-	"github.com/ProtonMail/gopenpgp/v2/crypto"
+	"github.com/ProtonMail/gopenpgp/v3/crypto"
 )
 
 type CalendarEvent struct {
@@ -53,7 +53,7 @@ func (part CalendarEventPart) Decode(calKR *crypto.KeyRing, addrKR *crypto.KeyRi
 				return err
 			}
 
-			enc = crypto.NewPGPSplitMessage(kp, raw).GetPGPMessage()
+			enc = crypto.NewPGPSplitMessage(kp, raw)
 		} else {
 			var err error
 
@@ -62,21 +62,16 @@ func (part CalendarEventPart) Decode(calKR *crypto.KeyRing, addrKR *crypto.KeyRi
 			}
 		}
 
-		dec, err := calKR.Decrypt(enc, nil, crypto.GetUnixTime())
+		dec, err := decryptMessage(calKR, enc, nil, 0)
 		if err != nil {
 			return err
 		}
 
-		part.Data = dec.GetString()
+		part.Data = string(dec)
 	}
 
 	if part.Type&CalendarEventTypeSigned != 0 {
-		sig, err := crypto.NewPGPSignatureFromArmored(part.Signature)
-		if err != nil {
-			return err
-		}
-
-		if err := addrKR.VerifyDetached(crypto.NewPlainMessageFromString(part.Data), sig, crypto.GetUnixTime()); err != nil {
+		if err := verifyDetachedArmored(addrKR, []byte(part.Data), part.Signature, 0); err != nil {
 			return err
 		}
 	}

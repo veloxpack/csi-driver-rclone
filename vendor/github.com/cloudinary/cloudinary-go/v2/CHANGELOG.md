@@ -1,3 +1,13 @@
+2.16.0 / 2026-05-28
+==================
+
+New Functionality And Features
+------------------------------
+
+  * Add support for `Triggers` Admin API
+  * Add `ExternalID` to `CreateFolderResult` and `FolderResult`
+  * Add `RelatedComplementaryNextCursor` to `AssetResult`
+
 2.15.0 / 2026-03-15
 ==================
 

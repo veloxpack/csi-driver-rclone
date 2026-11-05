@@ -46,6 +46,7 @@ const (
 	ObjectKeyMissing     StatusCode = 10016
 	ObjectKeyTooLong     StatusCode = 10017
 	ObjectVersionInvalid StatusCode = 10018
+	StreamIDInvalid      StatusCode = 10035
 
 	BucketNotFound StatusCode = 10019
 
@@ -73,6 +74,16 @@ const (
 	TagKeyDuplicate StatusCode = 10024
 	TagValueInvalid StatusCode = 10025
 	TagsNotFound    StatusCode = 10026
+
+	ChecksumsUnsupported     StatusCode = 10027
+	ChecksumAlgorithmInvalid StatusCode = 10028
+	ChecksumTypeUnexpected   StatusCode = 10029
+	ChecksumMissing          StatusCode = 10030
+	ChecksumUnexpected       StatusCode = 10031
+
+	ObjectMetadataMissing              StatusCode = 10032
+	ObjectMetadataIncludesInvalid      StatusCode = 10033
+	InsufficientObjectMetadataIncludes StatusCode = 10034
 )
 
 // Code returns the status code associated with the error.

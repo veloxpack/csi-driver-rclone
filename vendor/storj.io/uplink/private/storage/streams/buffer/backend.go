@@ -52,7 +52,7 @@ func NewMemoryBackend(cap int64) (rv *MemoryBackend) {
 
 // MemoryBackend implements the Backend interface backed by a slice.
 type MemoryBackend struct {
-	len    int64
+	len    atomic.Int64
 	buf    []byte
 	closed bool
 }
@@ -62,12 +62,12 @@ func (u *MemoryBackend) Write(p []byte) (n int, err error) {
 	if u.closed {
 		return 0, io.ErrClosedPipe
 	}
-	l := atomic.LoadInt64(&u.len)
+	l := u.len.Load()
 	n = copy(u.buf[l:], p)
 	if n != len(p) {
 		return n, io.ErrShortWrite
 	}
-	atomic.AddInt64(&u.len, int64(n))
+	u.len.Add(int64(n))
 	return n, nil
 }
 
@@ -76,7 +76,7 @@ func (u *MemoryBackend) ReadAt(p []byte, off int64) (n int, err error) {
 	if u.closed {
 		return 0, io.ErrClosedPipe
 	}
-	l := atomic.LoadInt64(&u.len)
+	l := u.len.Load()
 	if off < 0 || off >= l {
 		return 0, io.EOF
 	}

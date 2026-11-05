@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strconv"
 )
 
 type requestResponseOption struct {
@@ -12,8 +13,15 @@ type requestResponseOption struct {
 	context.Context
 }
 
+// RequestResponseOption customizes an individual SDK request or response.
+// WithContext is the normal public use. Request/header mutation options are
+// escape hatches for custom HTTP behavior, not the primary way to authenticate
+// or scope Files.com API calls; use Config.APIKey, Config.SessionId, and
+// Config.WorkspaceId for that. Request mutation options are not guaranteed
+// through every higher-level helper path.
 type RequestResponseOption func(*requestResponseOption) error
 
+// RequestOption customizes SDK HTTP requests.
 func RequestOption(call func(req *http.Request) error) RequestResponseOption {
 	return func(opt *requestResponseOption) error {
 		if opt.Request != nil {
@@ -32,6 +40,7 @@ func ResponseOption(call func(req *http.Response) error) RequestResponseOption {
 	}
 }
 
+// RequestHeadersOption customizes SDK HTTP request headers.
 func RequestHeadersOption(headers *http.Header) RequestResponseOption {
 	return RequestOption(func(req *http.Request) error {
 		for k, v := range *headers {
@@ -41,6 +50,27 @@ func RequestHeadersOption(headers *http.Header) RequestResponseOption {
 	})
 }
 
+// WithWorkspaceId sets the workspace header for a request.
+//
+// Deprecated: use Config.WorkspaceId; request/header mutations, including API-key headers, are not guaranteed through every helper.
+func WithWorkspaceId(workspaceId int64) RequestResponseOption {
+	return RequestOption(func(req *http.Request) error {
+		req.Header.Set(workspaceIdHeader, strconv.FormatInt(workspaceId, 10))
+		return nil
+	})
+}
+
+// WithoutWorkspaceId removes the workspace header from a request.
+//
+// Deprecated: use Config without WorkspaceId; request/header mutations, including API-key headers, are not guaranteed through every helper.
+func WithoutWorkspaceId() RequestResponseOption {
+	return RequestOption(func(req *http.Request) error {
+		req.Header.Del(workspaceIdHeader)
+		return nil
+	})
+}
+
+// WithContext sets the context for an SDK request.
 func WithContext(ctx context.Context) RequestResponseOption {
 	return func(opt *requestResponseOption) error {
 		if opt.Request != nil && ctx != nil {

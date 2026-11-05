@@ -106,8 +106,18 @@ func (f *FileEndpoints) Delete(uuid string) string {
 	return u
 }
 
+func (f *FileEndpoints) Move(uuid string) string {
+	u, _ := url.JoinPath(f.base, uuid)
+	return u
+}
+
 func (f *FileEndpoints) Thumbnail() string {
 	u, _ := url.JoinPath(f.base, "/thumbnail")
+	return u
+}
+
+func (f *FileEndpoints) Limits() string {
+	u, _ := url.JoinPath(f.base, "/limits")
 	return u
 }
 
@@ -119,6 +129,16 @@ type FolderEndpoints struct {
 func (f *FolderEndpoints) Create() string { return f.base }
 
 func (f *FolderEndpoints) Delete(uuid string) string {
+	u, _ := url.JoinPath(f.base, uuid)
+	return u
+}
+
+func (f *FolderEndpoints) Meta(uuid string) string {
+	u, _ := url.JoinPath(f.base, uuid, "/meta")
+	return u
+}
+
+func (f *FolderEndpoints) Move(uuid string) string {
 	u, _ := url.JoinPath(f.base, uuid)
 	return u
 }

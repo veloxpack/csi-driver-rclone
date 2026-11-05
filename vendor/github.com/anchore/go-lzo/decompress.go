@@ -237,7 +237,7 @@ func (d *decoder) handleM3(inst byte) error {
 	}
 	val := int(d.getLe16())
 	d.src.idx += 2
-	d.lbIdx = d.dst.idx - (int(val>>2) + 1)
+	d.lbIdx = d.dst.idx - (val>>2 + 1)
 	d.nextState = val & 0x3
 	return nil
 }
@@ -268,7 +268,7 @@ func (d *decoder) handleM4(inst byte) (finished bool, err error) {
 
 	val := int(d.getLe16())
 	d.src.idx += 2
-	d.lbIdx = d.dst.idx - (int(inst&0x8)<<11 + int(val>>2))
+	d.lbIdx = d.dst.idx - (int(inst&0x8)<<11 + val>>2)
 	d.nextState = val & 0x3
 
 	if d.lbIdx == d.dst.idx {
@@ -368,7 +368,7 @@ func (d *decoder) handleM1ShortCopy(inst byte) error {
 //go:inline
 func (d *decoder) copyLiterals(length int) {
 	// note: benchmarking shows that this is faster than using copy()
-	for i := 0; i < length; i++ {
+	for i := range length {
 		d.dst.data[d.dst.idx+i] = d.src.data[d.src.idx+i]
 	}
 	d.dst.idx += length

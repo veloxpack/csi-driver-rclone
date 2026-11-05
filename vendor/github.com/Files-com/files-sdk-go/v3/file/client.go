@@ -11,6 +11,8 @@ import (
 	"github.com/Files-com/files-sdk-go/v3/file/manager"
 	"github.com/Files-com/files-sdk-go/v3/folder"
 
+	"errors"
+
 	files_sdk "github.com/Files-com/files-sdk-go/v3"
 	lib "github.com/Files-com/files-sdk-go/v3/lib"
 )
@@ -95,7 +97,7 @@ func (c *Client) DownloadRequestStatus(fileDownloadUrl string, downloadRequestId
 		return re, err
 	}
 
-	c.SetHeaders(&request.Header)
+	c.SetHeadersForRequest(request)
 
 	resp, err := files_sdk.WrapRequestOptions(c.Config, request, opts...)
 	if err != nil {
@@ -122,6 +124,9 @@ func (c *Client) DownloadUri(params files_sdk.FileDownloadParams, opts ...files_
 	if params.Path == "" {
 		params.Path = params.File.Path
 	}
+	if !c.Config.DisableDirectTransfers && params.WithDirectConnectionInfo == nil {
+		params.WithDirectConnectionInfo = lib.Bool(true)
+	}
 
 	if params.File.DownloadUri == "" {
 		err = files_sdk.Resource(c.Config, lib.Resource{Method: "GET", Path: "/files/{path}", Params: params, Entity: &params.File}, opts...)
@@ -131,7 +136,7 @@ func (c *Client) DownloadUri(params files_sdk.FileDownloadParams, opts ...files_
 		remaining, valid := url.Valid(time.Millisecond * 250)
 		if parseErr == nil {
 			if !valid {
-				err = files_sdk.Resource(c.Config, lib.Resource{Method: "GET", Path: "/files/{path}", Params: params, Entity: &params.File})
+				err = files_sdk.Resource(c.Config, lib.Resource{Method: "GET", Path: "/files/{path}", Params: params, Entity: &params.File}, opts...)
 				if params.File.DownloadUri == url.URL.String() {
 					c.LogPath(params.Path, map[string]interface{}{"message": "URL was expired. Fetched a new URL but it didn't change", "Remaining": remaining, "Time": url.Time})
 				} else {
@@ -159,7 +164,37 @@ func (c *Client) Download(params files_sdk.FileDownloadParams, opts ...files_sdk
 		return params.File, err
 	}
 
-	c.SetHeaders(&request.Header)
+	c.SetHeadersForRequest(request)
+
+	directSuppressor := directTransferDownloadSuppressorFromContext(files_sdk.ContextOption(opts))
+	directAttemptAllowed := !c.Config.DisableDirectTransfers && files_sdk.DirectConnectionInfoPresent(params.File.DirectConnectionInfo)
+	if directAttemptAllowed && directSuppressor != nil {
+		directAttemptAllowed = directSuppressor.directTransferDownloadAttemptAllowed()
+	}
+	if directAttemptAllowed {
+		if c.Config.InDebug() {
+			c.LogPath(params.Path, map[string]interface{}{"message": "direct download attempt", "direction": "download"})
+		}
+		_, err = files_sdk.WrapDirectTransferOptions(
+			c.Config,
+			params.File.DirectConnectionInfo,
+			request,
+			directTransferDownloadFailureOptions(directSuppressor, opts...)...,
+		)
+		if err == nil {
+			if c.Config.InDebug() {
+				c.LogPath(params.Path, map[string]interface{}{"message": "direct download success", "direction": "download"})
+			}
+			return params.File, nil
+		}
+		if errors.Is(err, files_sdk.ErrDirectTransferResponseStarted) {
+			return params.File, err
+		}
+		if directSuppressor != nil {
+			directSuppressor.disableDirectTransferDownload("direct_request_failed", err)
+		}
+		c.LogPath(params.Path, map[string]interface{}{"message": "direct download failed; falling back to proxy URL", "direction": "download", "reason": "direct_request_failed", "error": err.Error()})
+	}
 
 	_, err = files_sdk.WrapRequestOptions(c.Config, request, opts...)
 
@@ -241,6 +276,33 @@ func (c *Client) Move(params files_sdk.FileMoveParams, opts ...files_sdk.Request
 
 func Move(params files_sdk.FileMoveParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {
 	return (&Client{}).Move(params, opts...)
+}
+
+func (c *Client) Transform(params files_sdk.FileTransformParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {
+	err = files_sdk.Resource(c.Config, lib.Resource{Method: "POST", Path: "/file_actions/transform/{path}", Params: params, Entity: &fileAction}, opts...)
+	return
+}
+
+func Transform(params files_sdk.FileTransformParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {
+	return (&Client{}).Transform(params, opts...)
+}
+
+func (c *Client) GpgDecrypt(params files_sdk.FileGpgDecryptParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {
+	err = files_sdk.Resource(c.Config, lib.Resource{Method: "POST", Path: "/file_actions/gpg_decrypt/{path}", Params: params, Entity: &fileAction}, opts...)
+	return
+}
+
+func GpgDecrypt(params files_sdk.FileGpgDecryptParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {
+	return (&Client{}).GpgDecrypt(params, opts...)
+}
+
+func (c *Client) GpgEncrypt(params files_sdk.FileGpgEncryptParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {
+	err = files_sdk.Resource(c.Config, lib.Resource{Method: "POST", Path: "/file_actions/gpg_encrypt/{path}", Params: params, Entity: &fileAction}, opts...)
+	return
+}
+
+func GpgEncrypt(params files_sdk.FileGpgEncryptParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {
+	return (&Client{}).GpgEncrypt(params, opts...)
 }
 
 func (c *Client) Unzip(params files_sdk.FileUnzipParams, opts ...files_sdk.RequestResponseOption) (fileAction files_sdk.FileAction, err error) {

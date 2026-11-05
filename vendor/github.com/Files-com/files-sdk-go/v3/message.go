@@ -7,12 +7,12 @@ import (
 )
 
 type Message struct {
-	Id        int64                    `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
-	Subject   string                   `json:"subject,omitempty" path:"subject,omitempty" url:"subject,omitempty"`
-	Body      string                   `json:"body,omitempty" path:"body,omitempty" url:"body,omitempty"`
-	Comments  []map[string]interface{} `json:"comments,omitempty" path:"comments,omitempty" url:"comments,omitempty"`
-	UserId    int64                    `json:"user_id,omitempty" path:"user_id,omitempty" url:"user_id,omitempty"`
-	ProjectId int64                    `json:"project_id,omitempty" path:"project_id,omitempty" url:"project_id,omitempty"`
+	Id        int64            `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	Subject   string           `json:"subject,omitempty" path:"subject,omitempty" url:"subject,omitempty"`
+	Body      string           `json:"body,omitempty" path:"body,omitempty" url:"body,omitempty"`
+	Comments  []MessageComment `json:"comments,omitempty" path:"comments,omitempty" url:"comments,omitempty"`
+	UserId    int64            `json:"user_id,omitempty" path:"user_id,omitempty" url:"user_id,omitempty"`
+	ProjectId int64            `json:"project_id,omitempty" path:"project_id,omitempty" url:"project_id,omitempty"`
 }
 
 func (m Message) Identifier() interface{} {

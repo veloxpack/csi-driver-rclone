@@ -14,7 +14,7 @@ type sharedFile struct {
 	file  *os.File
 	read  int64
 	write int64
-	open  *int64 // number of handles open
+	open  *atomic.Int64 // number of handles open
 }
 
 // ReadAt implements io.Reader methods.
@@ -33,7 +33,7 @@ func (buf *sharedFile) Write(data []byte) (amount int, err error) {
 
 // Close implements io.Closer methods.
 func (buf *sharedFile) Close() error {
-	if atomic.AddInt64(buf.open, -1) == 0 {
+	if buf.open.Add(-1) == 0 {
 		return buf.file.Close()
 	}
 	return nil

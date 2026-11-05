@@ -8,20 +8,12 @@ import (
 )
 
 type ExternalEvent struct {
-	Id                    int64      `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
-	EventType             string     `json:"event_type,omitempty" path:"event_type,omitempty" url:"event_type,omitempty"`
-	Status                string     `json:"status,omitempty" path:"status,omitempty" url:"status,omitempty"`
-	Body                  string     `json:"body,omitempty" path:"body,omitempty" url:"body,omitempty"`
-	CreatedAt             *time.Time `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
-	BodyUrl               string     `json:"body_url,omitempty" path:"body_url,omitempty" url:"body_url,omitempty"`
-	FolderBehaviorId      int64      `json:"folder_behavior_id,omitempty" path:"folder_behavior_id,omitempty" url:"folder_behavior_id,omitempty"`
-	SiemHttpDestinationId int64      `json:"siem_http_destination_id,omitempty" path:"siem_http_destination_id,omitempty" url:"siem_http_destination_id,omitempty"`
-	SuccessfulFiles       int64      `json:"successful_files,omitempty" path:"successful_files,omitempty" url:"successful_files,omitempty"`
-	ErroredFiles          int64      `json:"errored_files,omitempty" path:"errored_files,omitempty" url:"errored_files,omitempty"`
-	BytesSynced           int64      `json:"bytes_synced,omitempty" path:"bytes_synced,omitempty" url:"bytes_synced,omitempty"`
-	ComparedFiles         int64      `json:"compared_files,omitempty" path:"compared_files,omitempty" url:"compared_files,omitempty"`
-	ComparedFolders       int64      `json:"compared_folders,omitempty" path:"compared_folders,omitempty" url:"compared_folders,omitempty"`
-	RemoteServerType      string     `json:"remote_server_type,omitempty" path:"remote_server_type,omitempty" url:"remote_server_type,omitempty"`
+	Id        int64      `json:"id,omitempty" path:"id,omitempty" url:"id,omitempty"`
+	EventType string     `json:"event_type,omitempty" path:"event_type,omitempty" url:"event_type,omitempty"`
+	Status    string     `json:"status,omitempty" path:"status,omitempty" url:"status,omitempty"`
+	Body      string     `json:"body,omitempty" path:"body,omitempty" url:"body,omitempty"`
+	CreatedAt *time.Time `json:"created_at,omitempty" path:"created_at,omitempty" url:"created_at,omitempty"`
+	BodyUrl   string     `json:"body_url,omitempty" path:"body_url,omitempty" url:"body_url,omitempty"`
 }
 
 func (e ExternalEvent) Identifier() interface{} {

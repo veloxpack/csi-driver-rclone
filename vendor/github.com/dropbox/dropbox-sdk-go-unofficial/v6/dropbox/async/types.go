@@ -125,7 +125,7 @@ func NewPollArg(AsyncJobId string) *PollArg {
 // PollResultBase : Result returned by methods that poll for the status of an
 // asynchronous job. Unions that extend this union should add a 'complete' field
 // with a type of the information returned upon job completion. See
-// `PollEmptyResult` for an example.
+// `PollEmptyResult` for an example
 type PollResultBase struct {
 	dropbox.Tagged
 }
