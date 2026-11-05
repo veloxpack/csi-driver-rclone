@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Build the manager binary
-FROM golang:1.26.5 AS builder
+FROM golang:1.27.2 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG RCLONE_BACKEND_MODE=all
@@ -54,7 +54,7 @@ RUN RCLONE_VERSION=$(grep "github.com/rclone/rclone" go.mod | awk '{print $2}' |
     cmd/rcloneplugin/main.go
 
 # Use alpine as base image to package the rcloneplugin binary with rclone
-FROM registry.k8s.io/build-image/debian-base:bookworm-v1.0.8
+FROM registry.k8s.io/build-image/debian-base:bookworm-v1.0.9
 WORKDIR /
 
 # Install required dependencies

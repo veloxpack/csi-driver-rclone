@@ -226,15 +226,19 @@ func New(ctx context.Context, f fs.Fs, opt *vfscommon.Options) *VFS {
 	// Fill out anything else
 	vfs.Opt.Init(ctx)
 
-	// Do not reuse active VFS instances. In a CSI driver each mount has its
-	// own cancellable context whose lifetime is tied to the mount. Reusing a
-	// VFS binds newer mounts to older contexts; when the older mount is
-	// unpublished and its context cancelled, the shared VFS breaks (e.g.
-	// OAuth token refresh fails with "context canceled").
-	// See: https://github.com/veloxpack/csi-driver-rclone/issues/69
+	// Find a VFS with the same name and options and return it if possible
 	activeMu.Lock()
 	defer activeMu.Unlock()
 	configName := fs.ConfigString(f)
+	for _, activeVFS := range active[configName] {
+		if vfs.Opt == activeVFS.Opt {
+			fs.Debugf(f, "Reusing VFS from active cache")
+			activeVFS.inUse.Add(1)
+			cancel()
+			return activeVFS
+		}
+	}
+	// Put the VFS into the active cache
 	active[configName] = append(active[configName], vfs)
 
 	// Create root directory
