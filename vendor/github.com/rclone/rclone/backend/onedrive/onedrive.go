@@ -275,16 +275,13 @@ cases, rclone will fall back to normal copy (which will be slightly slower).`,
 			Default: false,
 			Help: `Remove all versions on modifying operations.
 
-Onedrive for business creates versions when rclone uploads new files
+Onedrive creates versions when rclone uploads new files
 overwriting an existing one and when it sets the modification time.
 
 These versions take up space out of the quota.
 
 This flag checks for versions after file upload and setting
 modification time and removes all but the last version.
-
-**NB** Onedrive personal can't currently delete versions so don't use
-this flag there.
 `,
 			Advanced: true,
 		}, {
@@ -294,8 +291,7 @@ this flag there.
 Normally files will get sent to the recycle bin on deletion. Setting
 this flag causes them to be permanently deleted. Use with care.
 
-OneDrive personal accounts do not support the permanentDelete API,
-it only applies to OneDrive for Business and SharePoint document libraries.
+This works with OneDrive for Business, SharePoint document libraries, and OneDrive personal accounts, including free accounts.
 `,
 			Advanced: true,
 			Default:  false,
@@ -324,14 +320,18 @@ it only applies to OneDrive for Business and SharePoint document libraries.
 				Help:  "Creates a read-write link to the item.",
 			}, {
 				Value: "embed",
-				Help:  "Creates an embeddable link to the item.",
+				Help:  "Creates an embeddable link to the item.\nOnly available in OneDrive personal.",
 			}},
 		}, {
 			Name:    "link_password",
 			Default: "",
 			Help: `Set the password for links created by the link command.
 
-At the time of writing this only works with OneDrive personal paid accounts.
+At the time of writing this works with OneDrive for Business and
+OneDrive personal paid accounts.
+
+OneDrive personal free accounts can't set a password or an expiry time
+(with --expire) on links.
 `,
 			Advanced:  true,
 			Sensitive: true,

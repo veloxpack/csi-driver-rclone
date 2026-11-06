@@ -234,9 +234,10 @@ func New(ctx context.Context, f fs.Fs, opt *vfscommon.Options) *VFS {
 	defer activeMu.Unlock()
 	configName := fs.ConfigString(f)
 	for _, activeVFS := range active[configName] {
-		if vfs.Opt == activeVFS.Opt {
+		// A VFS whose last reference has gone is being shut down
+		// but may not have removed itself from the cache yet.
+		if vfs.Opt == activeVFS.Opt && activeVFS.Hold() {
 			fs.Debugf(f, "Reusing VFS from active cache")
-			activeVFS.inUse.Add(1)
 			cancel()
 			return activeVFS
 		}
@@ -357,6 +358,12 @@ func activeCacheEntries() (vfs *VFS, count int) {
 	return vfs, count
 }
 
+// ActiveCount returns the total number of VFS instances in the active cache.
+func ActiveCount() int {
+	_, count := activeCacheEntries()
+	return count
+}
+
 // Fs returns the Fs passed into the New call
 func (vfs *VFS) Fs() fs.Fs {
 	return vfs.f
@@ -386,6 +393,21 @@ func (vfs *VFS) shutdownCache() {
 	if vfs.cancelCache != nil {
 		vfs.cancelCache()
 		vfs.cancelCache = nil
+	}
+}
+
+// Hold takes another reference to the VFS so it isn't shut down until
+// a matching call to Shutdown. It returns false, taking no reference,
+// if the VFS has already been shut down.
+func (vfs *VFS) Hold() bool {
+	for {
+		n := vfs.inUse.Load()
+		if n <= 0 {
+			return false
+		}
+		if vfs.inUse.CompareAndSwap(n, n+1) {
+			return true
+		}
 	}
 }
 
@@ -435,6 +457,25 @@ func (vfs *VFS) FlushDirCache() {
 	vfs.root.ForgetAll()
 }
 
+// countInUse returns the number of files open for write and the
+// number of cached files which are open or waiting to be uploaded.
+func (vfs *VFS) countInUse() (writers, cacheInUse int) {
+	writers = vfs.root.countActiveWriters()
+	if vfs.cache != nil {
+		cacheInUse = vfs.cache.TotalInUse()
+	}
+	return writers, cacheInUse
+}
+
+// Busy returns true if the VFS has files open for write or cached
+// files which are open or waiting to be uploaded.
+//
+// It may block while a directory is being read from the remote.
+func (vfs *VFS) Busy() bool {
+	writers, cacheInUse := vfs.countInUse()
+	return writers != 0 || cacheInUse != 0
+}
+
 // WaitForWriters sleeps until all writers have finished or
 // time.Duration has elapsed
 func (vfs *VFS) WaitForWriters(timeout time.Duration) {
@@ -446,11 +487,7 @@ func (vfs *VFS) WaitForWriters(timeout time.Duration) {
 	defer tick.Stop()
 	tick.Stop()
 	for {
-		writers := vfs.root.countActiveWriters()
-		cacheInUse := 0
-		if vfs.cache != nil {
-			cacheInUse = vfs.cache.TotalInUse()
-		}
+		writers, cacheInUse := vfs.countInUse()
 		if writers == 0 && cacheInUse == 0 {
 			return
 		}
@@ -783,6 +820,19 @@ func (vfs *VFS) Chown(name string, uid, gid int) error {
 // mkdir creates a new directory with the specified name and permission bits
 // (before umask) returning the new directory node.
 func (vfs *VFS) mkdir(name string, perm os.FileMode) (*Dir, error) {
+	// The root directory node always exists, but the directory it
+	// represents may not, so make that on the backend.
+	if strings.Trim(name, "/") == "" {
+		if vfs.Opt.ReadOnly {
+			return nil, EROFS
+		}
+		err := vfs.f.Mkdir(vfs.ctx, "")
+		if err != nil {
+			fs.Errorf(vfs.root, "Dir.Mkdir failed to create directory: %v", err)
+			return nil, err
+		}
+		return vfs.root, nil
+	}
 	dir, leaf, err := vfs.StatParent(name)
 	if err != nil {
 		return nil, err
@@ -895,7 +945,7 @@ func (vfs *VFS) AddVirtual(remote string, size int64, isDir bool) (err error) {
 	if err != nil {
 		return err
 	}
-	dir.AddVirtual(leaf, size, false)
+	dir.AddVirtual(leaf, size, isDir)
 	return nil
 }
 
