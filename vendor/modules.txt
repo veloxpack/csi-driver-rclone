@@ -482,8 +482,8 @@ github.com/colinmarc/hdfs/v2/internal/protocol/hadoop_hdfs
 github.com/colinmarc/hdfs/v2/internal/rpc
 github.com/colinmarc/hdfs/v2/internal/sasl
 github.com/colinmarc/hdfs/v2/internal/transfer
-# github.com/container-storage-interface/spec v1.12.0
-## explicit; go 1.23.0
+# github.com/container-storage-interface/spec v1.13.0
+## explicit; go 1.25.0
 github.com/container-storage-interface/spec/lib/go/csi
 # github.com/coreos/go-semver v0.3.1
 ## explicit; go 1.8
@@ -809,7 +809,7 @@ github.com/koofr/go-koofrclient
 # github.com/kr/fs v0.1.0
 ## explicit
 github.com/kr/fs
-# github.com/kubernetes-csi/csi-lib-utils v0.24.0
+# github.com/kubernetes-csi/csi-lib-utils v0.25.0
 ## explicit; go 1.26.0
 github.com/kubernetes-csi/csi-lib-utils/protosanitizer
 # github.com/kylelemons/godebug v1.1.0
@@ -1275,7 +1275,7 @@ go.opentelemetry.io/auto/sdk/internal/telemetry
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/request
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/semconv
-# go.opentelemetry.io/otel v1.45.0
+# go.opentelemetry.io/otel v1.46.0
 ## explicit; go 1.25.0
 go.opentelemetry.io/otel
 go.opentelemetry.io/otel/attribute
@@ -1291,12 +1291,12 @@ go.opentelemetry.io/otel/semconv/internal/metricpool
 go.opentelemetry.io/otel/semconv/v1.37.0
 go.opentelemetry.io/otel/semconv/v1.43.0
 go.opentelemetry.io/otel/semconv/v1.43.0/httpconv
-# go.opentelemetry.io/otel/metric v1.45.0
+# go.opentelemetry.io/otel/metric v1.46.0
 ## explicit; go 1.25.0
 go.opentelemetry.io/otel/metric
 go.opentelemetry.io/otel/metric/embedded
 go.opentelemetry.io/otel/metric/noop
-# go.opentelemetry.io/otel/trace v1.45.0
+# go.opentelemetry.io/otel/trace v1.46.0
 ## explicit; go 1.25.0
 go.opentelemetry.io/otel/trace
 go.opentelemetry.io/otel/trace/embedded
@@ -1455,7 +1455,7 @@ google.golang.org/api/option
 google.golang.org/api/option/internaloption
 google.golang.org/api/storage/v1
 google.golang.org/api/transport/http
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20260817212433-ac3dfec99bb1
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20260825221802-da73d73af1c5
 ## explicit; go 1.25.0
 google.golang.org/genproto/googleapis/rpc/code
 google.golang.org/genproto/googleapis/rpc/errdetails
@@ -1591,8 +1591,8 @@ k8s.io/klog/v2/internal/sloghandler
 # k8s.io/mount-utils v0.37.2
 ## explicit; go 1.26.0
 k8s.io/mount-utils
-# k8s.io/utils v0.0.0-20260626114624-be93311217bd
-## explicit; go 1.23
+# k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
+## explicit; go 1.25
 k8s.io/utils/exec
 k8s.io/utils/io
 k8s.io/utils/keymutex
