@@ -87,7 +87,17 @@ const (
 ////////////////////////////////////////////////////////////////
 
 func doInit(server *protocolServer, req *request) {
-	input := (*InitIn)(req.inData())
+	var input *InitIn
+	if len(req.inputBuf) < int(unsafe.Sizeof(InitIn{})) {
+		// Kernels predating protocol 7.36 send a 16-byte INIT
+		// payload; zero-extend it so the full struct can be
+		// read safely.
+		var extended InitIn
+		copy(unsafe.Slice((*byte)(unsafe.Pointer(&extended)), unsafe.Sizeof(extended)), req.inputBuf)
+		input = &extended
+	} else {
+		input = (*InitIn)(req.inData())
+	}
 	if input.Major != _FUSE_KERNEL_VERSION {
 		log.Printf("Major versions does not match. Given %d, want %d\n", input.Major, _FUSE_KERNEL_VERSION)
 		req.status = EIO
@@ -106,13 +116,13 @@ func doInit(server *protocolServer, req *request) {
 		server.opts.ExtraCapabilities)
 
 	if server.opts.EnableLocks {
-		kernelFlags |= CAP_FLOCK_LOCKS | CAP_POSIX_LOCKS
+		kernelFlags |= input.Flags64() & (CAP_FLOCK_LOCKS | CAP_POSIX_LOCKS)
 	}
 	if server.opts.EnableSymlinkCaching {
-		kernelFlags |= CAP_CACHE_SYMLINKS
+		kernelFlags |= input.Flags64() & CAP_CACHE_SYMLINKS
 	}
 	if server.opts.EnableAcl {
-		kernelFlags |= CAP_POSIX_ACL
+		kernelFlags |= input.Flags64() & CAP_POSIX_ACL
 	}
 
 	if server.opts.ExplicitDataCacheControl {
@@ -129,13 +139,18 @@ func doInit(server *protocolServer, req *request) {
 	// 128kiB.
 	maxPages := (server.opts.MaxWrite-1)/syscall.Getpagesize() + 1 // Round up
 
+	congestionThreshold := server.opts.CongestionThreshold
+	if congestionThreshold <= 0 {
+		congestionThreshold = server.opts.MaxBackground * 3 / 4
+	}
+
 	out := (*InitOut)(req.outData())
 	*out = InitOut{
 		Major:               _FUSE_KERNEL_VERSION,
 		Minor:               _OUR_MINOR_VERSION,
 		MaxReadAhead:        input.MaxReadAhead,
 		MaxWrite:            uint32(server.opts.MaxWrite),
-		CongestionThreshold: uint16(server.opts.MaxBackground * 3 / 4),
+		CongestionThreshold: uint16(congestionThreshold),
 		MaxBackground:       uint16(server.opts.MaxBackground),
 		MaxPages:            uint16(maxPages),
 		MaxStackDepth:       uint32(server.opts.MaxStackDepth),
@@ -208,7 +223,7 @@ func doNotifyReply(server *protocolServer, req *request) {
 	delete(server.retrieveTab, reply.Unique)
 	server.retrieveMu.Unlock()
 
-	badf := func(format string, argv ...interface{}) {
+	badf := func(format string, argv ...any) {
 		server.opts.Logger.Printf("notify reply: "+format, argv...)
 	}
 
@@ -387,6 +402,10 @@ func doFsyncDir(server *protocolServer, req *request) {
 }
 
 func doSetXAttr(server *protocolServer, req *request) {
+	if server.opts.DisableXAttrs {
+		req.status = ENOSYS
+		return
+	}
 	i := bytes.IndexByte(req.inPayload, 0)
 	if i < 0 {
 		req.status = EINVAL
@@ -396,6 +415,10 @@ func doSetXAttr(server *protocolServer, req *request) {
 }
 
 func doRemoveXAttr(server *protocolServer, req *request) {
+	if server.opts.DisableXAttrs {
+		req.status = ENOSYS
+		return
+	}
 	req.status = server.fileSystem.RemoveXAttr(req.cancel, req.inHeader(), req.filename())
 }
 
@@ -445,6 +468,10 @@ func doIoctl(server *protocolServer, req *request) {
 		req.outPayload)
 }
 
+func doPoll(server *protocolServer, req *request) {
+	req.status = ENOSYS
+}
+
 func doDestroy(server *protocolServer, req *request) {
 	req.status = OK
 }
@@ -486,7 +513,7 @@ func doInterrupt(server *protocolServer, req *request) {
 ////////////////////////////////////////////////////////////////
 
 type operationFunc func(*protocolServer, *request)
-type castPointerFunc func(unsafe.Pointer) interface{}
+type castPointerFunc func(unsafe.Pointer) any
 
 type operationHandler struct {
 	OpCode     int
@@ -495,8 +522,8 @@ type operationHandler struct {
 	InputSize  uintptr
 	OutputSize uintptr
 
-	InType        interface{}
-	OutType       interface{}
+	InType        any
+	OutType       any
 	FileNames     int
 	FileNameOut   bool
 	SuppressReply bool
@@ -507,7 +534,7 @@ var operationHandlers []*operationHandler
 func operationName(op uint32) string {
 	h := getHandler(op)
 	if h == nil {
-		return "unknown"
+		return fmt.Sprintf("opcode %d", op)
 	}
 	return h.Name
 }
@@ -519,7 +546,7 @@ func getHandler(o uint32) *operationHandler {
 	return operationHandlers[o]
 }
 
-// maximum size of all input headers
+// Maximum size of all input headers.
 var maxInputSize uintptr
 
 func init() {
@@ -635,6 +662,7 @@ func init() {
 		_OP_RENAME:          doRename,
 		_OP_STATFS:          doStatFs,
 		_OP_IOCTL:           doIoctl,
+		_OP_POLL:            doPoll,
 		_OP_DESTROY:         doDestroy,
 		_OP_NOTIFY_REPLY:    doNotifyReply,
 		_OP_FALLOCATE:       doFallocate,
@@ -648,7 +676,7 @@ func init() {
 	}
 
 	// Outputs.
-	for op, f := range map[uint32]interface{}{
+	for op, f := range map[uint32]any{
 		_OP_BMAP:                  _BmapOut{},
 		_OP_COPY_FILE_RANGE:       WriteOut{},
 		_OP_CREATE:                CreateOut{},
@@ -683,7 +711,7 @@ func init() {
 	}
 
 	// Inputs.
-	for op, f := range map[uint32]interface{}{
+	for op, f := range map[uint32]any{
 		_OP_ACCESS:             AccessIn{},
 		_OP_BATCH_FORGET:       _BatchForgetIn{},
 		_OP_BMAP:               _BmapIn{},
@@ -724,11 +752,7 @@ func init() {
 		_OP_COPY_FILE_RANGE_64: CopyFileRangeIn{},
 	} {
 		operationHandlers[op].InType = f
-		sz := typSize(f)
-		operationHandlers[op].InputSize = sz
-		if maxInputSize < sz {
-			maxInputSize = sz
-		}
+		operationHandlers[op].InputSize = typSize(f)
 	}
 
 	// File name args.
@@ -758,6 +782,9 @@ func checkFixedBufferSize() {
 	for code, h := range operationHandlers {
 		if h.OutputSize > unsafe.Sizeof(r.outDataInline) {
 			log.Panicf("request output buffer too small: code %v, sz %d %v", code, h.OutputSize, h)
+		}
+		if maxInputSize < h.InputSize {
+			maxInputSize = h.InputSize
 		}
 	}
 }

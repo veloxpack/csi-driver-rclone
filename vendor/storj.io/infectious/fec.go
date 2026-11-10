@@ -34,9 +34,10 @@
 package infectious
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 )
 
 // FEC represents operations performed on a Reed-Solomon-based
@@ -65,12 +66,12 @@ func NewFEC(k, n int) (*FEC, error) {
 		temp_matrix[i] = gf_exp[((i/k)*(i%k))%255]
 	}
 
-	for i := 0; i < k; i++ {
+	for i := range k {
 		enc_matrix[i*(k+1)] = 1
 	}
 
 	for row := k * k; row < n*k; row += k {
-		for col := 0; col < k; col++ {
+		for col := range k {
 			pa := temp_matrix[row:]
 			pb := temp_matrix[col:]
 			acc := byte(0)
@@ -86,7 +87,7 @@ func NewFEC(k, n int) (*FEC, error) {
 	vand_matrix := make([]byte, k*n)
 	vand_matrix[0] = 1
 	g := byte(1)
-	for row := 0; row < k; row++ {
+	for row := range k {
 		a := byte(1)
 		for col := 1; col < n; col++ {
 			vand_matrix[row*n+col] = a // 2.pow(i * j) FIGURE IT OUT
@@ -136,7 +137,7 @@ func (f *FEC) Encode(input []byte, output func(Share)) error {
 
 	block_size := size / k
 
-	for i := 0; i < k; i++ {
+	for i := range k {
 		output(Share{
 			Number: i,
 			Data:   input[i*block_size : i*block_size+block_size]})
@@ -144,11 +145,9 @@ func (f *FEC) Encode(input []byte, output func(Share)) error {
 
 	fec_buf := make([]byte, block_size)
 	for i := k; i < n; i++ {
-		for j := range fec_buf {
-			fec_buf[j] = 0
-		}
+		clear(fec_buf)
 
-		for j := 0; j < k; j++ {
+		for j := range k {
 			addmul(fec_buf, input[j*block_size:j*block_size+block_size],
 				enc_matrix[i*k+j])
 		}
@@ -199,11 +198,9 @@ func (f *FEC) EncodeSingle(input, output []byte, num int) error {
 		return nil
 	}
 
-	for i := range output {
-		output[i] = 0
-	}
+	clear(output)
 
-	for i := 0; i < k; i++ {
+	for i := range k {
 		addmul(output, input[i*block_size:i*block_size+block_size],
 			enc_matrix[num*k+i])
 	}
@@ -226,11 +223,27 @@ func (s *Share) DeepCopy() (c Share) {
 	return c
 }
 
-type byNumber []Share
+func sortByNumber(shares []Share) {
+	slices.SortFunc(shares, func(a, b Share) int {
+		return cmp.Compare(a.Number, b.Number)
+	})
+}
 
-func (b byNumber) Len() int               { return len(b) }
-func (b byNumber) Less(i int, j int) bool { return b[i].Number < b[j].Number }
-func (b byNumber) Swap(i int, j int)      { b[i], b[j] = b[j], b[i] }
+// checkShares validates shares that have already been sorted by number.
+func checkShares(shares []Share, n int) error {
+	for i := range shares {
+		if shares[i].Number < 0 || shares[i].Number >= n {
+			return fmt.Errorf("invalid share id: %d", shares[i].Number)
+		}
+		if i > 0 && shares[i].Number == shares[i-1].Number {
+			return fmt.Errorf("duplicate share id: %d", shares[i].Number)
+		}
+		if len(shares[i].Data) != len(shares[0].Data) {
+			return errors.New("shares must all be the same length")
+		}
+	}
+	return nil
+}
 
 // Rebuild will take a list of corrected shares (pieces) and a callback output.
 // output will be called k times ((*FEC).Required() times) with 1/k of the
@@ -243,6 +256,8 @@ func (b byNumber) Swap(i int, j int)      { b[i], b[j] = b[j], b[i] }
 // Note that the byte slices in Shares passed to output may be reused when
 // output returns.
 //
+// Note that Rebuild sorts the shares slice, reordering it in place.
+//
 // Rebuild assumes that you have already called Correct or did not need to.
 func (f *FEC) Rebuild(shares []Share, output func(Share)) error {
 	k := f.k
@@ -254,7 +269,11 @@ func (f *FEC) Rebuild(shares []Share, output func(Share)) error {
 	}
 
 	share_size := len(shares[0].Data)
-	sort.Sort(byNumber(shares))
+	sortByNumber(shares)
+
+	if err := checkShares(shares, n); err != nil {
+		return err
+	}
 
 	m_dec := make([]byte, k*k)
 	indexes := make([]int, k)
@@ -263,7 +282,7 @@ func (f *FEC) Rebuild(shares []Share, output func(Share)) error {
 	shares_b_iter := 0
 	shares_e_iter := len(shares) - 1
 
-	for i := 0; i < k; i++ {
+	for i := range k {
 		var share_id int
 		var share_data []byte
 
@@ -276,10 +295,6 @@ func (f *FEC) Rebuild(shares []Share, output func(Share)) error {
 			share_id = share.Number
 			share_data = share.Data
 			shares_e_iter--
-		}
-
-		if share_id >= n {
-			return fmt.Errorf("invalid share id: %d", share_id)
 		}
 
 		if share_id < k {
@@ -302,13 +317,11 @@ func (f *FEC) Rebuild(shares []Share, output func(Share)) error {
 	}
 
 	buf := make([]byte, share_size)
-	for i := 0; i < len(indexes); i++ {
+	for i := range indexes {
 		if indexes[i] >= k {
-			for j := range buf {
-				buf[j] = 0
-			}
+			clear(buf)
 
-			for col := 0; col < k; col++ {
+			for col := range k {
 				addmul(buf, sharesv[col], m_dec[i*k+col])
 			}
 

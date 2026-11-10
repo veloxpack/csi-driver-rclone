@@ -45,7 +45,8 @@ type ContextClient interface {
 	Client
 	// DeleteProfilePhotoContext : Deletes the current user's profile photo.
 	DeleteProfilePhotoContext(ctx context.Context, arg *DeleteProfilePhotoArg) (res *DeleteProfilePhotoResult, err error)
-	// GetPhotoContext : This lovely endpoint gets the account photo of a given user.
+	// GetPhotoContext : This lovely endpoint gets the account photo of a given
+	// user.
 	GetPhotoContext(ctx context.Context, arg *AccountPhotoGetArg) (res *AccountPhotoGetResult, content io.ReadCloser, err error)
 	// SetProfilePhotoContext : Sets a user's profile photo.
 	SetProfilePhotoContext(ctx context.Context, arg *SetProfilePhotoArg) (res *SetProfilePhotoResult, err error)
@@ -102,7 +103,8 @@ type GetPhotoAPIError struct {
 	EndpointError *AccountPhotoGetError `json:"error"`
 }
 
-// GetPhotoContext : This lovely endpoint gets the account photo of a given user.
+// GetPhotoContext : This lovely endpoint gets the account photo of a given
+// user.
 func (dbx *apiImpl) GetPhotoContext(ctx context.Context, arg *AccountPhotoGetArg) (res *AccountPhotoGetResult, content io.ReadCloser, err error) {
 	req := dropbox.Request{
 		Host:         "content",

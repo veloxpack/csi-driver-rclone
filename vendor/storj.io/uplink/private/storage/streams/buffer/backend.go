@@ -51,7 +51,13 @@ func NewMemoryBackend(cap int64) (rv *MemoryBackend) {
 }
 
 // MemoryBackend implements the Backend interface backed by a slice.
+//
+// Close may be called concurrently with Write and ReadAt (a failed upload
+// interrupts in-flight writes by closing the buffer), so Write and ReadAt
+// hold mu for reading (they are safe with respect to each other via the
+// atomics) and Close holds it for writing before releasing the memory.
 type MemoryBackend struct {
+	mu     sync.RWMutex
 	len    atomic.Int64
 	buf    []byte
 	closed bool
@@ -59,6 +65,9 @@ type MemoryBackend struct {
 
 // Write appends the data to the buffer.
 func (u *MemoryBackend) Write(p []byte) (n int, err error) {
+	u.mu.RLock()
+	defer u.mu.RUnlock()
+
 	if u.closed {
 		return 0, io.ErrClosedPipe
 	}
@@ -73,6 +82,9 @@ func (u *MemoryBackend) Write(p []byte) (n int, err error) {
 
 // ReadAt reads into the provided buffer p starting at off.
 func (u *MemoryBackend) ReadAt(p []byte, off int64) (n int, err error) {
+	u.mu.RLock()
+	defer u.mu.RUnlock()
+
 	if u.closed {
 		return 0, io.ErrClosedPipe
 	}
@@ -85,6 +97,9 @@ func (u *MemoryBackend) ReadAt(p []byte, off int64) (n int, err error) {
 
 // Close releases memory and causes future calls to ReadAt and Write to fail.
 func (u *MemoryBackend) Close() error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
 	buf := u.buf
 	u.buf = nil
 	u.closed = true
@@ -107,7 +122,14 @@ func NewChunkBackend(cap int64) (rv *ChunkBackend) {
 }
 
 // ChunkBackend implements the Backend interface backed by a chained series of memory-pooled slices.
+//
+// Close may be called concurrently with Write and ReadAt (a failed upload
+// interrupts in-flight writes by closing the buffer), so Write and ReadAt
+// hold mu for reading (they are safe with respect to each other via the
+// atomics) and Close holds it for writing before returning the chunks to
+// the pool.
 type ChunkBackend struct {
+	mu     sync.RWMutex
 	end    atomic.Int64
 	cap    int64
 	chunks []atomic.Pointer[[chunkSize]byte]
@@ -116,6 +138,9 @@ type ChunkBackend struct {
 
 // Write appends the data to the buffer.
 func (u *ChunkBackend) Write(p []byte) (n int, err error) {
+	u.mu.RLock()
+	defer u.mu.RUnlock()
+
 	if u.closed {
 		return 0, io.ErrClosedPipe
 	}
@@ -153,6 +178,9 @@ func (u *ChunkBackend) Write(p []byte) (n int, err error) {
 
 // ReadAt reads into the provided buffer p starting at off.
 func (u *ChunkBackend) ReadAt(p []byte, off int64) (n int, err error) {
+	u.mu.RLock()
+	defer u.mu.RUnlock()
+
 	if u.closed {
 		return 0, io.ErrClosedPipe
 	}
@@ -184,6 +212,9 @@ func (u *ChunkBackend) ReadAt(p []byte, off int64) (n int, err error) {
 
 // Close releases memory and causes future calls to ReadAt and Write to fail.
 func (u *ChunkBackend) Close() error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
 	chunks := u.chunks
 	u.chunks = nil
 	u.closed = true

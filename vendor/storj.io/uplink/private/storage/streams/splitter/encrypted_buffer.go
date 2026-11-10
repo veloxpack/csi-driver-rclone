@@ -46,25 +46,17 @@ func (e *encryptedBuffer) PlainSize() int64 {
 
 func (e *encryptedBuffer) DoneWriting(err error) {
 	if err != nil {
-		// Abort path: a producer may be blocked inside Write holding e.mu
-		// while waiting for the reader to drain the cursor. Signal the
-		// buffer up front so Cursor.WaitWrite returns (the loop's
-		// doneWriting case), letting the producer release e.mu. Without
-		// this, the e.mu.Lock below deadlocks whenever the upload is
-		// aborted while the producer is pushing into a backpressured
-		// segment buffer.
+		// On abort, signal the buffer before acquiring e.mu: a producer may
+		// be blocked inside Write holding e.mu while waiting for the reader
+		// to drain the cursor, and would otherwise never release it.
 		e.sbuf.DoneWriting(err)
 	}
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	cerr := e.wrc.Close()
-	if err == nil {
-		// On the abort path e.sbuf.DoneWriting(err) was already called
-		// above to unblock the producer; cursor.DoneWriting is idempotent
-		// and would discard cerr anyway, so only signal here on the normal
-		// completion path where cerr carries the final flush result.
-		e.sbuf.DoneWriting(cerr)
-	}
+	// On normal completion this flushes the final encrypted block and
+	// signals with the flush result. On abort the signal already happened
+	// above and this call is discarded by the buffer.
+	e.sbuf.DoneWriting(e.wrc.Close())
 }

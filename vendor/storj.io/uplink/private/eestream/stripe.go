@@ -53,6 +53,13 @@ type StripeReader struct {
 	errorDetection  bool
 	runningPieces   atomic.Int32
 	inactive        atomic.Bool
+
+	// rebuilder rebuilds stripes made up of the pieces in plannedReady,
+	// hoisting the decode matrix inversion out of the per-stripe work. It is
+	// nil until the first planned rebuild. Only ReadStripes touches these, and
+	// only one goroutine calls it.
+	rebuilder    Rebuilder
+	plannedReady []int
 }
 
 // NewStripeReader makes a new StripeReader using the provided map of share
@@ -255,6 +262,45 @@ func (s *StripeReader) CloseAndWait() error {
 	return nil
 }
 
+// rebuilderFor returns a Rebuilder for the share numbers of the given ready
+// pieces, reusing the cached one while the ready set does not change. Schemes
+// that cannot plan rebuilds, and planning failures, fall back to the scheme
+// itself, which reports any real problem with the shares per stripe as before.
+func (s *StripeReader) rebuilderFor(ready []int) Rebuilder {
+	// RedundancyStrategy embeds ErasureScheme, and embedding an interface in a
+	// struct promotes only that interface's methods, so the scheme has to be
+	// unwrapped before asking whether it can plan rebuilds.
+	scheme := s.scheme
+	if rs, ok := scheme.(RedundancyStrategy); ok {
+		scheme = rs.ErasureScheme
+	}
+
+	planner, ok := scheme.(RebuilderScheme)
+	if !ok {
+		return s.scheme
+	}
+
+	// ready is always in piece index order, so equal sets compare equal here.
+	if s.rebuilder != nil && slices.Equal(ready, s.plannedReady) {
+		return s.rebuilder
+	}
+
+	shareNums := make([]int, len(ready))
+	for i, idx := range ready {
+		shareNums[i] = s.pieces[idx].shareNum
+	}
+
+	rebuilder, err := planner.NewRebuilder(shareNums)
+	if err != nil {
+		s.rebuilder = nil
+		return s.scheme
+	}
+
+	s.rebuilder = rebuilder
+	s.plannedReady = append(s.plannedReady[:0], ready...)
+	return rebuilder
+}
+
 func (s *StripeReader) combineErrs() error {
 	var errsGroup errs.Group
 	for idx := range s.pieces {
@@ -377,6 +423,20 @@ func (s *StripeReader) ReadStripes(ctx context.Context, nextStripe int64, out []
 	// some pre-allocated working memory for erasure share calls.
 	fecShares := make([]infectious.Share, 0, len(ready))
 
+	// the shares are the same for every stripe in this batch, so the rebuild
+	// can be planned once for all of them.
+	var rebuilder Rebuilder = s.scheme
+	if !s.errorDetection {
+		rebuilder = s.rebuilderFor(ready)
+	}
+
+	// outslice is assigned per stripe, but the closure over it is only
+	// allocated once for the whole batch.
+	var outslice []byte
+	writeShare := func(r infectious.Share) {
+		copy(outslice[r.Number*len(r.Data):(r.Number+1)*len(r.Data)], r.Data)
+	}
+
 	// we're going to loop through the stripesFound - s.returnedStripes new
 	// stripes we have available.
 	for stripe := int(s.returnedStripes); stripe < int(stripesFound); stripe++ {
@@ -385,7 +445,7 @@ func (s *StripeReader) ReadStripes(ctx context.Context, nextStripe int64, out []
 			fmt.Println("core piecing together stripe", stripe, "and writing at offset", stripeOffset)
 		}
 
-		outslice := out[stripeOffset : stripeOffset+s.scheme.StripeSize()]
+		outslice = out[stripeOffset : stripeOffset+s.scheme.StripeSize()]
 
 		fecShares = fecShares[:0]
 		var releases []func()
@@ -407,9 +467,7 @@ func (s *StripeReader) ReadStripes(ctx context.Context, nextStripe int64, out []
 		if s.errorDetection {
 			_, err = s.scheme.Decode(outslice, fecShares)
 		} else {
-			err = s.scheme.Rebuild(fecShares, func(r infectious.Share) {
-				copy(outslice[r.Number*len(r.Data):(r.Number+1)*len(r.Data)], r.Data)
-			})
+			err = rebuilder.Rebuild(fecShares, writeShare)
 		}
 
 		for _, release := range releases {

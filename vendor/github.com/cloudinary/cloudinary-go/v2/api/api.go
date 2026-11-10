@@ -25,7 +25,7 @@ import (
 type EndPoint = string
 
 // Version is the Cloudinary Go package version.
-const Version = "2.16.0"
+const Version = "2.16.1"
 
 // UserAgent contains information about the SDK user agent. Passed to the Cloudinary servers.
 var UserAgent = fmt.Sprintf("CloudinaryGo/%s (Go %s)", Version, strings.TrimPrefix(runtime.Version(), "go"))
@@ -63,7 +63,7 @@ func BaseURL(uploadPrefix string, apiVer string) string {
 }
 
 // base64DataRegex is the regular expression for detecting base64 encoded strings.
-var base64DataRegex = regexp.MustCompile("^data:([\\w-]+/[\\w\\-+.]+)?(;[\\w-]+=[\\w-]+)*;base64,([a-zA-Z0-9/+\\n=]+)$")
+var base64DataRegex = regexp.MustCompile(`^data:([\w-]+/[\w\-+.]+)?(;[\w-]+=[\w-]+)*;base64,([a-zA-Z0-9/+\n=]+)$`)
 
 // AssetType is the type of the asset.
 type AssetType string

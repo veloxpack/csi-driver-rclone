@@ -240,12 +240,22 @@ type requestResponse struct {
 	msgId         uint64
 	asyncId       uint64
 	creditRequest uint16
-	pkt           []byte // request packet
-	ctx           context.Context
-	recv          chan []byte
-	err           error
-	rb            *recvBuf   // pooled receive buffer wrapper; return via freeRecvBuf
-	bufPool       *sync.Pool // pool to return rb to
+	// loan is the credits borrowed from the account for this request, and zero
+	// once the request has been settled. Taken via claimLoan.
+	loan    atomic.Uint32
+	pkt     []byte // request packet
+	ctx     context.Context
+	recv    chan []byte
+	err     error
+	rb      *recvBuf   // pooled receive buffer wrapper; return via freeRecvBuf
+	bufPool *sync.Pool // pool to return rb to
+}
+
+// claimLoan atomically takes the request's outstanding loan, returning the
+// credits to refund — zero if a response, or an earlier settlement, already
+// took it. Safe from any goroutine; only the first caller gets a nonzero value.
+func (rr *requestResponse) claimLoan() uint16 {
+	return uint16(rr.loan.Swap(0))
 }
 
 // freeRecvBuf returns the pooled receive buffer, if any. Safe to call
@@ -336,14 +346,14 @@ type conn struct {
 	useSession atomic.Bool
 }
 
-func (conn *conn) loanCredit(ctx context.Context, payloadSize int) (creditCharge uint16, grantedPayloadSize int, err error) {
+func (conn *conn) borrowCredits(ctx context.Context, payloadSize int) (creditCharge uint16, grantedPayloadSize int, err error) {
 	if conn.capabilities&smb2.SMB2_GLOBAL_CAP_LARGE_MTU == 0 {
 		creditCharge = 1
 	} else {
 		creditCharge = uint16((payloadSize-1)/(64*1024) + 1)
 	}
 
-	creditCharge, isComplete, err := conn.account.loan(ctx, creditCharge)
+	creditCharge, isComplete, err := conn.account.borrow(ctx, creditCharge)
 	if err != nil {
 		return creditCharge, 0, err
 	}
@@ -354,31 +364,78 @@ func (conn *conn) loanCredit(ctx context.Context, payloadSize int) (creditCharge
 	return creditCharge, 64 * 1024 * int(creditCharge), nil
 }
 
-func (conn *conn) chargeCredit(creditCharge uint16) {
-	conn.account.charge(creditCharge, creditCharge)
+func (conn *conn) refundCredits(creditCharge uint16) {
+	conn.account.settle(creditCharge, creditCharge)
 }
 
+/*
+mustSign returns true if req needs to be signed.
+
+MS-SMB2 3.2.4.1.1 describes when a message needs to be signed.
+https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/973630a8-8aa1-4398-89a8-13cf830f194d
+*/
+func (conn *conn) mustSign(sessionFlags uint16, req smb2.Packet) bool {
+	// a 'guest' user or a session without a key can't sign requests
+	if sessionFlags&(smb2.SMB2_SESSION_FLAG_IS_GUEST|smb2.SMB2_SESSION_FLAG_IS_NULL) != 0 {
+		return false
+	}
+
+	// true if the library user requested it at initialization or if the server
+	// requires it
+	if conn.requireSigning {
+		return true
+	}
+
+	// Only SMB 3.1.1 requires TREE_CONNECT to always be signed, but for
+	// simplicity's sake, we'll sign it no matter the dialect version.
+	_, isTreeConnect := req.(*smb2.TreeConnectRequest)
+	return isTreeConnect
+}
+
+// mustSignAny reports whether any individual entry in the compound request
+// needs to be signed. If one needs to be signed, then they should all be
+// signed.
+func (conn *conn) mustSignAny(sessionFlags uint16, entries []compoundEntry) bool {
+	for _, entry := range entries {
+		if conn.mustSign(sessionFlags, entry.req) {
+			return true
+		}
+	}
+	return false
+}
+
+// send transmits a control request that did not borrow credits from the account
+// (negotiate, session setup, tree connect, echo, ...). borrowed is 0, so a
+// failure refunds nothing.
 func (conn *conn) send(ctx context.Context, req smb2.Packet) (rr *requestResponse, err error) {
-	return conn.sendWith(ctx, req, nil)
+	return conn.sendWith(ctx, req, nil, 0)
 }
 
-func (conn *conn) sendWith(ctx context.Context, req smb2.Packet, tc *treeConn) (rr *requestResponse, err error) {
+// sendWith transmits req. borrowed is the number of credits drawn from the
+// account for this request, or 0 if none were. On failure it refunds that loan:
+// directly while the request is still unregistered, and afterwards by popping
+// it from outstandingRequests and refunding whatever the loan still holds —
+// zero if a response settled it first.
+func (conn *conn) sendWith(ctx context.Context, req smb2.Packet, tc *treeConn, borrowed uint16) (rr *requestResponse, err error) {
 	conn.m.Lock()
 	defer conn.m.Unlock()
 
 	if conn.err != nil {
+		conn.refundCredits(borrowed)
 		return nil, conn.err
 	}
 
 	select {
 	case <-ctx.Done():
+		conn.refundCredits(borrowed)
 		return nil, ctx.Err()
 	default:
 		// do nothing
 	}
 
-	rr, err = conn.makeRequestResponse(ctx, req, tc)
+	rr, err = conn.makeRequestResponse(ctx, req, tc, borrowed)
 	if err != nil {
+		conn.refundCredits(borrowed)
 		return nil, err
 	}
 
@@ -387,17 +444,31 @@ func (conn *conn) sendWith(ctx context.Context, req smb2.Packet, tc *treeConn) (
 		select {
 		case err = <-conn.werr:
 			if err != nil {
-				conn.outstandingRequests.pop(rr.msgId)
+				if _, ok := conn.outstandingRequests.pop(rr.msgId); ok {
+					conn.refundCredits(rr.claimLoan())
+				}
 
 				return nil, &TransportError{err}
 			}
 		case <-ctx.Done():
-			conn.outstandingRequests.pop(rr.msgId)
+			if _, ok := conn.outstandingRequests.pop(rr.msgId); ok {
+				conn.refundCredits(rr.claimLoan())
+			}
 
 			return nil, ctx.Err()
 		}
 	case <-ctx.Done():
-		conn.outstandingRequests.pop(rr.msgId)
+		// Outer arm: the packet never reached the writer. conn.m has been held
+		// since allocation, so no later ID exists and this slot can be reused;
+		// roll the window back alongside the loan refund. Skipped for a
+		// CancelRequest, which never advanced the window. The two inner arms
+		// above must NOT do this: there the packet may already be on the wire.
+		if _, ok := conn.outstandingRequests.pop(rr.msgId); ok {
+			if _, isCancel := req.(*smb2.CancelRequest); !isCancel {
+				conn.sequenceWindow -= uint64(req.Header().CreditCharge)
+			}
+			conn.refundCredits(rr.claimLoan())
+		}
 
 		return nil, ctx.Err()
 	}
@@ -417,17 +488,26 @@ type compoundEntry struct {
 // the sentinel FileId. Returns one requestResponse per entry for receiving
 // individual responses.
 //
-// Caller must have already set CreditCharge on each entry's header (via loanCredit).
+// Caller must have already set CreditCharge on each entry's header (via borrowCredits).
 func (conn *conn) sendCompound(ctx context.Context, entries []compoundEntry) ([]*requestResponse, error) {
 	conn.m.Lock()
 	defer conn.m.Unlock()
 
+	// Total credits the caller borrowed for this batch; refunded if the batch
+	// fails before any response can settle it.
+	var totalBorrowed uint16
+	for _, entry := range entries {
+		totalBorrowed += entry.req.Header().CreditCharge
+	}
+
 	if conn.err != nil {
+		conn.refundCredits(totalBorrowed)
 		return nil, conn.err
 	}
 
 	select {
 	case <-ctx.Done():
+		conn.refundCredits(totalBorrowed)
 		return nil, ctx.Err()
 	default:
 	}
@@ -532,9 +612,16 @@ func (conn *conn) sendCompound(ctx context.Context, entries []compoundEntry) ([]
 			var err error
 			wirePkt, err = s.encrypt(compound, s.encryptBuf[:needed])
 			if err != nil {
+				// The frame never reached the writer and conn.m has been held
+				// since the window was advanced in phase 1, so the whole
+				// batch's slots can be reused. Roll the window back by the batch
+				// total alongside the credit refund. (Compounds never carry
+				// CancelRequests, so no per-entry guard is needed.)
+				conn.sequenceWindow -= uint64(totalCreditCharge)
+				conn.refundCredits(totalBorrowed)
 				return nil, &InternalError{err.Error()}
 			}
-		} else if s.sessionFlags&(smb2.SMB2_SESSION_FLAG_IS_GUEST|smb2.SMB2_SESSION_FLAG_IS_NULL) == 0 {
+		} else if conn.mustSignAny(s.sessionFlags, entries) {
 			// Sign each packet individually in-place.
 			// Per MS-SMB2 3.3.5.2.4, the server uses the NextCommand value as the
 			// message length for signature verification (8-byte aligned size), so
@@ -563,6 +650,7 @@ func (conn *conn) sendCompound(ctx context.Context, entries []compoundEntry) ([]
 			ctx:           ctx,
 			recv:          make(chan []byte, 1),
 		}
+		rrs[i].loan.Store(uint32(p.CreditCharge()))
 		conn.outstandingRequests.set(rrs[i].msgId, rrs[i])
 
 		if i < n-1 {
@@ -577,28 +665,40 @@ func (conn *conn) sendCompound(ctx context.Context, entries []compoundEntry) ([]
 		select {
 		case err := <-conn.werr:
 			if err != nil {
-				for _, rr := range rrs {
-					conn.outstandingRequests.pop(rr.msgId)
-				}
+				conn.refundCompound(rrs)
 				return nil, &TransportError{err}
 			}
 		case <-ctx.Done():
-			for _, rr := range rrs {
-				conn.outstandingRequests.pop(rr.msgId)
-			}
+			conn.refundCompound(rrs)
 			return nil, ctx.Err()
 		}
 	case <-ctx.Done():
-		for _, rr := range rrs {
-			conn.outstandingRequests.pop(rr.msgId)
-		}
+		// Outer arm: the frame never reached the writer. conn.m has been held
+		// since phase 1, so the whole batch's slots can be reused; roll the
+		// window back by the batch total alongside refundCompound. The two inner
+		// arms above must NOT do this, and refundCompound is shared with them:
+		// there the frame may already be on the wire, so only the credits (not
+		// the window) may be returned.
+		conn.sequenceWindow -= uint64(totalCreditCharge)
+		conn.refundCompound(rrs)
 		return nil, ctx.Err()
 	}
 
 	return rrs, nil
 }
 
-func (conn *conn) makeRequestResponse(ctx context.Context, req smb2.Packet, tc *treeConn) (rr *requestResponse, err error) {
+// refundCompound pops each request that never left, refunding its loan. Popping
+// is what serializes against the receiver: if a response already settled a
+// request (pop fails), its credits were refunded there instead.
+func (conn *conn) refundCompound(rrs []*requestResponse) {
+	for _, rr := range rrs {
+		if _, ok := conn.outstandingRequests.pop(rr.msgId); ok {
+			conn.refundCredits(rr.claimLoan())
+		}
+	}
+}
+
+func (conn *conn) makeRequestResponse(ctx context.Context, req smb2.Packet, tc *treeConn, borrowed uint16) (rr *requestResponse, err error) {
 	hdr := req.Header()
 
 	var msgId uint64
@@ -646,10 +746,18 @@ func (conn *conn) makeRequestResponse(ctx context.Context, req smb2.Packet, tc *
 				clear(s.encryptBuf[:needed])
 				pkt, err = s.encrypt(pkt, s.encryptBuf[:needed])
 				if err != nil {
+					// The packet never reached the writer and conn.m has been
+					// held since allocation, so no later ID exists: give the
+					// window slot back. Guarded like the advance above, since a
+					// CancelRequest never took one. The caller should refund the
+					// loan, so credits and window are both restored.
+					if _, ok := req.(*smb2.CancelRequest); !ok {
+						conn.sequenceWindow -= uint64(hdr.CreditCharge)
+					}
 					return nil, &InternalError{err.Error()}
 				}
 			} else {
-				if s.sessionFlags&(smb2.SMB2_SESSION_FLAG_IS_GUEST|smb2.SMB2_SESSION_FLAG_IS_NULL) == 0 {
+				if conn.mustSign(s.sessionFlags, req) {
 					pkt = s.sign(pkt)
 				}
 			}
@@ -663,6 +771,7 @@ func (conn *conn) makeRequestResponse(ctx context.Context, req smb2.Packet, tc *
 		ctx:           ctx,
 		recv:          make(chan []byte, 1),
 	}
+	rr.loan.Store(uint32(borrowed))
 
 	conn.outstandingRequests.set(msgId, rr)
 
@@ -673,11 +782,22 @@ func (conn *conn) recv(rr *requestResponse) ([]byte, error) {
 	select {
 	case pkt := <-rr.recv:
 		if rr.err != nil {
+			// Transport shutdown: outstandingRequests.shutdown sets rr.err and
+			// closes recv without popping the request, so no one has settled
+			// the loan. (A response that failed verification settles it in
+			// tryHandle instead, and claiming again here yields zero.)
+			conn.refundCredits(rr.claimLoan())
 			return nil, rr.err
 		}
 		return pkt, nil
 	case <-rr.ctx.Done():
-		conn.outstandingRequests.pop(rr.msgId)
+		// Refund only if we win the race to remove the request: if the pop
+		// fails, the receiver already took the request and is settling its
+		// response. claimLoan then yields the loan to refund (zero if an
+		// interim response already claimed it).
+		if _, ok := conn.outstandingRequests.pop(rr.msgId); ok {
+			conn.refundCredits(rr.claimLoan())
+		}
 
 		return nil, rr.ctx.Err()
 	}
@@ -1024,16 +1144,23 @@ func (conn *conn) tryHandle(pkt []byte, e error, rb *recvBuf) error {
 		return &InvalidResponseError{"unknown message id returned"}
 	case e != nil:
 		rr.err = e
+		// The pop above took the request, so nothing else can settle it:
+		// refund the loan here.
+		conn.refundCredits(rr.claimLoan())
 		conn.freePoolBuf(rb)
 
 		close(rr.recv)
 	case erref.NtStatus(p.Status()) == erref.STATUS_PENDING:
 		rr.asyncId = p.AsyncId()
-		conn.account.charge(p.CreditResponse(), rr.creditRequest)
+		conn.account.settle(p.CreditResponse(), rr.creditRequest)
+		// The response settled the loan; take it so the re-registered request
+		// is not refunded again if the caller later abandons it.
+		rr.claimLoan()
 		conn.outstandingRequests.set(msgId, rr)
 		conn.freePoolBuf(rb)
 	default:
-		conn.account.charge(p.CreditResponse(), rr.creditRequest)
+		conn.account.settle(p.CreditResponse(), rr.creditRequest)
+		rr.claimLoan()
 
 		// Transfer ownership of the pooled receive buffer to the
 		// requestResponse so the caller can return it via freeRecvBuf

@@ -34,6 +34,7 @@ import (
 	"github.com/rclone/rclone/fs/hash"
 	"github.com/rclone/rclone/fs/list"
 	"github.com/rclone/rclone/lib/encoder"
+	"github.com/rclone/rclone/lib/multipart"
 	"github.com/rclone/rclone/lib/oauthutil"
 	"github.com/rclone/rclone/lib/pacer"
 	"github.com/rclone/rclone/lib/rest"
@@ -85,8 +86,8 @@ func getServices() []service {
 		{"jottacloud", "Jottacloud", "id.jottacloud.com", "jottacloud", "desktop", []string{"openid", "jotta-default", "offline_access"}}, // Chose client id "desktop" here, will be identified as "Jottacloud for Desktop" in "My logged in devices", but could have used "jottacli" here as well.
 		{"elgiganten_dk", "Elgiganten Cloud (Denmark)", "cloud.elgiganten.dk", "elgiganten", "desktop", []string{"openid", "jotta-default", "offline_access"}},
 		{"elgiganten_se", "Elgiganten Cloud (Sweden)", "cloud.elgiganten.se", "elgiganten", "desktop", []string{"openid", "jotta-default", "offline_access"}},
-		{"elkjop", "Elkjøp Cloud (Norway)", "cloud.elkjop.no", "elkjop", "desktop", []string{"openid", "jotta-default", "offline_access"}},
-		{"elko", "ELKO Cloud (Iceland)", "cloud.elko.is", "elko", "desktop", []string{"openid", "jotta-default", "offline_access"}},
+		{"elkjop", "Elkjøp Cloud (Norway)", "cloud.elkjop.no", "elkjop", "desktop", []string{"openid", "offline_access"}},
+		{"elko", "ELKO Cloud (Iceland)", "cloud.elko.is", "elko", "desktop", []string{"openid", "offline_access"}},
 		{"gigantti", "Gigantti Cloud (Finland)", "cloud.gigantti.fi", "gigantti", "desktop", []string{"openid", "jotta-default", "offline_access"}},
 		{"letsgo", "Let's Go Cloud (Germany)", "letsgo.jotta.cloud", "letsgo", "desktop-win", []string{"openid", "offline_access"}},
 		{"mediamarkt", "MediaMarkt Cloud (Multiregional)", "mediamarkt.jottacloud.com", "mediamarkt", "desktop", []string{"openid", "jotta-default", "offline_access"}},
@@ -257,6 +258,7 @@ service, for the official service on https://www.jottacloud.com/web/secure.`)
 		}
 		m.Set("configVersion", fmt.Sprint(configVersion))
 		m.Set(configClientID, service.clientID)
+		m.Set(configClientSecret, "")
 		m.Set(configTokenURL, wellKnown.TokenEndpoint)
 		return oauthutil.ConfigOut("choose_device", &oauthutil.Options{
 			OAuth2Config: &oauthutil.Config{
@@ -1499,9 +1501,9 @@ func (f *Fs) Copy(ctx context.Context, src fs.Object, remote string) (fs.Object,
 	info, err := f.copyOrMove(ctx, "cp", srcObj.filePath(), remote)
 
 	if err == nil {
-		var createTime time.Time
+		createTime := srcObj.createTime
 		var createTimeMeta bool
-		var modTime time.Time
+		modTime := srcObj.modTime
 		var modTimeMeta bool
 		if meta != nil {
 			createTime, createTimeMeta = srcObj.parseFsMetadataTime(meta, "btime")
@@ -1517,6 +1519,11 @@ func (f *Fs) Copy(ctx context.Context, src fs.Object, remote string) (fs.Object,
 			// Workaround necessary when destination was a trashed file, to avoid the copied file also being in trash (bug in api?)
 			fs.Debugf(src, "Server-side copied to trashed destination, restoring")
 			info, err = f.createOrUpdate(ctx, remote, createTime, modTime, info.Size, info.MD5)
+			// The restored file keeps the name it was trashed with, which may differ in case
+			if err == nil && info != nil && info.Name != f.opt.Enc.FromStandardName(path.Base(remote)) {
+				fs.Debugf(src, "Renaming restored %q to %q", info.Name, path.Base(remote))
+				info, err = f.copyOrMove(ctx, "mv", f.filePath(remote), remote)
+			}
 		} else if createTimeMeta || modTimeMeta {
 			info, err = f.createOrUpdate(ctx, remote, createTime, modTime, info.Size, info.MD5)
 		}
@@ -1924,8 +1931,9 @@ func readMD5(in io.Reader, size, threshold int64) (md5sum string, out io.Reader,
 	// nothing to clean up by default
 	cleanup = func() {}
 
-	// don't cache small files on disk to reduce wear of the disk
-	if size > threshold {
+	// don't cache small files on disk to reduce wear of the disk, but
+	// spool unknown sized streams there as they can't be bounded in memory
+	if size > threshold || size < 0 {
 		var tempFile *os.File
 
 		// create the cache file
@@ -1955,15 +1963,15 @@ func readMD5(in io.Reader, size, threshold int64) (md5sum string, out io.Reader,
 		// replace the already read source with a reader of our cached file
 		out = tempFile
 	} else {
-		// that's a small file, just read it into memory
-		var inData []byte
-		inData, err = io.ReadAll(teeReader)
-		if err != nil {
+		// that's a small file, just read it into memory from the global pool
+		rw := multipart.NewRW()
+		cleanup = func() {
+			_ = rw.Close()
+		}
+		if _, err = io.Copy(rw, teeReader); err != nil {
 			return
 		}
-
-		// set the reader to our read memory block
-		out = bytes.NewReader(inData)
+		out = rw
 	}
 	return hex.EncodeToString(md5Hasher.Sum(nil)), out, cleanup, nil
 }

@@ -33,6 +33,12 @@ type Download struct {
 	ctx        context.Context
 	cancelCtx  func(error)
 
+	// nodeTask names the node in the monitoring task of every Read. It is
+	// derived once here because deriving it is more expensive than it looks:
+	// it base58 encodes the whole node id, checksum included, to keep the
+	// first few characters.
+	nodeTask string
+
 	offset       int64        // the offset into the piece
 	read         atomic.Int64 // how much data we have read so far
 	allocated    int64        // how far have we sent orders
@@ -106,6 +112,7 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit, pieceP
 		stream:     stream,
 		ctx:        ctx,
 		cancelCtx:  cancel,
+		nodeTask:   nodeTask(limit.StorageNodeId),
 
 		offset: offset,
 
@@ -117,10 +124,16 @@ func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit, pieceP
 	}, nil
 }
 
+// nodeTask returns the name a monitoring task uses for a node. A node id
+// always encodes to more than eight characters.
+func nodeTask(id storj.NodeID) string {
+	return "node: " + id.String()[:8]
+}
+
 // Read downloads data from the storage node allocating as necessary.
 func (client *Download) Read(data []byte) (read int, err error) {
 	ctx := client.ctx
-	defer mon.Task()(&ctx, "node: "+client.limit.StorageNodeId.String()[0:8])(&err)
+	defer mon.Task()(&ctx, client.nodeTask)(&err)
 
 	if client.closingError.IsSet() {
 		return 0, io.ErrClosedPipe

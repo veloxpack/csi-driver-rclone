@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -36,6 +37,10 @@ import (
 const (
 	devUnset   = 0xdeadbeefcafebabe                                     // a device id meaning it is unset
 	useReadDir = (runtime.GOOS == "windows" || runtime.GOOS == "plan9") // these OSes read FileInfos directly
+	// maxLinkTargetSize is the largest symlink target accepted when
+	// translating a .rclonelink object, comfortably above any OS path
+	// limit (Windows allows 32767 UTF-16 units).
+	maxLinkTargetSize = 128 * 1024
 )
 
 // timeType allows the user to choose what exactly ModTime() returns
@@ -82,8 +87,10 @@ Metadata is supported on files and directories.
 When restoring metadata with ` + "`--metadata`" + ` rclone applies the
 "mode", "uid" and "gid" from the source. These come from the source
 remote which may not be trusted, so restoring metadata as root from an
-untrusted source can change file ownership and is not recommended. The
-setuid, setgid and sticky bits are not restored by default - see the
+untrusted source can change file ownership and is not recommended. A
+user other than root keeps its own uid and sets the gid only to a group
+it is a member of, as rsync does. The setuid, setgid and sticky bits are
+not restored by default - see the
 ` + "`--local-metadata-restore-special-bits`" + ` flag.
 `,
 		},
@@ -247,6 +254,13 @@ deduplicated by default (i.e. having two identical files does not consume more
 storage than having just one.)  However, for use cases where data redundancy is
 preferable, --local-no-clone can be used to disable cloning and force "deep" copies.
 
+Cloning also preserves macOS-specific metadata such as extended attributes,
+which a normal copy does not, so this metadata is lost when cloning is disabled.
+
+If the destination file already exists, cloning replaces it with a new file,
+even with --inplace, so hard links to it are broken. Use --local-no-clone to
+update existing files in place.
+
 Currently, cloning is only supported when using APFS on macOS (support for other
 platforms may be added in the future.)`,
 				Default:  false,
@@ -311,10 +325,10 @@ set this flag.`,
 				Name: "fatal_if_no_space",
 				Help: `Make out-of-space errors fatal during transfers.
 
-When enabled, an ENOSPC error during a write returns a fatal error so
-that rclone aborts rather than retrying the operation. Useful for
-backup scripts that should halt loudly on a full disk rather than spin
-retrying.`,
+When enabled, an out of space error while writing, creating a directory,
+or creating a file returns a fatal error so that rclone aborts rather
+than retrying the operation. Useful for backup scripts that should halt
+loudly on a full disk rather than spin retrying.`,
 				Default:  false,
 				Advanced: true,
 			},
@@ -438,6 +452,8 @@ var (
 	errLinksAndCopyLinks = errors.New("can't use -l/--links with -L/--copy-links")
 	errLinksNeedsSuffix  = errors.New("need \"" + fs.LinkSuffix + "\" suffix to refer to symlink when using -l/--links")
 	errPathEscapes       = errors.New("file name is not a path within the local root - check the encoding")
+	errSymlinkLoop       = errors.New("loop detected: points to a parent directory")
+	errLinkTargetTooLong = errors.New("symlink target is too long to be a path")
 	errLinkNameInvalid   = errors.New("translated link needs a file name before the \"" + fs.LinkSuffix + "\" suffix")
 )
 
@@ -673,6 +689,7 @@ func (f *Fs) List(ctx context.Context, dir string) (entries fs.DirEntries, err e
 	if err != nil {
 		return nil, fs.ErrorDirNotFound
 	}
+	var parents []os.FileInfo // fsDirPath and its parents, read on first use
 
 	fd, err := os.Open(fsDirPath)
 	if err != nil {
@@ -753,11 +770,28 @@ func (f *Fs) List(ctx context.Context, dir string) (entries fs.DirEntries, err e
 			if f.opt.FollowSymlinks && (mode&symlinkFlag) != 0 {
 				localPath := filepath.Join(fsDirPath, name)
 				fi, err = os.Stat(localPath)
+				// A directory symlink pointing to a parent would be followed
+				// until the OS returns ELOOP, which can take a very long time
+				if err == nil && fi.IsDir() {
+					if parents == nil {
+						parents = statParents(fsDirPath)
+					}
+					if slices.ContainsFunc(parents, func(parent os.FileInfo) bool { return os.SameFile(fi, parent) }) {
+						// Quietly skip loops the directory filters exclude as
+						// the layer above wouldn't recurse into them
+						if useFilter {
+							if include, dirErr := filter.IncludeDirectory(ctx, f)(newRemote); dirErr == nil && !include {
+								continue
+							}
+						}
+						err = errSymlinkLoop
+					}
+				}
 				// Quietly skip errors on excluded files and directories
 				if err != nil && useFilter && !filter.IncludeRemote(newRemote) {
 					continue
 				}
-				if os.IsNotExist(err) || isCircularSymlinkError(err) {
+				if os.IsNotExist(err) || isCircularSymlinkError(err) || errors.Is(err, errSymlinkLoop) {
 					// Skip bad symlinks and circular symlinks
 					err = fserrors.NoRetryError(fmt.Errorf("symlink: %w", err))
 					fs.Errorf(newRemote, "Listing error: %v", err)
@@ -806,6 +840,21 @@ func (f *Fs) List(ctx context.Context, dir string) (entries fs.DirEntries, err e
 		}
 	}
 	return entries, nil
+}
+
+// statParents returns the info for dirPath and each of its parents up
+// to the root of the file system, skipping any which can't be read.
+func statParents(dirPath string) (parents []os.FileInfo) {
+	for {
+		if fi, err := os.Stat(dirPath); err == nil {
+			parents = append(parents, fi)
+		}
+		parent := filepath.Dir(dirPath)
+		if parent == dirPath {
+			return parents
+		}
+		dirPath = parent
+	}
 }
 
 func (f *Fs) cleanRemote(dir, filename string) (remote string) {
@@ -911,13 +960,13 @@ func (f *Fs) MkdirMetadata(ctx context.Context, dir string, metadata fs.Metadata
 	if err != nil {
 		return nil, err
 	}
-	fi, err := f.lstat(localPath)
+	fi, err := f.lstatRoot(localPath)
 	if errors.Is(err, os.ErrNotExist) {
 		err := f.Mkdir(ctx, dir)
 		if err != nil {
 			return nil, fmt.Errorf("mkdir metadata: failed make directory: %w", err)
 		}
-		fi, err = f.lstat(localPath)
+		fi, err = f.lstatRoot(localPath)
 		if err != nil {
 			return nil, fmt.Errorf("mkdir metadata: failed to read info: %w", err)
 		}
@@ -949,20 +998,34 @@ func (f *Fs) MkdirMetadata(ctx context.Context, dir string, metadata fs.Metadata
 // Rmdir removes the directory
 //
 // If it isn't empty it will return an error
-func (f *Fs) Rmdir(ctx context.Context, dir string) error {
+func (f *Fs) Rmdir(ctx context.Context, dir string) (err error) {
 	localPath, err := f.localPath(dir)
 	if err != nil {
 		return err
 	}
-	if fi, err := os.Stat(localPath); err != nil {
+	// When translating symlinks go through os.Root so a symlink planted at
+	// any parent can't redirect the removal out of the destination, and
+	// don't follow the leaf as a symlink is a file in this mode. The root
+	// itself is the trusted destination and is removed directly.
+	stat, removeFn, chmod := os.Stat, os.Remove, os.Chmod
+	if f.opt.TranslateSymlinks && localPath != f.root {
+		var root *os.Root
+		root, localPath, err = f.osRoot(localPath)
+		if err != nil {
+			return err
+		}
+		defer fs.CheckClose(root, &err)
+		stat, removeFn, chmod = root.Lstat, root.Remove, root.Chmod
+	}
+	if fi, err := stat(localPath); err != nil {
 		return err
 	} else if !fi.IsDir() {
 		return fs.ErrorIsFile
 	}
-	err = os.Remove(localPath)
+	err = removeFn(localPath)
 	if runtime.GOOS == "windows" && errors.Is(err, iofs.ErrPermission) { // https://github.com/golang/go/issues/26295
-		if os.Chmod(localPath, 0o600) == nil {
-			err = os.Remove(localPath)
+		if chmod(localPath, 0o600) == nil {
+			err = removeFn(localPath)
 		}
 	}
 	return err
@@ -1139,9 +1202,14 @@ func (f *Fs) DirMove(ctx context.Context, src fs.Fs, srcRemote, dstRemote string
 		return fs.ErrorDirExists
 	}
 
-	// Create parent of destination
+	// Create parent of destination. The root itself is the trusted
+	// destination so its parent, which lies outside it, is created directly.
 	dstParentPath := filepath.Dir(dstPath)
-	err = file.MkdirAll(dstParentPath, 0777)
+	if dstPath == f.root {
+		err = file.MkdirAll(dstParentPath, 0777)
+	} else {
+		err = f.mkdirAll(dstParentPath)
+	}
 	if err != nil {
 		return err
 	}
@@ -1558,10 +1626,26 @@ func (f *Fs) mkdirAll(localPath string) (err error) {
 	return root.MkdirAll(rel, 0777)
 }
 
-// openFile opens localPath for writing. When translating symlinks it goes
-// through os.Root so a symlink planted at the path, or at any parent, is never
-// followed out of the destination. The returned file is independent of the
-// root, which is closed before returning.
+// lstatRoot returns the info for localPath without following a symlink at
+// the leaf. When translating symlinks it goes through os.Root so a symlink
+// planted at any parent can't make a path outside the destination look like
+// it exists, which would let its metadata be written there.
+func (f *Fs) lstatRoot(localPath string) (fi os.FileInfo, err error) {
+	if !f.opt.TranslateSymlinks {
+		return f.lstat(localPath)
+	}
+	root, rel, err := f.osRoot(localPath)
+	if err != nil {
+		return nil, err
+	}
+	defer fs.CheckClose(root, &err)
+	return root.Lstat(rel)
+}
+
+// openFile opens localPath with the given flags and perm. When translating
+// symlinks it goes through os.Root so a symlink planted at the path, or at any
+// parent, is never followed out of the destination. The returned file is
+// independent of the root, which is closed before returning.
 func (f *Fs) openFile(localPath string, flags int, perm os.FileMode) (fi *os.File, err error) {
 	if !f.opt.TranslateSymlinks {
 		return file.OpenFile(localPath, flags, perm)
@@ -1630,6 +1714,21 @@ func (f *Fs) chtimes(localPath string, atime, mtime time.Time) (err error) {
 	return root.Chtimes(rel, atime, mtime)
 }
 
+// remove removes the file, symlink or empty directory at localPath. When
+// translating symlinks it goes through os.Root so a symlink planted at any
+// parent can't redirect the removal out of the destination.
+func (f *Fs) remove(localPath string) (err error) {
+	if !f.opt.TranslateSymlinks {
+		return remove(localPath, os.Remove)
+	}
+	root, rel, err := f.osRoot(localPath)
+	if err != nil {
+		return err
+	}
+	defer fs.CheckClose(root, &err)
+	return remove(rel, root.Remove)
+}
+
 // mkdirAll makes all the directories needed to store the object
 func (o *Object) mkdirAll() error {
 	return o.fs.mkdirAll(filepath.Dir(o.path))
@@ -1650,12 +1749,17 @@ func isDiskFullError(err error) bool {
 	return errors.Is(err, file.ErrDiskFull) || fserrors.IsErrNoSpace(err)
 }
 
+func wrapFatalIfNoSpace(err error, enabled bool) error {
+	if err != nil && enabled && isDiskFullError(err) {
+		return fserrors.FatalError(err)
+	}
+	return err
+}
+
 // Update the object from in with modTime and size
 func (o *Object) Update(ctx context.Context, in io.Reader, src fs.ObjectInfo, options ...fs.OpenOption) (err error) {
 	defer func() {
-		if err != nil && o.fs.opt.FatalIfNoSpace && isDiskFullError(err) {
-			err = fserrors.FatalError(err)
-		}
+		err = wrapFatalIfNoSpace(err, o.fs.opt.FatalIfNoSpace)
 	}()
 	var out io.WriteCloser
 	var hasher *hash.MultiHasher
@@ -1712,21 +1816,28 @@ func (o *Object) Update(ctx context.Context, in io.Reader, src fs.ObjectInfo, op
 		}
 		out = f
 	} else {
+		// The target is buffered in memory, so stop reading just past
+		// the longest acceptable one rather than trust the source
+		in = io.LimitReader(in, maxLinkTargetSize+1)
 		out = nopWriterCloser{&symlinkData}
 	}
 
-	// Calculate the hash of the object we are reading as we go along
+	// Calculate the hash of the object as we write it
+	var w io.Writer = out
 	if hasher != nil {
-		in = io.TeeReader(in, hasher)
+		w = io.MultiWriter(w, hasher)
 	}
 
-	_, err = io.Copy(out, in)
+	_, err = io.Copy(w, in)
 	closeErr := out.Close()
 	if err == nil {
 		err = closeErr
 	}
 
 	if o.translatedLink {
+		if err == nil && symlinkData.Len() > maxLinkTargetSize {
+			err = fserrors.NoRetryError(errLinkTargetTooLong)
+		}
 		if err == nil {
 			// Use the contents of the copied object to create a symlink,
 			// without following or creating it through a planted symlink
@@ -1742,7 +1853,7 @@ func (o *Object) Update(ctx context.Context, in io.Reader, src fs.ObjectInfo, op
 
 	if err != nil {
 		fs.Logf(o, "Removing partially written file on error: %v", err)
-		if removeErr := os.Remove(o.path); removeErr != nil {
+		if removeErr := o.fs.remove(o.path); removeErr != nil {
 			fs.Errorf(o, "Failed to remove partially written file: %v", removeErr)
 		}
 		return err
@@ -1777,12 +1888,30 @@ func (o *Object) Update(ctx context.Context, in io.Reader, src fs.ObjectInfo, op
 
 var sparseWarning sync.Once
 
+type fatalIfNoSpaceWriterAt struct {
+	fs.WriterAtCloser
+	enabled bool
+}
+
+func (w *fatalIfNoSpaceWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
+	n, err = w.WriterAtCloser.WriteAt(p, off)
+	return n, wrapFatalIfNoSpace(err, w.enabled)
+}
+
+func (w *fatalIfNoSpaceWriterAt) Close() error {
+	return wrapFatalIfNoSpace(w.WriterAtCloser.Close(), w.enabled)
+}
+
 // OpenWriterAt opens with a handle for random access writes
 //
 // Pass in the remote desired and the size if known.
 //
 // It truncates any existing object
-func (f *Fs) OpenWriterAt(ctx context.Context, remote string, size int64) (fs.WriterAtCloser, error) {
+func (f *Fs) OpenWriterAt(ctx context.Context, remote string, size int64) (writer fs.WriterAtCloser, err error) {
+	defer func() {
+		err = wrapFatalIfNoSpace(err, f.opt.FatalIfNoSpace)
+	}()
+
 	// Temporary Object under construction
 	o, err := f.newObject(remote)
 	if err != nil {
@@ -1820,7 +1949,10 @@ func (f *Fs) OpenWriterAt(ctx context.Context, remote string, size int64) (fs.Wr
 		}
 	}
 
-	return out, nil
+	return &fatalIfNoSpaceWriterAt{
+		WriterAtCloser: out,
+		enabled:        f.opt.FatalIfNoSpace,
+	}, nil
 }
 
 // setMetadata sets the file info from the os.FileInfo passed in
@@ -1869,7 +2001,7 @@ func (o *Object) lstat() error {
 // Remove an object
 func (o *Object) Remove(ctx context.Context) error {
 	o.clearHashCache()
-	return remove(o.path)
+	return o.fs.remove(o.path)
 }
 
 // Metadata returns metadata for an object

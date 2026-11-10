@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"mime/multipart"
 	"net/http"
@@ -358,7 +357,7 @@ func (u *API) postBody(ctx context.Context, urlPath interface{}, bodyReader io.R
 
 	defer api.DeferredClose(resp.Body)
 
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }
 
 func setAuth(u *API, req *http.Request) {
@@ -399,19 +398,16 @@ func min(a, b int64) int64 {
 
 // VerifyApiResponseSignature validates API response signature against Cloudinary configuration.
 // It validates that the response came from Cloudinary by checking the signature.
-func (u *API) VerifyApiResponseSignature(publicID string, version string, signature string) bool {
-	urlParams := make(url.Values)
-	urlParams.Set("public_id", publicID)
-	urlParams.Set("version", version)
-
-	// Use signature version 1 for API response validation (legacy behavior)
-	expectedSignature, err := api.SignParametersUsingAlgoAndVersion(urlParams, u.Config.Cloud.APISecret,
-		u.Config.Cloud.GetSignatureAlgorithm(), 1)
+func (u *API) VerifyApiResponseSignature(publicID string, version string, receivedSignature string) bool {
+	// Sign with signature version 1 (no "&" encoding) and without a timestamp.
+	// Do not use api.SignParametersUsingAlgoAndVersion, it adds a timestamp.
+	payload := fmt.Sprintf("public_id=%s&version=%s", publicID, version)
+	rawSignature, err := signature.Sign(payload, u.Config.Cloud.APISecret, u.Config.Cloud.GetSignatureAlgorithm())
 	if err != nil {
 		return false
 	}
 
-	return signature == expectedSignature
+	return receivedSignature == hex.EncodeToString(rawSignature)
 }
 
 // VerifyNotificationSignature validates notification signature against Cloudinary configuration.

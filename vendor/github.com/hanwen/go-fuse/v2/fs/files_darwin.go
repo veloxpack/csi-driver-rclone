@@ -27,6 +27,7 @@ func (f *LoopbackFile) utimens(a *time.Time, m *time.Time) syscall.Errno {
 		}
 	}
 	tv := utimens.Fill(a, m, &attr.Attr)
-	err := syscall.Futimes(int(f.fd), tv)
-	return ToErrno(err)
+	return f.withFd(func(fd int) syscall.Errno {
+		return ToErrno(syscall.Futimes(fd, tv))
+	})
 }

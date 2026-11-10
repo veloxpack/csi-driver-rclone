@@ -6,11 +6,16 @@ include release.mk
 
 ALL_SOURCES := $(shell find . -type f -name '*.go')
 
-.PHONY: fmt lint test cover coverhtml examples readme
+.PHONY: fmt lint test test-race cover coverhtml examples readme
 
 test:
 	go test -timeout=60s $(shell go list ./... | grep -v "/examples") 
 	@echo "< ALL TESTS PASS >"
+
+# the race detector slows the root package to about a minute, so allow longer than test
+test-race:
+	go test -race -timeout=10m $(shell go list ./... | grep -v "/examples")
+	@echo "< ALL RACE TESTS PASS >"
 
 update-deps: go.mod
 	GOPROXY=direct go get -u ./...
@@ -39,9 +44,9 @@ benchmark:
 
 examples:
 	@for dir in examples/*/; do \
-		if [ -f "$$dir"*.go ]; then \
+		if ls "$$dir"*.go > /dev/null 2>&1; then \
 			echo "Running example in $$dir"; \
-			(cd "$$dir" && go run *.go > /dev/null); \
+			(cd "$$dir" && go run . > /dev/null) || exit 1; \
 		fi; \
 	done
 

@@ -162,8 +162,7 @@ type Client interface {
 	// exist for a specific upload path at any given time.  The POST request on
 	// the temporary upload link must have its Content-Type set to
 	// "application/octet-stream".  Example temporary upload link consumption
-	// request:  curl -X POST
-	// https://content.dropboxapi.com/apitul/1/bNi2uIYF51cVBND --header
+	// request:  curl -X POST <temporary_upload_link_url> --header
 	// "Content-Type: application/octet-stream" --data-binary @local_file.txt  A
 	// successful temporary upload link consumption request returns the content
 	// hash of the uploaded data in JSON format. Example successful temporary
@@ -474,9 +473,9 @@ type Client interface {
 // ContextClient interface describes all routes in this namespace with context support
 type ContextClient interface {
 	Client
-	// AlphaGetMetadataContext : Returns the metadata for a file or folder. This is an
-	// alpha endpoint compatible with the properties API. Note: Metadata for the
-	// root folder is unsupported.
+	// AlphaGetMetadataContext : Returns the metadata for a file or folder. This
+	// is an alpha endpoint compatible with the properties API. Note: Metadata
+	// for the root folder is unsupported.
 	// Deprecated:
 	AlphaGetMetadataContext(ctx context.Context, arg *AlphaGetMetadataArg) (res IsMetadata, err error)
 	// AlphaUploadContext : Create a new file with the contents provided in the
@@ -489,21 +488,23 @@ type ContextClient interface {
 	// Dropbox. If the source path is a folder all its contents will be copied.
 	// Deprecated:
 	CopyContext(ctx context.Context, arg *RelocationArg) (res IsMetadata, err error)
-	// CopyV2Context : Copy a file or folder to a different location in the user's
-	// Dropbox. If the source path is a folder all its contents will be copied.
+	// CopyV2Context : Copy a file or folder to a different location in the
+	// user's Dropbox. If the source path is a folder all its contents will be
+	// copied.
 	CopyV2Context(ctx context.Context, arg *RelocationArg) (res *RelocationResult, err error)
-	// CopyBatchContext : Copy multiple files or folders to different locations at once
-	// in the user's Dropbox. This route will return job ID immediately and do
-	// the async copy job in background. Please use `copyBatchCheck` to check
-	// the job status.
+	// CopyBatchContext : Copy multiple files or folders to different locations
+	// at once in the user's Dropbox. This route will return job ID immediately
+	// and do the async copy job in background. Please use `copyBatchCheck` to
+	// check the job status.
 	// Deprecated:
 	CopyBatchContext(ctx context.Context, arg *RelocationBatchArg) (res *RelocationBatchLaunch, err error)
-	// CopyBatchV2Context : Copy multiple files or folders to different locations at once
-	// in the user's Dropbox. This route will replace `copyBatch`. The main
-	// difference is this route will return status for each entry, while
-	// `copyBatch` raises failure if any entry fails. This route will either
-	// finish synchronously, or return a job ID and do the async copy job in
-	// background. Please use `copyBatchCheck` to check the job status.
+	// CopyBatchV2Context : Copy multiple files or folders to different
+	// locations at once in the user's Dropbox. This route will replace
+	// `copyBatch`. The main difference is this route will return status for
+	// each entry, while `copyBatch` raises failure if any entry fails. This
+	// route will either finish synchronously, or return a job ID and do the
+	// async copy job in background. Please use `copyBatchCheck` to check the
+	// job status.
 	CopyBatchV2Context(ctx context.Context, arg *RelocationBatchArgBase) (res *RelocationBatchV2Launch, err error)
 	// CopyBatchCheckContext : Returns the status of an asynchronous job for
 	// `copyBatch`. If success, it returns list of results for each entry.
@@ -516,8 +517,8 @@ type ContextClient interface {
 	// reference string can be used to save that file or folder to another
 	// user's Dropbox by passing it to `copyReferenceSave`.
 	CopyReferenceGetContext(ctx context.Context, arg *GetCopyReferenceArg) (res *GetCopyReferenceResult, err error)
-	// CopyReferenceSaveContext : Save a copy reference returned by `copyReferenceGet`
-	// to the user's Dropbox.
+	// CopyReferenceSaveContext : Save a copy reference returned by
+	// `copyReferenceGet` to the user's Dropbox.
 	CopyReferenceSaveContext(ctx context.Context, arg *SaveCopyReferenceArg) (res *SaveCopyReferenceResult, err error)
 	// CreateFolderContext : Create a folder at a given path.
 	// Deprecated:
@@ -532,19 +533,19 @@ type ContextClient interface {
 	// CreateFolderBatchArg.force_async flag.  Use `createFolderBatchCheck` to
 	// check the job status.
 	CreateFolderBatchContext(ctx context.Context, arg *CreateFolderBatchArg) (res *CreateFolderBatchLaunch, err error)
-	// CreateFolderBatchCheckContext : Returns the status of an asynchronous job for
-	// `createFolderBatch`. If success, it returns list of result for each
+	// CreateFolderBatchCheckContext : Returns the status of an asynchronous job
+	// for `createFolderBatch`. If success, it returns list of result for each
 	// entry.
 	CreateFolderBatchCheckContext(ctx context.Context, arg *async.PollArg) (res *CreateFolderBatchJobStatus, err error)
-	// DeleteContext : Delete the file or folder at a given path. If the path is a
-	// folder, all its contents will be deleted too. A successful response
+	// DeleteContext : Delete the file or folder at a given path. If the path is
+	// a folder, all its contents will be deleted too. A successful response
 	// indicates that the file or folder was deleted. The returned metadata will
 	// be the corresponding FileMetadata or FolderMetadata for the item at time
 	// of deletion, and not a DeletedMetadata object.
 	// Deprecated:
 	DeleteContext(ctx context.Context, arg *DeleteArg) (res IsMetadata, err error)
-	// DeleteV2Context : Delete the file or folder at a given path. If the path is a
-	// folder, all its contents will be deleted too. A successful response
+	// DeleteV2Context : Delete the file or folder at a given path. If the path
+	// is a folder, all its contents will be deleted too. A successful response
 	// indicates that the file or folder was deleted. The returned metadata will
 	// be the corresponding FileMetadata or FolderMetadata for the item at time
 	// of deletion, and not a DeletedMetadata object.
@@ -558,21 +559,22 @@ type ContextClient interface {
 	DeleteBatchCheckContext(ctx context.Context, arg *async.PollArg) (res *DeleteBatchJobStatus, err error)
 	// DownloadContext : Download a file from a user's Dropbox.
 	DownloadContext(ctx context.Context, arg *DownloadArg) (res *FileMetadata, content io.ReadCloser, err error)
-	// DownloadZipContext : Download a folder from the user's Dropbox, as a zip file.
-	// The folder must be less than 20 GB in size and any single file within
-	// must be less than 4 GB in size. The resulting zip must have fewer than
-	// 10,000 total file and folder entries, including the top level folder. The
-	// input cannot be a single file. Note: this endpoint does not support HTTP
-	// range requests.
+	// DownloadZipContext : Download a folder from the user's Dropbox, as a zip
+	// file. The folder must be less than 20 GB in size and any single file
+	// within must be less than 4 GB in size. The resulting zip must have fewer
+	// than 10,000 total file and folder entries, including the top level
+	// folder. The input cannot be a single file. Note: this endpoint does not
+	// support HTTP range requests.
 	DownloadZipContext(ctx context.Context, arg *DownloadZipArg) (res *DownloadZipResult, content io.ReadCloser, err error)
-	// ExportContext : Export a file from a user's Dropbox. This route only supports
-	// exporting files that cannot be downloaded directly and whose
+	// ExportContext : Export a file from a user's Dropbox. This route only
+	// supports exporting files that cannot be downloaded directly and whose
 	// ExportResult.file_metadata has ExportInfo.export_as populated.
 	ExportContext(ctx context.Context, arg *ExportArg) (res *ExportResult, content io.ReadCloser, err error)
-	// GetFileLockBatchContext : Return the lock metadata for the given list of paths.
+	// GetFileLockBatchContext : Return the lock metadata for the given list of
+	// paths.
 	GetFileLockBatchContext(ctx context.Context, arg *LockFileBatchArg) (res *LockFileBatchResult, err error)
-	// GetMetadataContext : Returns the metadata for a file or folder. Note: Metadata
-	// for the root folder is unsupported.
+	// GetMetadataContext : Returns the metadata for a file or folder. Note:
+	// Metadata for the root folder is unsupported.
 	GetMetadataContext(ctx context.Context, arg *GetMetadataArg) (res IsMetadata, err error)
 	// GetPreviewContext : Get a preview for a file. Currently, PDF previews are
 	// generated for files with the following extensions: .ai, .doc, .docm,
@@ -581,14 +583,14 @@ type ContextClient interface {
 	// .xlsm, .gsheet, .xlsx. Other formats will return an unsupported extension
 	// error.
 	GetPreviewContext(ctx context.Context, arg *PreviewArg) (res *FileMetadata, content io.ReadCloser, err error)
-	// GetTemporaryLinkContext : Get a temporary link to stream content of a file. This
-	// link will expire in four hours and afterwards you will get 410 Gone. This
-	// URL should not be used to display content directly in the browser. The
-	// Content-Type of the link is determined automatically by the file's mime
-	// type.
+	// GetTemporaryLinkContext : Get a temporary link to stream content of a
+	// file. This link will expire in four hours and afterwards you will get 410
+	// Gone. This URL should not be used to display content directly in the
+	// browser. The Content-Type of the link is determined automatically by the
+	// file's mime type.
 	GetTemporaryLinkContext(ctx context.Context, arg *GetTemporaryLinkArg) (res *GetTemporaryLinkResult, err error)
-	// GetTemporaryUploadLinkContext : Get a one-time use temporary upload link to
-	// upload a file to a Dropbox location.  This endpoint acts as a delayed
+	// GetTemporaryUploadLinkContext : Get a one-time use temporary upload link
+	// to upload a file to a Dropbox location.  This endpoint acts as a delayed
 	// upload(). The returned temporary upload link may be used to make a POST
 	// request with the data to be uploaded. The upload will then be perfomed
 	// with the CommitInfo previously provided to getTemporaryUploadLink() but
@@ -601,8 +603,7 @@ type ContextClient interface {
 	// exist for a specific upload path at any given time.  The POST request on
 	// the temporary upload link must have its Content-Type set to
 	// "application/octet-stream".  Example temporary upload link consumption
-	// request:  curl -X POST
-	// https://content.dropboxapi.com/apitul/1/bNi2uIYF51cVBND --header
+	// request:  curl -X POST <temporary_upload_link_url> --header
 	// "Content-Type: application/octet-stream" --data-binary @local_file.txt  A
 	// successful temporary upload link consumption request returns the content
 	// hash of the uploaded data in JSON format. Example successful temporary
@@ -622,42 +623,42 @@ type ContextClient interface {
 	// tif, gif, webp, ppm and bmp. Photos that are larger than 20MB in size
 	// won't be converted to a thumbnail.
 	GetThumbnailContext(ctx context.Context, arg *ThumbnailArg) (res *FileMetadata, content io.ReadCloser, err error)
-	// GetThumbnailV2Context : Get a thumbnail for an image. This method currently
-	// supports files with the following file extensions: jpg, jpeg, png, tiff,
-	// tif, gif, webp, ppm and bmp. Photos that are larger than 20MB in size
-	// won't be converted to a thumbnail.
+	// GetThumbnailV2Context : Get a thumbnail for an image. This method
+	// currently supports files with the following file extensions: jpg, jpeg,
+	// png, tiff, tif, gif, webp, ppm and bmp. Photos that are larger than 20MB
+	// in size won't be converted to a thumbnail.
 	GetThumbnailV2Context(ctx context.Context, arg *ThumbnailV2Arg) (res *PreviewResult, content io.ReadCloser, err error)
-	// GetThumbnailBatchContext : Get thumbnails for a list of images. We allow up to
-	// 25 thumbnails in a single batch. This method currently supports files
-	// with the following file extensions: jpg, jpeg, png, tiff, tif, gif, webp,
-	// ppm and bmp. Photos that are larger than 20MB in size won't be converted
-	// to a thumbnail.
+	// GetThumbnailBatchContext : Get thumbnails for a list of images. We allow
+	// up to 25 thumbnails in a single batch. This method currently supports
+	// files with the following file extensions: jpg, jpeg, png, tiff, tif, gif,
+	// webp, ppm and bmp. Photos that are larger than 20MB in size won't be
+	// converted to a thumbnail.
 	GetThumbnailBatchContext(ctx context.Context, arg *GetThumbnailBatchArg) (res *GetThumbnailBatchResult, err error)
-	// ListFolderContext : Starts returning the contents of a folder. If the result's
-	// `ListFolderResult.has_more` field is true, call `listFolderContinue` with
-	// the returned ListFolderResult.cursor to retrieve more entries. If you're
-	// using ListFolderArg.recursive set to true to keep a local cache of the
-	// contents of a Dropbox account, iterate through each entry in order and
-	// process them as follows to keep your local state in sync: For each
-	// FileMetadata, store the new entry at the given path in your local state.
-	// If the required parent folders don't exist yet, create them. If there's
-	// already something else at the given path, replace it and remove all its
-	// children. For each FolderMetadata, store the new entry at the given path
-	// in your local state. If the required parent folders don't exist yet,
-	// create them. If there's already something else at the given path, replace
-	// it but leave the children as they are. Check the new entry's
-	// FolderSharingInfo.read_only and set all its children's read-only statuses
-	// to match. For each DeletedMetadata, if your local state has something at
-	// the given path, remove it and all its children. If there's nothing at the
-	// given path, ignore this entry. Note: auth.RateLimitError may be returned
-	// if multiple `listFolder` or `listFolderContinue` calls with same
-	// parameters are made simultaneously by same API app for same user. If your
-	// app implements retry logic, please hold off the retry until the previous
-	// request finishes.
+	// ListFolderContext : Starts returning the contents of a folder. If the
+	// result's `ListFolderResult.has_more` field is true, call
+	// `listFolderContinue` with the returned ListFolderResult.cursor to
+	// retrieve more entries. If you're using ListFolderArg.recursive set to
+	// true to keep a local cache of the contents of a Dropbox account, iterate
+	// through each entry in order and process them as follows to keep your
+	// local state in sync: For each FileMetadata, store the new entry at the
+	// given path in your local state. If the required parent folders don't
+	// exist yet, create them. If there's already something else at the given
+	// path, replace it and remove all its children. For each FolderMetadata,
+	// store the new entry at the given path in your local state. If the
+	// required parent folders don't exist yet, create them. If there's already
+	// something else at the given path, replace it but leave the children as
+	// they are. Check the new entry's FolderSharingInfo.read_only and set all
+	// its children's read-only statuses to match. For each DeletedMetadata, if
+	// your local state has something at the given path, remove it and all its
+	// children. If there's nothing at the given path, ignore this entry. Note:
+	// auth.RateLimitError may be returned if multiple `listFolder` or
+	// `listFolderContinue` calls with same parameters are made simultaneously
+	// by same API app for same user. If your app implements retry logic, please
+	// hold off the retry until the previous request finishes.
 	ListFolderContext(ctx context.Context, arg *ListFolderArg) (res *ListFolderResult, err error)
-	// ListFolderContinueContext : Once a cursor has been retrieved from `listFolder`,
-	// use this to paginate through all files and retrieve updates to the
-	// folder, following the same rules as documented for `listFolder`.
+	// ListFolderContinueContext : Once a cursor has been retrieved from
+	// `listFolder`, use this to paginate through all files and retrieve updates
+	// to the folder, following the same rules as documented for `listFolder`.
 	ListFolderContinueContext(ctx context.Context, arg *ListFolderContinueArg) (res *ListFolderResult, err error)
 	// ListFolderGetLatestCursorContext : A way to quickly get a cursor for the
 	// folder's state. Unlike `listFolder`, `listFolderGetLatestCursor` doesn't
@@ -671,8 +672,8 @@ type ContextClient interface {
 	// will block until there are changes available or a timeout occurs. This
 	// endpoint is useful mostly for client-side apps.
 	ListFolderLongpollContext(ctx context.Context, arg *ListFolderLongpollArg) (res *ListFolderLongpollResult, err error)
-	// ListRevisionsContext : Returns revisions for files based on a file path or a
-	// file id. The file path or file id is identified from the latest file
+	// ListRevisionsContext : Returns revisions for files based on a file path
+	// or a file id. The file path or file id is identified from the latest file
 	// entry at the given file path or id. This end point allows your app to
 	// query either by file path or file id by setting the mode parameter
 	// appropriately. In the ListRevisionsMode.path (default) mode, all
@@ -681,32 +682,32 @@ type ContextClient interface {
 	// ListRevisionsMode.id. The ListRevisionsMode.id mode is useful to retrieve
 	// revisions for a given file across moves or renames.
 	ListRevisionsContext(ctx context.Context, arg *ListRevisionsArg) (res *ListRevisionsResult, err error)
-	// LockFileBatchContext : Lock the files at the given paths. A locked file will be
-	// writable only by the lock holder. A successful response indicates that
-	// the file has been locked. Returns a list of the locked file paths and
-	// their metadata after this operation.
+	// LockFileBatchContext : Lock the files at the given paths. A locked file
+	// will be writable only by the lock holder. A successful response indicates
+	// that the file has been locked. Returns a list of the locked file paths
+	// and their metadata after this operation.
 	LockFileBatchContext(ctx context.Context, arg *LockFileBatchArg) (res *LockFileBatchResult, err error)
 	// MoveContext : Move a file or folder to a different location in the user's
 	// Dropbox. If the source path is a folder all its contents will be moved.
 	// Deprecated:
 	MoveContext(ctx context.Context, arg *RelocationArg) (res IsMetadata, err error)
-	// MoveV2Context : Move a file or folder to a different location in the user's
-	// Dropbox. If the source path is a folder all its contents will be moved.
-	// Note that we do not currently support case-only renaming.
+	// MoveV2Context : Move a file or folder to a different location in the
+	// user's Dropbox. If the source path is a folder all its contents will be
+	// moved. Note that we do not currently support case-only renaming.
 	MoveV2Context(ctx context.Context, arg *RelocationArg) (res *RelocationResult, err error)
-	// MoveBatchContext : Move multiple files or folders to different locations at once
-	// in the user's Dropbox. This route will return job ID immediately and do
-	// the async moving job in background. Please use `moveBatchCheck` to check
-	// the job status.
+	// MoveBatchContext : Move multiple files or folders to different locations
+	// at once in the user's Dropbox. This route will return job ID immediately
+	// and do the async moving job in background. Please use `moveBatchCheck` to
+	// check the job status.
 	// Deprecated:
 	MoveBatchContext(ctx context.Context, arg *RelocationBatchArg) (res *RelocationBatchLaunch, err error)
-	// MoveBatchV2Context : Move multiple files or folders to different locations at once
-	// in the user's Dropbox. Note that we do not currently support case-only
-	// renaming. This route will replace `moveBatch`. The main difference is
-	// this route will return status for each entry, while `moveBatch` raises
-	// failure if any entry fails. This route will either finish synchronously,
-	// or return a job ID and do the async move job in background. Please use
-	// `moveBatchCheck` to check the job status.
+	// MoveBatchV2Context : Move multiple files or folders to different
+	// locations at once in the user's Dropbox. Note that we do not currently
+	// support case-only renaming. This route will replace `moveBatch`. The main
+	// difference is this route will return status for each entry, while
+	// `moveBatch` raises failure if any entry fails. This route will either
+	// finish synchronously, or return a job ID and do the async move job in
+	// background. Please use `moveBatchCheck` to check the job status.
 	MoveBatchV2Context(ctx context.Context, arg *MoveBatchArg) (res *RelocationBatchV2Launch, err error)
 	// MoveBatchCheckContext : Returns the status of an asynchronous job for
 	// `moveBatch`. If success, it returns list of results for each entry.
@@ -717,27 +718,28 @@ type ContextClient interface {
 	MoveBatchCheckV2Context(ctx context.Context, arg *async.PollArg) (res *RelocationBatchV2JobStatus, err error)
 	// PaperCreateContext : Creates a new Paper doc with the provided content.
 	PaperCreateContext(ctx context.Context, arg *PaperCreateArg, content io.Reader) (res *PaperCreateResult, err error)
-	// PaperUpdateContext : Updates an existing Paper doc with the provided content.
+	// PaperUpdateContext : Updates an existing Paper doc with the provided
+	// content.
 	PaperUpdateContext(ctx context.Context, arg *PaperUpdateArg, content io.Reader) (res *PaperUpdateResult, err error)
-	// PermanentlyDeleteContext : Permanently delete the file or folder at a given path
-	// (see https://www.dropbox.com/en/help/40). If the given file or folder is
-	// not yet deleted, this route will first delete it. It is possible for this
-	// route to successfully delete, then fail to permanently delete. Note: This
-	// endpoint is only available for Dropbox Business apps.
+	// PermanentlyDeleteContext : Permanently delete the file or folder at a
+	// given path (see https://www.dropbox.com/en/help/40). If the given file or
+	// folder is not yet deleted, this route will first delete it. It is
+	// possible for this route to successfully delete, then fail to permanently
+	// delete. Note: This endpoint is only available for Dropbox Business apps.
 	PermanentlyDeleteContext(ctx context.Context, arg *DeleteArg) (err error)
 	// PropertiesAddContext : Add property groups to a Dropbox file. See
 	// templates/add_for_user or templates/add_for_team to create new templates.
 	// Deprecated:
 	PropertiesAddContext(ctx context.Context, arg *file_properties.AddPropertiesArg) (err error)
-	// PropertiesOverwriteContext : Overwrite property groups associated with a file.
-	// This endpoint should be used instead of properties/update when property
-	// groups are being overwritten rather than updated via a "delta".
+	// PropertiesOverwriteContext : Overwrite property groups associated with a
+	// file. This endpoint should be used instead of properties/update when
+	// property groups are being overwritten rather than updated via a "delta".
 	// Deprecated:
 	PropertiesOverwriteContext(ctx context.Context, arg *file_properties.OverwritePropertyGroupArg) (err error)
-	// PropertiesUpdateContext : Add, update or remove properties associated with the
-	// supplied file and templates. This endpoint should be used instead of
-	// properties/overwrite when property groups are being updated via a "delta"
-	// instead of overwriting all properties of a file.
+	// PropertiesUpdateContext : Add, update or remove properties associated
+	// with the supplied file and templates. This endpoint should be used
+	// instead of properties/overwrite when property groups are being updated
+	// via a "delta" instead of overwriting all properties of a file.
 	// Deprecated:
 	PropertiesUpdateContext(ctx context.Context, arg *file_properties.UpdatePropertiesArg) (err error)
 	// RestoreContext : Restore a specific revision of a file to the given path.
@@ -748,23 +750,23 @@ type ContextClient interface {
 	SaveUrlContext(ctx context.Context, arg *SaveUrlArg) (res *SaveUrlResult, err error)
 	// SaveUrlCheckJobStatusContext : Check the status of a `saveUrl` job.
 	SaveUrlCheckJobStatusContext(ctx context.Context, arg *async.PollArg) (res *SaveUrlJobStatus, err error)
-	// SearchContext : Searches for files and folders. Note: Recent changes will be
-	// reflected in search results within a few seconds and older revisions of
-	// existing files may still match your query for up to a few days.
+	// SearchContext : Searches for files and folders. Note: Recent changes will
+	// be reflected in search results within a few seconds and older revisions
+	// of existing files may still match your query for up to a few days.
 	// Deprecated:
 	SearchContext(ctx context.Context, arg *SearchArg) (res *SearchResult, err error)
-	// SearchV2Context : Searches for files and folders. Note: `search` along with
-	// `searchContinue` can only be used to retrieve a maximum of 10,000
+	// SearchV2Context : Searches for files and folders. Note: `search` along
+	// with `searchContinue` can only be used to retrieve a maximum of 10,000
 	// matches. Recent changes may not immediately be reflected in search
 	// results due to a short delay in indexing. Duplicate results may be
 	// returned across pages. Some results may not be returned.
 	SearchV2Context(ctx context.Context, arg *SearchV2Arg) (res *SearchV2Result, err error)
-	// SearchContinueV2Context : Fetches the next page of search results returned from
-	// `search`. Note: `search` along with `searchContinue` can only be used to
-	// retrieve a maximum of 10,000 matches. Recent changes may not immediately
-	// be reflected in search results due to a short delay in indexing.
-	// Duplicate results may be returned across pages. Some results may not be
-	// returned.
+	// SearchContinueV2Context : Fetches the next page of search results
+	// returned from `search`. Note: `search` along with `searchContinue` can
+	// only be used to retrieve a maximum of 10,000 matches. Recent changes may
+	// not immediately be reflected in search results due to a short delay in
+	// indexing. Duplicate results may be returned across pages. Some results
+	// may not be returned.
 	SearchContinueV2Context(ctx context.Context, arg *SearchV2ContinueArg) (res *SearchV2Result, err error)
 	// TagsAddContext : Add a tag to an item. A tag is a string. The strings are
 	// automatically converted to lowercase letters. No more than 20 tags can be
@@ -774,41 +776,43 @@ type ContextClient interface {
 	TagsGetContext(ctx context.Context, arg *GetTagsArg) (res *GetTagsResult, err error)
 	// TagsRemoveContext : Remove a tag from an item.
 	TagsRemoveContext(ctx context.Context, arg *RemoveTagArg) (err error)
-	// UnlockFileBatchContext : Unlock the files at the given paths. A locked file can
-	// only be unlocked by the lock holder or, if a business account, a team
-	// admin. A successful response indicates that the file has been unlocked.
-	// Returns a list of the unlocked file paths and their metadata after this
-	// operation.
+	// UnlockFileBatchContext : Unlock the files at the given paths. A locked
+	// file can only be unlocked by the lock holder or, if a business account, a
+	// team admin. A successful response indicates that the file has been
+	// unlocked. Returns a list of the unlocked file paths and their metadata
+	// after this operation.
 	UnlockFileBatchContext(ctx context.Context, arg *UnlockFileBatchArg) (res *LockFileBatchResult, err error)
-	// UploadContext : Create a new file with the contents provided in the request. Do
-	// not use this to upload a file larger than 150 MiB. Instead, create an
-	// upload session with `uploadSessionStart`. Calls to this endpoint will
-	// count as data transport calls for any Dropbox Business teams with a limit
-	// on the number of data transport calls allowed per month. For more
-	// information, see the Data transport limit page
+	// UploadContext : Create a new file with the contents provided in the
+	// request. Do not use this to upload a file larger than 150 MiB. Instead,
+	// create an upload session with `uploadSessionStart`. Calls to this
+	// endpoint will count as data transport calls for any Dropbox Business
+	// teams with a limit on the number of data transport calls allowed per
+	// month. For more information, see the Data transport limit page
 	// https://www.dropbox.com/developers/reference/data-transport-limit.
 	UploadContext(ctx context.Context, arg *UploadArg, content io.Reader) (res *FileMetadata, err error)
-	// UploadSessionAppendContext : Append more data to an upload session. A single
-	// request should not upload more than 150 MiB. The maximum size of a file
-	// one can upload to an upload session is 2^41 - 2^22 (2,199,019,061,248)
-	// bytes. Calls to this endpoint will count as data transport calls for any
-	// Dropbox Business teams with a limit on the number of data transport calls
-	// allowed per month. For more information, see the Data transport limit
-	// page https://www.dropbox.com/developers/reference/data-transport-limit.
+	// UploadSessionAppendContext : Append more data to an upload session. A
+	// single request should not upload more than 150 MiB. The maximum size of a
+	// file one can upload to an upload session is 2^41 - 2^22
+	// (2,199,019,061,248) bytes. Calls to this endpoint will count as data
+	// transport calls for any Dropbox Business teams with a limit on the number
+	// of data transport calls allowed per month. For more information, see the
+	// Data transport limit page
+	// https://www.dropbox.com/developers/reference/data-transport-limit.
 	// Deprecated:
 	UploadSessionAppendContext(ctx context.Context, arg *UploadSessionCursor, content io.Reader) (err error)
-	// UploadSessionAppendV2Context : Append more data to an upload session. When the
-	// parameter close is set, this call will close the session. A single
-	// request should not upload more than 150 MiB. The maximum size of a file
-	// one can upload to an upload session is 2^41 - 2^22 (2,199,019,061,248)
-	// bytes. Calls to this endpoint will count as data transport calls for any
-	// Dropbox Business teams with a limit on the number of data transport calls
-	// allowed per month. For more information, see the Data transport limit
-	// page https://www.dropbox.com/developers/reference/data-transport-limit.
+	// UploadSessionAppendV2Context : Append more data to an upload session.
+	// When the parameter close is set, this call will close the session. A
+	// single request should not upload more than 150 MiB. The maximum size of a
+	// file one can upload to an upload session is 2^41 - 2^22
+	// (2,199,019,061,248) bytes. Calls to this endpoint will count as data
+	// transport calls for any Dropbox Business teams with a limit on the number
+	// of data transport calls allowed per month. For more information, see the
+	// Data transport limit page
+	// https://www.dropbox.com/developers/reference/data-transport-limit.
 	UploadSessionAppendV2Context(ctx context.Context, arg *UploadSessionAppendArg, content io.Reader) (err error)
-	// UploadSessionAppendBatchContext : Append more data to multiple upload sessions.
-	// Each piece of file content to append to each upload session should be
-	// concatenated in the request body, in the order delineated by
+	// UploadSessionAppendBatchContext : Append more data to multiple upload
+	// sessions. Each piece of file content to append to each upload session
+	// should be concatenated in the request body, in the order delineated by
 	// `UploadSessionAppendBatchArg.entries` and their individual lengths
 	// indicated by `UploadSessionAppendBatchArgEntry.length`. A single request
 	// should not upload more than 150 MiB. The maximum size of a file one can
@@ -818,26 +822,26 @@ type ContextClient interface {
 	// per month. For more information, see the Data transport limit page
 	// https://www.dropbox.com/developers/reference/data-transport-limit.
 	UploadSessionAppendBatchContext(ctx context.Context, arg *UploadSessionAppendBatchArg, content io.Reader) (res *UploadSessionAppendBatchResult, err error)
-	// UploadSessionFinishContext : Finish an upload session and save the uploaded data
-	// to the given file path. A single request should not upload more than 150
-	// MiB. The maximum size of a file one can upload to an upload session is
-	// 2^41 - 2^22 (2,199,019,061,248) bytes. Calls to this endpoint will count
-	// as data transport calls for any Dropbox Business teams with a limit on
-	// the number of data transport calls allowed per month. For more
+	// UploadSessionFinishContext : Finish an upload session and save the
+	// uploaded data to the given file path. A single request should not upload
+	// more than 150 MiB. The maximum size of a file one can upload to an upload
+	// session is 2^41 - 2^22 (2,199,019,061,248) bytes. Calls to this endpoint
+	// will count as data transport calls for any Dropbox Business teams with a
+	// limit on the number of data transport calls allowed per month. For more
 	// information, see the Data transport limit page
 	// https://www.dropbox.com/developers/reference/data-transport-limit.
 	UploadSessionFinishContext(ctx context.Context, arg *UploadSessionFinishArg, content io.Reader) (res *FileMetadata, err error)
-	// UploadSessionFinishBatchContext : This route helps you commit many files at once
-	// into a user's Dropbox. Use `uploadSessionStart` and `uploadSessionAppend`
-	// to upload file contents. We recommend uploading many files in parallel to
-	// increase throughput. Once the file contents have been uploaded, rather
-	// than calling `uploadSessionFinish`, use this route to finish all your
-	// upload sessions in a single request. `UploadSessionStartArg.close` or
-	// `UploadSessionAppendArg.close` needs to be true for the last
-	// `uploadSessionStart` or `uploadSessionAppend` call. The maximum size of a
-	// file one can upload to an upload session is 2^41 - 2^22
-	// (2,199,019,061,248) bytes. This route will return a job_id immediately
-	// and do the async commit job in background. Use
+	// UploadSessionFinishBatchContext : This route helps you commit many files
+	// at once into a user's Dropbox. Use `uploadSessionStart` and
+	// `uploadSessionAppend` to upload file contents. We recommend uploading
+	// many files in parallel to increase throughput. Once the file contents
+	// have been uploaded, rather than calling `uploadSessionFinish`, use this
+	// route to finish all your upload sessions in a single request.
+	// `UploadSessionStartArg.close` or `UploadSessionAppendArg.close` needs to
+	// be true for the last `uploadSessionStart` or `uploadSessionAppend` call.
+	// The maximum size of a file one can upload to an upload session is 2^41 -
+	// 2^22 (2,199,019,061,248) bytes. This route will return a job_id
+	// immediately and do the async commit job in background. Use
 	// `uploadSessionFinishBatchCheck` to check the job status. For the same
 	// account, this route should be executed serially. That means you should
 	// not start the next job before current job finishes. We allow up to 1000
@@ -848,41 +852,41 @@ type ContextClient interface {
 	// https://www.dropbox.com/developers/reference/data-transport-limit.
 	// Deprecated:
 	UploadSessionFinishBatchContext(ctx context.Context, arg *UploadSessionFinishBatchArg) (res *UploadSessionFinishBatchLaunch, err error)
-	// UploadSessionFinishBatchV2Context : This route helps you commit many files at once
-	// into a user's Dropbox. Use `uploadSessionStart` and `uploadSessionAppend`
-	// to upload file contents. We recommend uploading many files in parallel to
-	// increase throughput. Once the file contents have been uploaded, rather
-	// than calling `uploadSessionFinish`, use this route to finish all your
-	// upload sessions in a single request. `UploadSessionStartArg.close` or
-	// `UploadSessionAppendArg.close` needs to be true for the last
-	// `uploadSessionStart` or `uploadSessionAppend` call of each upload
-	// session. The maximum size of a file one can upload to an upload session
-	// is 2^41 - 2^22 (2,199,019,061,248) bytes. We allow up to 1000 entries in
-	// a single request. Calls to this endpoint will count as data transport
-	// calls for any Dropbox Business teams with a limit on the number of data
-	// transport calls allowed per month. For more information, see the Data
-	// transport limit page
+	// UploadSessionFinishBatchV2Context : This route helps you commit many
+	// files at once into a user's Dropbox. Use `uploadSessionStart` and
+	// `uploadSessionAppend` to upload file contents. We recommend uploading
+	// many files in parallel to increase throughput. Once the file contents
+	// have been uploaded, rather than calling `uploadSessionFinish`, use this
+	// route to finish all your upload sessions in a single request.
+	// `UploadSessionStartArg.close` or `UploadSessionAppendArg.close` needs to
+	// be true for the last `uploadSessionStart` or `uploadSessionAppend` call
+	// of each upload session. The maximum size of a file one can upload to an
+	// upload session is 2^41 - 2^22 (2,199,019,061,248) bytes. We allow up to
+	// 1000 entries in a single request. Calls to this endpoint will count as
+	// data transport calls for any Dropbox Business teams with a limit on the
+	// number of data transport calls allowed per month. For more information,
+	// see the Data transport limit page
 	// https://www.dropbox.com/developers/reference/data-transport-limit.
 	UploadSessionFinishBatchV2Context(ctx context.Context, arg *UploadSessionFinishBatchArg) (res *UploadSessionFinishBatchResult, err error)
-	// UploadSessionFinishBatchCheckContext : Returns the status of an asynchronous job
-	// for `uploadSessionFinishBatch`. If success, it returns list of result for
-	// each entry.
+	// UploadSessionFinishBatchCheckContext : Returns the status of an
+	// asynchronous job for `uploadSessionFinishBatch`. If success, it returns
+	// list of result for each entry.
 	UploadSessionFinishBatchCheckContext(ctx context.Context, arg *async.PollArg) (res *UploadSessionFinishBatchJobStatus, err error)
-	// UploadSessionStartContext : Upload sessions allow you to upload a single file in
-	// one or more requests, for example where the size of the file is greater
-	// than 150 MiB. This call starts a new upload session with the given data.
-	// You can then use `uploadSessionAppend` or `uploadSessionAppendBatch` to
-	// add more data, then `uploadSessionFinish` or `uploadSessionFinishBatch`
-	// to save all the data to a file in Dropbox. A single request should not
-	// upload more than 150 MiB. The maximum size of a file one can upload to an
-	// upload session is 2^41 - 2^22 (2,199,019,061,248) bytes. An upload
-	// session can be used for a maximum of 7 days. Attempting to use a
-	// `UploadSessionStartResult.session_id` with `uploadSessionAppend` or other
-	// upload session routes more than 7 days after its creation will return
-	// `UploadSessionLookupError.not_found`. Calls to this endpoint will count
-	// as data transport calls for any Dropbox Business teams with a limit on
-	// the number of data transport calls allowed per month. For more
-	// information, see the Data transport limit page
+	// UploadSessionStartContext : Upload sessions allow you to upload a single
+	// file in one or more requests, for example where the size of the file is
+	// greater than 150 MiB. This call starts a new upload session with the
+	// given data. You can then use `uploadSessionAppend` or
+	// `uploadSessionAppendBatch` to add more data, then `uploadSessionFinish`
+	// or `uploadSessionFinishBatch` to save all the data to a file in Dropbox.
+	// A single request should not upload more than 150 MiB. The maximum size of
+	// a file one can upload to an upload session is 2^41 - 2^22
+	// (2,199,019,061,248) bytes. An upload session can be used for a maximum of
+	// 7 days. Attempting to use a `UploadSessionStartResult.session_id` with
+	// `uploadSessionAppend` or other upload session routes more than 7 days
+	// after its creation will return `UploadSessionLookupError.not_found`.
+	// Calls to this endpoint will count as data transport calls for any Dropbox
+	// Business teams with a limit on the number of data transport calls allowed
+	// per month. For more information, see the Data transport limit page
 	// https://www.dropbox.com/developers/reference/data-transport-limit. By
 	// default, upload sessions require you to send content of the file in
 	// sequential order via consecutive `uploadSessionStart`,
@@ -918,8 +922,8 @@ type AlphaGetMetadataAPIError struct {
 	EndpointError *AlphaGetMetadataError `json:"error"`
 }
 
-// AlphaGetMetadataContext : Returns the metadata for a file or folder. This is an
-// alpha endpoint compatible with the properties API. Note: Metadata for the
+// AlphaGetMetadataContext : Returns the metadata for a file or folder. This is
+// an alpha endpoint compatible with the properties API. Note: Metadata for the
 // root folder is unsupported.
 // Deprecated:
 func (dbx *apiImpl) AlphaGetMetadataContext(ctx context.Context, arg *AlphaGetMetadataArg) (res IsMetadata, err error) {
@@ -1133,10 +1137,10 @@ type CopyBatchAPIError struct {
 	EndpointError struct{} `json:"error"`
 }
 
-// CopyBatchContext : Copy multiple files or folders to different locations at once
-// in the user's Dropbox. This route will return job ID immediately and do
-// the async copy job in background. Please use `copyBatchCheck` to check
-// the job status.
+// CopyBatchContext : Copy multiple files or folders to different locations at
+// once in the user's Dropbox. This route will return job ID immediately and do
+// the async copy job in background. Please use `copyBatchCheck` to check the
+// job status.
 // Deprecated:
 func (dbx *apiImpl) CopyBatchContext(ctx context.Context, arg *RelocationBatchArg) (res *RelocationBatchLaunch, err error) {
 	log.Printf("WARNING: API `CopyBatch` is deprecated")
@@ -1182,12 +1186,12 @@ type CopyBatchV2APIError struct {
 	EndpointError struct{} `json:"error"`
 }
 
-// CopyBatchV2Context : Copy multiple files or folders to different locations at once
-// in the user's Dropbox. This route will replace `copyBatch`. The main
-// difference is this route will return status for each entry, while
-// `copyBatch` raises failure if any entry fails. This route will either
-// finish synchronously, or return a job ID and do the async copy job in
-// background. Please use `copyBatchCheck` to check the job status.
+// CopyBatchV2Context : Copy multiple files or folders to different locations at
+// once in the user's Dropbox. This route will replace `copyBatch`. The main
+// difference is this route will return status for each entry, while `copyBatch`
+// raises failure if any entry fails. This route will either finish
+// synchronously, or return a job ID and do the async copy job in background.
+// Please use `copyBatchCheck` to check the job status.
 func (dbx *apiImpl) CopyBatchV2Context(ctx context.Context, arg *RelocationBatchArgBase) (res *RelocationBatchV2Launch, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1322,8 +1326,8 @@ type CopyReferenceGetAPIError struct {
 }
 
 // CopyReferenceGetContext : Get a copy reference to a file or folder. This
-// reference string can be used to save that file or folder to another
-// user's Dropbox by passing it to `copyReferenceSave`.
+// reference string can be used to save that file or folder to another user's
+// Dropbox by passing it to `copyReferenceSave`.
 func (dbx *apiImpl) CopyReferenceGetContext(ctx context.Context, arg *GetCopyReferenceArg) (res *GetCopyReferenceResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1366,8 +1370,8 @@ type CopyReferenceSaveAPIError struct {
 	EndpointError *SaveCopyReferenceError `json:"error"`
 }
 
-// CopyReferenceSaveContext : Save a copy reference returned by `copyReferenceGet`
-// to the user's Dropbox.
+// CopyReferenceSaveContext : Save a copy reference returned by
+// `copyReferenceGet` to the user's Dropbox.
 func (dbx *apiImpl) CopyReferenceSaveContext(ctx context.Context, arg *SaveCopyReferenceArg) (res *SaveCopyReferenceResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1500,12 +1504,11 @@ type CreateFolderBatchAPIError struct {
 }
 
 // CreateFolderBatchContext : Create multiple folders at once. This route is
-// asynchronous for large batches, which returns a job ID immediately and
-// runs the create folder batch asynchronously. Otherwise, creates the
-// folders and returns the result synchronously for smaller inputs. You can
-// force asynchronous behaviour by using the
-// CreateFolderBatchArg.force_async flag.  Use `createFolderBatchCheck` to
-// check the job status.
+// asynchronous for large batches, which returns a job ID immediately and runs
+// the create folder batch asynchronously. Otherwise, creates the folders and
+// returns the result synchronously for smaller inputs. You can force
+// asynchronous behaviour by using the CreateFolderBatchArg.force_async flag.
+// Use `createFolderBatchCheck` to check the job status.
 func (dbx *apiImpl) CreateFolderBatchContext(ctx context.Context, arg *CreateFolderBatchArg) (res *CreateFolderBatchLaunch, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1549,8 +1552,7 @@ type CreateFolderBatchCheckAPIError struct {
 }
 
 // CreateFolderBatchCheckContext : Returns the status of an asynchronous job for
-// `createFolderBatch`. If success, it returns list of result for each
-// entry.
+// `createFolderBatch`. If success, it returns list of result for each entry.
 func (dbx *apiImpl) CreateFolderBatchCheckContext(ctx context.Context, arg *async.PollArg) (res *CreateFolderBatchJobStatus, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1594,10 +1596,10 @@ type DeleteAPIError struct {
 }
 
 // DeleteContext : Delete the file or folder at a given path. If the path is a
-// folder, all its contents will be deleted too. A successful response
-// indicates that the file or folder was deleted. The returned metadata will
-// be the corresponding FileMetadata or FolderMetadata for the item at time
-// of deletion, and not a DeletedMetadata object.
+// folder, all its contents will be deleted too. A successful response indicates
+// that the file or folder was deleted. The returned metadata will be the
+// corresponding FileMetadata or FolderMetadata for the item at time of
+// deletion, and not a DeletedMetadata object.
 // Deprecated:
 func (dbx *apiImpl) DeleteContext(ctx context.Context, arg *DeleteArg) (res IsMetadata, err error) {
 	log.Printf("WARNING: API `Delete` is deprecated")
@@ -1655,10 +1657,10 @@ type DeleteV2APIError struct {
 }
 
 // DeleteV2Context : Delete the file or folder at a given path. If the path is a
-// folder, all its contents will be deleted too. A successful response
-// indicates that the file or folder was deleted. The returned metadata will
-// be the corresponding FileMetadata or FolderMetadata for the item at time
-// of deletion, and not a DeletedMetadata object.
+// folder, all its contents will be deleted too. A successful response indicates
+// that the file or folder was deleted. The returned metadata will be the
+// corresponding FileMetadata or FolderMetadata for the item at time of
+// deletion, and not a DeletedMetadata object.
 func (dbx *apiImpl) DeleteV2Context(ctx context.Context, arg *DeleteArg) (res *DeleteResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1702,8 +1704,8 @@ type DeleteBatchAPIError struct {
 }
 
 // DeleteBatchContext : Delete multiple files/folders at once. This route is
-// asynchronous, which returns a job ID immediately and runs the delete
-// batch asynchronously. Use `deleteBatchCheck` to check the job status.
+// asynchronous, which returns a job ID immediately and runs the delete batch
+// asynchronously. Use `deleteBatchCheck` to check the job status.
 func (dbx *apiImpl) DeleteBatchContext(ctx context.Context, arg *DeleteBatchArg) (res *DeleteBatchLaunch, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1833,12 +1835,12 @@ type DownloadZipAPIError struct {
 	EndpointError *DownloadZipError `json:"error"`
 }
 
-// DownloadZipContext : Download a folder from the user's Dropbox, as a zip file.
-// The folder must be less than 20 GB in size and any single file within
-// must be less than 4 GB in size. The resulting zip must have fewer than
-// 10,000 total file and folder entries, including the top level folder. The
-// input cannot be a single file. Note: this endpoint does not support HTTP
-// range requests.
+// DownloadZipContext : Download a folder from the user's Dropbox, as a zip
+// file. The folder must be less than 20 GB in size and any single file within
+// must be less than 4 GB in size. The resulting zip must have fewer than 10,000
+// total file and folder entries, including the top level folder. The input
+// cannot be a single file. Note: this endpoint does not support HTTP range
+// requests.
 func (dbx *apiImpl) DownloadZipContext(ctx context.Context, arg *DownloadZipArg) (res *DownloadZipResult, content io.ReadCloser, err error) {
 	req := dropbox.Request{
 		Host:         "content",
@@ -1926,7 +1928,8 @@ type GetFileLockBatchAPIError struct {
 	EndpointError *LockFileError `json:"error"`
 }
 
-// GetFileLockBatchContext : Return the lock metadata for the given list of paths.
+// GetFileLockBatchContext : Return the lock metadata for the given list of
+// paths.
 func (dbx *apiImpl) GetFileLockBatchContext(ctx context.Context, arg *LockFileBatchArg) (res *LockFileBatchResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1969,8 +1972,8 @@ type GetMetadataAPIError struct {
 	EndpointError *GetMetadataError `json:"error"`
 }
 
-// GetMetadataContext : Returns the metadata for a file or folder. Note: Metadata
-// for the root folder is unsupported.
+// GetMetadataContext : Returns the metadata for a file or folder. Note:
+// Metadata for the root folder is unsupported.
 func (dbx *apiImpl) GetMetadataContext(ctx context.Context, arg *GetMetadataArg) (res IsMetadata, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2025,11 +2028,10 @@ type GetPreviewAPIError struct {
 }
 
 // GetPreviewContext : Get a preview for a file. Currently, PDF previews are
-// generated for files with the following extensions: .ai, .doc, .docm,
-// .docx, .eps, .gdoc, .gslides, .odp, .odt, .pps, .ppsm, .ppsx, .ppt,
-// .pptm, .pptx, .rtf. HTML previews are generated for .csv, .ods, .xls,
-// .xlsm, .gsheet, .xlsx. Other formats will return an unsupported extension
-// error.
+// generated for files with the following extensions: .ai, .doc, .docm, .docx,
+// .eps, .gdoc, .gslides, .odp, .odt, .pps, .ppsm, .ppsx, .ppt, .pptm, .pptx,
+// .rtf. HTML previews are generated for .csv, .ods, .xls, .xlsm, .gsheet,
+// .xlsx. Other formats will return an unsupported extension error.
 func (dbx *apiImpl) GetPreviewContext(ctx context.Context, arg *PreviewArg) (res *FileMetadata, content io.ReadCloser, err error) {
 	req := dropbox.Request{
 		Host:         "content",
@@ -2072,11 +2074,10 @@ type GetTemporaryLinkAPIError struct {
 	EndpointError *GetTemporaryLinkError `json:"error"`
 }
 
-// GetTemporaryLinkContext : Get a temporary link to stream content of a file. This
-// link will expire in four hours and afterwards you will get 410 Gone. This
-// URL should not be used to display content directly in the browser. The
-// Content-Type of the link is determined automatically by the file's mime
-// type.
+// GetTemporaryLinkContext : Get a temporary link to stream content of a file.
+// This link will expire in four hours and afterwards you will get 410 Gone.
+// This URL should not be used to display content directly in the browser. The
+// Content-Type of the link is determined automatically by the file's mime type.
 func (dbx *apiImpl) GetTemporaryLinkContext(ctx context.Context, arg *GetTemporaryLinkArg) (res *GetTemporaryLinkResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2122,32 +2123,29 @@ type GetTemporaryUploadLinkAPIError struct {
 // GetTemporaryUploadLinkContext : Get a one-time use temporary upload link to
 // upload a file to a Dropbox location.  This endpoint acts as a delayed
 // upload(). The returned temporary upload link may be used to make a POST
-// request with the data to be uploaded. The upload will then be perfomed
-// with the CommitInfo previously provided to getTemporaryUploadLink() but
-// evaluated only upon consumption. Hence, errors stemming from invalid
-// CommitInfo with respect to the state of the user's Dropbox will only be
-// communicated at consumption time. Additionally, these errors are surfaced
-// as generic HTTP 409 Conflict responses, potentially hiding issue details.
-// The maximum temporary upload link duration is 4 hours. Upon consumption
-// or expiration, a new link will have to be generated. Multiple links may
-// exist for a specific upload path at any given time.  The POST request on
-// the temporary upload link must have its Content-Type set to
-// "application/octet-stream".  Example temporary upload link consumption
-// request:  curl -X POST
-// https://content.dropboxapi.com/apitul/1/bNi2uIYF51cVBND --header
-// "Content-Type: application/octet-stream" --data-binary @local_file.txt  A
-// successful temporary upload link consumption request returns the content
-// hash of the uploaded data in JSON format. Example successful temporary
-// upload link consumption response: {"content-hash":
-// "599d71033d700ac892a0e48fa61b125d2f5994"}  An unsuccessful temporary
-// upload link consumption request returns any of the following status
-// codes:  HTTP 400 Bad Request: Content-Type is not one of
-// application/octet-stream and text/plain or request is invalid. HTTP 409
-// Conflict: The temporary upload link does not exist or is currently
-// unavailable, the upload failed, or another error happened. HTTP 410 Gone:
-// The temporary upload link is expired or consumed. Example unsuccessful
-// temporary upload link consumption response: Temporary upload link has
-// been recently consumed.
+// request with the data to be uploaded. The upload will then be perfomed with
+// the CommitInfo previously provided to getTemporaryUploadLink() but evaluated
+// only upon consumption. Hence, errors stemming from invalid CommitInfo with
+// respect to the state of the user's Dropbox will only be communicated at
+// consumption time. Additionally, these errors are surfaced as generic HTTP 409
+// Conflict responses, potentially hiding issue details. The maximum temporary
+// upload link duration is 4 hours. Upon consumption or expiration, a new link
+// will have to be generated. Multiple links may exist for a specific upload
+// path at any given time.  The POST request on the temporary upload link must
+// have its Content-Type set to "application/octet-stream".  Example temporary
+// upload link consumption request:  curl -X POST <temporary_upload_link_url>
+// --header "Content-Type: application/octet-stream" --data-binary
+// @local_file.txt  A successful temporary upload link consumption request
+// returns the content hash of the uploaded data in JSON format. Example
+// successful temporary upload link consumption response: {"content-hash":
+// "599d71033d700ac892a0e48fa61b125d2f5994"}  An unsuccessful temporary upload
+// link consumption request returns any of the following status codes:  HTTP 400
+// Bad Request: Content-Type is not one of application/octet-stream and
+// text/plain or request is invalid. HTTP 409 Conflict: The temporary upload
+// link does not exist or is currently unavailable, the upload failed, or
+// another error happened. HTTP 410 Gone: The temporary upload link is expired
+// or consumed. Example unsuccessful temporary upload link consumption response:
+// Temporary upload link has been recently consumed.
 func (dbx *apiImpl) GetTemporaryUploadLinkContext(ctx context.Context, arg *GetTemporaryUploadLinkArg) (res *GetTemporaryUploadLinkResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2191,9 +2189,9 @@ type GetThumbnailAPIError struct {
 }
 
 // GetThumbnailContext : Get a thumbnail for an image. This method currently
-// supports files with the following file extensions: jpg, jpeg, png, tiff,
-// tif, gif, webp, ppm and bmp. Photos that are larger than 20MB in size
-// won't be converted to a thumbnail.
+// supports files with the following file extensions: jpg, jpeg, png, tiff, tif,
+// gif, webp, ppm and bmp. Photos that are larger than 20MB in size won't be
+// converted to a thumbnail.
 func (dbx *apiImpl) GetThumbnailContext(ctx context.Context, arg *ThumbnailArg) (res *FileMetadata, content io.ReadCloser, err error) {
 	req := dropbox.Request{
 		Host:         "content",
@@ -2237,9 +2235,9 @@ type GetThumbnailV2APIError struct {
 }
 
 // GetThumbnailV2Context : Get a thumbnail for an image. This method currently
-// supports files with the following file extensions: jpg, jpeg, png, tiff,
-// tif, gif, webp, ppm and bmp. Photos that are larger than 20MB in size
-// won't be converted to a thumbnail.
+// supports files with the following file extensions: jpg, jpeg, png, tiff, tif,
+// gif, webp, ppm and bmp. Photos that are larger than 20MB in size won't be
+// converted to a thumbnail.
 func (dbx *apiImpl) GetThumbnailV2Context(ctx context.Context, arg *ThumbnailV2Arg) (res *PreviewResult, content io.ReadCloser, err error) {
 	req := dropbox.Request{
 		Host:         "content",
@@ -2282,11 +2280,11 @@ type GetThumbnailBatchAPIError struct {
 	EndpointError *GetThumbnailBatchError `json:"error"`
 }
 
-// GetThumbnailBatchContext : Get thumbnails for a list of images. We allow up to
-// 25 thumbnails in a single batch. This method currently supports files
-// with the following file extensions: jpg, jpeg, png, tiff, tif, gif, webp,
-// ppm and bmp. Photos that are larger than 20MB in size won't be converted
-// to a thumbnail.
+// GetThumbnailBatchContext : Get thumbnails for a list of images. We allow up
+// to 25 thumbnails in a single batch. This method currently supports files with
+// the following file extensions: jpg, jpeg, png, tiff, tif, gif, webp, ppm and
+// bmp. Photos that are larger than 20MB in size won't be converted to a
+// thumbnail.
 func (dbx *apiImpl) GetThumbnailBatchContext(ctx context.Context, arg *GetThumbnailBatchArg) (res *GetThumbnailBatchResult, err error) {
 	req := dropbox.Request{
 		Host:         "content",
@@ -2329,27 +2327,26 @@ type ListFolderAPIError struct {
 	EndpointError *ListFolderError `json:"error"`
 }
 
-// ListFolderContext : Starts returning the contents of a folder. If the result's
-// `ListFolderResult.has_more` field is true, call `listFolderContinue` with
-// the returned ListFolderResult.cursor to retrieve more entries. If you're
+// ListFolderContext : Starts returning the contents of a folder. If the
+// result's `ListFolderResult.has_more` field is true, call `listFolderContinue`
+// with the returned ListFolderResult.cursor to retrieve more entries. If you're
 // using ListFolderArg.recursive set to true to keep a local cache of the
 // contents of a Dropbox account, iterate through each entry in order and
 // process them as follows to keep your local state in sync: For each
-// FileMetadata, store the new entry at the given path in your local state.
-// If the required parent folders don't exist yet, create them. If there's
-// already something else at the given path, replace it and remove all its
-// children. For each FolderMetadata, store the new entry at the given path
-// in your local state. If the required parent folders don't exist yet,
-// create them. If there's already something else at the given path, replace
-// it but leave the children as they are. Check the new entry's
-// FolderSharingInfo.read_only and set all its children's read-only statuses
-// to match. For each DeletedMetadata, if your local state has something at
-// the given path, remove it and all its children. If there's nothing at the
-// given path, ignore this entry. Note: auth.RateLimitError may be returned
-// if multiple `listFolder` or `listFolderContinue` calls with same
-// parameters are made simultaneously by same API app for same user. If your
-// app implements retry logic, please hold off the retry until the previous
-// request finishes.
+// FileMetadata, store the new entry at the given path in your local state. If
+// the required parent folders don't exist yet, create them. If there's already
+// something else at the given path, replace it and remove all its children. For
+// each FolderMetadata, store the new entry at the given path in your local
+// state. If the required parent folders don't exist yet, create them. If
+// there's already something else at the given path, replace it but leave the
+// children as they are. Check the new entry's FolderSharingInfo.read_only and
+// set all its children's read-only statuses to match. For each DeletedMetadata,
+// if your local state has something at the given path, remove it and all its
+// children. If there's nothing at the given path, ignore this entry. Note:
+// auth.RateLimitError may be returned if multiple `listFolder` or
+// `listFolderContinue` calls with same parameters are made simultaneously by
+// same API app for same user. If your app implements retry logic, please hold
+// off the retry until the previous request finishes.
 func (dbx *apiImpl) ListFolderContext(ctx context.Context, arg *ListFolderArg) (res *ListFolderResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2392,9 +2389,9 @@ type ListFolderContinueAPIError struct {
 	EndpointError *ListFolderContinueError `json:"error"`
 }
 
-// ListFolderContinueContext : Once a cursor has been retrieved from `listFolder`,
-// use this to paginate through all files and retrieve updates to the
-// folder, following the same rules as documented for `listFolder`.
+// ListFolderContinueContext : Once a cursor has been retrieved from
+// `listFolder`, use this to paginate through all files and retrieve updates to
+// the folder, following the same rules as documented for `listFolder`.
 func (dbx *apiImpl) ListFolderContinueContext(ctx context.Context, arg *ListFolderContinueArg) (res *ListFolderResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2439,9 +2436,9 @@ type ListFolderGetLatestCursorAPIError struct {
 
 // ListFolderGetLatestCursorContext : A way to quickly get a cursor for the
 // folder's state. Unlike `listFolder`, `listFolderGetLatestCursor` doesn't
-// return any entries. This endpoint is for app which only needs to know
-// about new files and modifications and doesn't need to know about files
-// that already exist in Dropbox.
+// return any entries. This endpoint is for app which only needs to know about
+// new files and modifications and doesn't need to know about files that already
+// exist in Dropbox.
 func (dbx *apiImpl) ListFolderGetLatestCursorContext(ctx context.Context, arg *ListFolderArg) (res *ListFolderGetLatestCursorResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2486,9 +2483,9 @@ type ListFolderLongpollAPIError struct {
 
 // ListFolderLongpollContext : A longpoll endpoint to wait for changes on an
 // account. In conjunction with `listFolderContinue`, this call gives you a
-// low-latency way to monitor an account for file changes. The connection
-// will block until there are changes available or a timeout occurs. This
-// endpoint is useful mostly for client-side apps.
+// low-latency way to monitor an account for file changes. The connection will
+// block until there are changes available or a timeout occurs. This endpoint is
+// useful mostly for client-side apps.
 func (dbx *apiImpl) ListFolderLongpollContext(ctx context.Context, arg *ListFolderLongpollArg) (res *ListFolderLongpollResult, err error) {
 	req := dropbox.Request{
 		Host:         "notify",
@@ -2532,14 +2529,14 @@ type ListRevisionsAPIError struct {
 }
 
 // ListRevisionsContext : Returns revisions for files based on a file path or a
-// file id. The file path or file id is identified from the latest file
-// entry at the given file path or id. This end point allows your app to
-// query either by file path or file id by setting the mode parameter
-// appropriately. In the ListRevisionsMode.path (default) mode, all
-// revisions at the same file path as the latest file entry are returned. If
-// revisions with the same file id are desired, then mode must be set to
-// ListRevisionsMode.id. The ListRevisionsMode.id mode is useful to retrieve
-// revisions for a given file across moves or renames.
+// file id. The file path or file id is identified from the latest file entry at
+// the given file path or id. This end point allows your app to query either by
+// file path or file id by setting the mode parameter appropriately. In the
+// ListRevisionsMode.path (default) mode, all revisions at the same file path as
+// the latest file entry are returned. If revisions with the same file id are
+// desired, then mode must be set to ListRevisionsMode.id. The
+// ListRevisionsMode.id mode is useful to retrieve revisions for a given file
+// across moves or renames.
 func (dbx *apiImpl) ListRevisionsContext(ctx context.Context, arg *ListRevisionsArg) (res *ListRevisionsResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2582,10 +2579,10 @@ type LockFileBatchAPIError struct {
 	EndpointError *LockFileError `json:"error"`
 }
 
-// LockFileBatchContext : Lock the files at the given paths. A locked file will be
-// writable only by the lock holder. A successful response indicates that
-// the file has been locked. Returns a list of the locked file paths and
-// their metadata after this operation.
+// LockFileBatchContext : Lock the files at the given paths. A locked file will
+// be writable only by the lock holder. A successful response indicates that the
+// file has been locked. Returns a list of the locked file paths and their
+// metadata after this operation.
 func (dbx *apiImpl) LockFileBatchContext(ctx context.Context, arg *LockFileBatchArg) (res *LockFileBatchResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2687,8 +2684,8 @@ type MoveV2APIError struct {
 }
 
 // MoveV2Context : Move a file or folder to a different location in the user's
-// Dropbox. If the source path is a folder all its contents will be moved.
-// Note that we do not currently support case-only renaming.
+// Dropbox. If the source path is a folder all its contents will be moved. Note
+// that we do not currently support case-only renaming.
 func (dbx *apiImpl) MoveV2Context(ctx context.Context, arg *RelocationArg) (res *RelocationResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2731,10 +2728,10 @@ type MoveBatchAPIError struct {
 	EndpointError struct{} `json:"error"`
 }
 
-// MoveBatchContext : Move multiple files or folders to different locations at once
-// in the user's Dropbox. This route will return job ID immediately and do
-// the async moving job in background. Please use `moveBatchCheck` to check
-// the job status.
+// MoveBatchContext : Move multiple files or folders to different locations at
+// once in the user's Dropbox. This route will return job ID immediately and do
+// the async moving job in background. Please use `moveBatchCheck` to check the
+// job status.
 // Deprecated:
 func (dbx *apiImpl) MoveBatchContext(ctx context.Context, arg *RelocationBatchArg) (res *RelocationBatchLaunch, err error) {
 	log.Printf("WARNING: API `MoveBatch` is deprecated")
@@ -2780,13 +2777,13 @@ type MoveBatchV2APIError struct {
 	EndpointError struct{} `json:"error"`
 }
 
-// MoveBatchV2Context : Move multiple files or folders to different locations at once
-// in the user's Dropbox. Note that we do not currently support case-only
-// renaming. This route will replace `moveBatch`. The main difference is
-// this route will return status for each entry, while `moveBatch` raises
-// failure if any entry fails. This route will either finish synchronously,
-// or return a job ID and do the async move job in background. Please use
-// `moveBatchCheck` to check the job status.
+// MoveBatchV2Context : Move multiple files or folders to different locations at
+// once in the user's Dropbox. Note that we do not currently support case-only
+// renaming. This route will replace `moveBatch`. The main difference is this
+// route will return status for each entry, while `moveBatch` raises failure if
+// any entry fails. This route will either finish synchronously, or return a job
+// ID and do the async move job in background. Please use `moveBatchCheck` to
+// check the job status.
 func (dbx *apiImpl) MoveBatchV2Context(ctx context.Context, arg *MoveBatchArg) (res *RelocationBatchV2Launch, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3006,8 +3003,8 @@ type PermanentlyDeleteAPIError struct {
 	EndpointError *DeleteError `json:"error"`
 }
 
-// PermanentlyDeleteContext : Permanently delete the file or folder at a given path
-// (see https://www.dropbox.com/en/help/40). If the given file or folder is
+// PermanentlyDeleteContext : Permanently delete the file or folder at a given
+// path (see https://www.dropbox.com/en/help/40). If the given file or folder is
 // not yet deleted, this route will first delete it. It is possible for this
 // route to successfully delete, then fail to permanently delete. Note: This
 // endpoint is only available for Dropbox Business apps.
@@ -3092,8 +3089,8 @@ type PropertiesOverwriteAPIError struct {
 	EndpointError *file_properties.InvalidPropertyGroupError `json:"error"`
 }
 
-// PropertiesOverwriteContext : Overwrite property groups associated with a file.
-// This endpoint should be used instead of properties/update when property
+// PropertiesOverwriteContext : Overwrite property groups associated with a
+// file. This endpoint should be used instead of properties/update when property
 // groups are being overwritten rather than updated via a "delta".
 // Deprecated:
 func (dbx *apiImpl) PropertiesOverwriteContext(ctx context.Context, arg *file_properties.OverwritePropertyGroupArg) (err error) {
@@ -3136,8 +3133,8 @@ type PropertiesUpdateAPIError struct {
 	EndpointError *file_properties.UpdatePropertiesError `json:"error"`
 }
 
-// PropertiesUpdateContext : Add, update or remove properties associated with the
-// supplied file and templates. This endpoint should be used instead of
+// PropertiesUpdateContext : Add, update or remove properties associated with
+// the supplied file and templates. This endpoint should be used instead of
 // properties/overwrite when property groups are being updated via a "delta"
 // instead of overwriting all properties of a file.
 // Deprecated:
@@ -3225,8 +3222,8 @@ type SaveUrlAPIError struct {
 }
 
 // SaveUrlContext : Save the data from a specified URL into a file in user's
-// Dropbox. Note that the transfer from the URL must complete within 15
-// minutes, or the operation will time out and the job will fail.
+// Dropbox. Note that the transfer from the URL must complete within 15 minutes,
+// or the operation will time out and the job will fail.
 func (dbx *apiImpl) SaveUrlContext(ctx context.Context, arg *SaveUrlArg) (res *SaveUrlResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3361,10 +3358,10 @@ type SearchV2APIError struct {
 }
 
 // SearchV2Context : Searches for files and folders. Note: `search` along with
-// `searchContinue` can only be used to retrieve a maximum of 10,000
-// matches. Recent changes may not immediately be reflected in search
-// results due to a short delay in indexing. Duplicate results may be
-// returned across pages. Some results may not be returned.
+// `searchContinue` can only be used to retrieve a maximum of 10,000 matches.
+// Recent changes may not immediately be reflected in search results due to a
+// short delay in indexing. Duplicate results may be returned across pages. Some
+// results may not be returned.
 func (dbx *apiImpl) SearchV2Context(ctx context.Context, arg *SearchV2Arg) (res *SearchV2Result, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3407,12 +3404,11 @@ type SearchContinueV2APIError struct {
 	EndpointError *SearchError `json:"error"`
 }
 
-// SearchContinueV2Context : Fetches the next page of search results returned from
-// `search`. Note: `search` along with `searchContinue` can only be used to
-// retrieve a maximum of 10,000 matches. Recent changes may not immediately
-// be reflected in search results due to a short delay in indexing.
-// Duplicate results may be returned across pages. Some results may not be
-// returned.
+// SearchContinueV2Context : Fetches the next page of search results returned
+// from `search`. Note: `search` along with `searchContinue` can only be used to
+// retrieve a maximum of 10,000 matches. Recent changes may not immediately be
+// reflected in search results due to a short delay in indexing. Duplicate
+// results may be returned across pages. Some results may not be returned.
 func (dbx *apiImpl) SearchContinueV2Context(ctx context.Context, arg *SearchV2ContinueArg) (res *SearchV2Result, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3578,8 +3574,8 @@ type UnlockFileBatchAPIError struct {
 	EndpointError *LockFileError `json:"error"`
 }
 
-// UnlockFileBatchContext : Unlock the files at the given paths. A locked file can
-// only be unlocked by the lock holder or, if a business account, a team
+// UnlockFileBatchContext : Unlock the files at the given paths. A locked file
+// can only be unlocked by the lock holder or, if a business account, a team
 // admin. A successful response indicates that the file has been unlocked.
 // Returns a list of the unlocked file paths and their metadata after this
 // operation.
@@ -3625,12 +3621,12 @@ type UploadAPIError struct {
 	EndpointError *UploadError `json:"error"`
 }
 
-// UploadContext : Create a new file with the contents provided in the request. Do
-// not use this to upload a file larger than 150 MiB. Instead, create an
-// upload session with `uploadSessionStart`. Calls to this endpoint will
-// count as data transport calls for any Dropbox Business teams with a limit
-// on the number of data transport calls allowed per month. For more
-// information, see the Data transport limit page
+// UploadContext : Create a new file with the contents provided in the request.
+// Do not use this to upload a file larger than 150 MiB. Instead, create an
+// upload session with `uploadSessionStart`. Calls to this endpoint will count
+// as data transport calls for any Dropbox Business teams with a limit on the
+// number of data transport calls allowed per month. For more information, see
+// the Data transport limit page
 // https://www.dropbox.com/developers/reference/data-transport-limit.
 func (dbx *apiImpl) UploadContext(ctx context.Context, arg *UploadArg, content io.Reader) (res *FileMetadata, err error) {
 	arg, content, err = addAutoContentHashToUploadArg(arg, content)
@@ -3680,12 +3676,12 @@ type UploadSessionAppendAPIError struct {
 }
 
 // UploadSessionAppendContext : Append more data to an upload session. A single
-// request should not upload more than 150 MiB. The maximum size of a file
-// one can upload to an upload session is 2^41 - 2^22 (2,199,019,061,248)
-// bytes. Calls to this endpoint will count as data transport calls for any
-// Dropbox Business teams with a limit on the number of data transport calls
-// allowed per month. For more information, see the Data transport limit
-// page https://www.dropbox.com/developers/reference/data-transport-limit.
+// request should not upload more than 150 MiB. The maximum size of a file one
+// can upload to an upload session is 2^41 - 2^22 (2,199,019,061,248) bytes.
+// Calls to this endpoint will count as data transport calls for any Dropbox
+// Business teams with a limit on the number of data transport calls allowed per
+// month. For more information, see the Data transport limit page
+// https://www.dropbox.com/developers/reference/data-transport-limit.
 // Deprecated:
 func (dbx *apiImpl) UploadSessionAppendContext(ctx context.Context, arg *UploadSessionCursor, content io.Reader) (err error) {
 	log.Printf("WARNING: API `UploadSessionAppend` is deprecated")
@@ -3727,14 +3723,14 @@ type UploadSessionAppendV2APIError struct {
 	EndpointError *UploadSessionAppendError `json:"error"`
 }
 
-// UploadSessionAppendV2Context : Append more data to an upload session. When the
-// parameter close is set, this call will close the session. A single
-// request should not upload more than 150 MiB. The maximum size of a file
-// one can upload to an upload session is 2^41 - 2^22 (2,199,019,061,248)
-// bytes. Calls to this endpoint will count as data transport calls for any
-// Dropbox Business teams with a limit on the number of data transport calls
-// allowed per month. For more information, see the Data transport limit
-// page https://www.dropbox.com/developers/reference/data-transport-limit.
+// UploadSessionAppendV2Context : Append more data to an upload session. When
+// the parameter close is set, this call will close the session. A single
+// request should not upload more than 150 MiB. The maximum size of a file one
+// can upload to an upload session is 2^41 - 2^22 (2,199,019,061,248) bytes.
+// Calls to this endpoint will count as data transport calls for any Dropbox
+// Business teams with a limit on the number of data transport calls allowed per
+// month. For more information, see the Data transport limit page
+// https://www.dropbox.com/developers/reference/data-transport-limit.
 func (dbx *apiImpl) UploadSessionAppendV2Context(ctx context.Context, arg *UploadSessionAppendArg, content io.Reader) (err error) {
 	arg, content, err = addAutoContentHashToUploadSessionAppendArg(arg, content)
 	if err != nil {
@@ -3778,16 +3774,16 @@ type UploadSessionAppendBatchAPIError struct {
 	EndpointError *UploadSessionAppendBatchError `json:"error"`
 }
 
-// UploadSessionAppendBatchContext : Append more data to multiple upload sessions.
-// Each piece of file content to append to each upload session should be
-// concatenated in the request body, in the order delineated by
-// `UploadSessionAppendBatchArg.entries` and their individual lengths
-// indicated by `UploadSessionAppendBatchArgEntry.length`. A single request
-// should not upload more than 150 MiB. The maximum size of a file one can
-// upload to an upload session is 2^41 - 2^22 (2,199,019,061,248) bytes.
-// Calls to this endpoint will count as data transport calls for any Dropbox
-// Business teams with a limit on the number of data transport calls allowed
-// per month. For more information, see the Data transport limit page
+// UploadSessionAppendBatchContext : Append more data to multiple upload
+// sessions. Each piece of file content to append to each upload session should
+// be concatenated in the request body, in the order delineated by
+// `UploadSessionAppendBatchArg.entries` and their individual lengths indicated
+// by `UploadSessionAppendBatchArgEntry.length`. A single request should not
+// upload more than 150 MiB. The maximum size of a file one can upload to an
+// upload session is 2^41 - 2^22 (2,199,019,061,248) bytes. Calls to this
+// endpoint will count as data transport calls for any Dropbox Business teams
+// with a limit on the number of data transport calls allowed per month. For
+// more information, see the Data transport limit page
 // https://www.dropbox.com/developers/reference/data-transport-limit.
 func (dbx *apiImpl) UploadSessionAppendBatchContext(ctx context.Context, arg *UploadSessionAppendBatchArg, content io.Reader) (res *UploadSessionAppendBatchResult, err error) {
 	arg, content, err = addAutoContentHashToUploadSessionAppendBatchArg(arg, content)
@@ -3836,13 +3832,13 @@ type UploadSessionFinishAPIError struct {
 	EndpointError *UploadSessionFinishError `json:"error"`
 }
 
-// UploadSessionFinishContext : Finish an upload session and save the uploaded data
-// to the given file path. A single request should not upload more than 150
-// MiB. The maximum size of a file one can upload to an upload session is
-// 2^41 - 2^22 (2,199,019,061,248) bytes. Calls to this endpoint will count
-// as data transport calls for any Dropbox Business teams with a limit on
-// the number of data transport calls allowed per month. For more
-// information, see the Data transport limit page
+// UploadSessionFinishContext : Finish an upload session and save the uploaded
+// data to the given file path. A single request should not upload more than 150
+// MiB. The maximum size of a file one can upload to an upload session is 2^41 -
+// 2^22 (2,199,019,061,248) bytes. Calls to this endpoint will count as data
+// transport calls for any Dropbox Business teams with a limit on the number of
+// data transport calls allowed per month. For more information, see the Data
+// transport limit page
 // https://www.dropbox.com/developers/reference/data-transport-limit.
 func (dbx *apiImpl) UploadSessionFinishContext(ctx context.Context, arg *UploadSessionFinishArg, content io.Reader) (res *FileMetadata, err error) {
 	arg, content, err = addAutoContentHashToUploadSessionFinishArg(arg, content)
@@ -3891,24 +3887,23 @@ type UploadSessionFinishBatchAPIError struct {
 	EndpointError struct{} `json:"error"`
 }
 
-// UploadSessionFinishBatchContext : This route helps you commit many files at once
-// into a user's Dropbox. Use `uploadSessionStart` and `uploadSessionAppend`
-// to upload file contents. We recommend uploading many files in parallel to
-// increase throughput. Once the file contents have been uploaded, rather
-// than calling `uploadSessionFinish`, use this route to finish all your
-// upload sessions in a single request. `UploadSessionStartArg.close` or
-// `UploadSessionAppendArg.close` needs to be true for the last
+// UploadSessionFinishBatchContext : This route helps you commit many files at
+// once into a user's Dropbox. Use `uploadSessionStart` and
+// `uploadSessionAppend` to upload file contents. We recommend uploading many
+// files in parallel to increase throughput. Once the file contents have been
+// uploaded, rather than calling `uploadSessionFinish`, use this route to finish
+// all your upload sessions in a single request. `UploadSessionStartArg.close`
+// or `UploadSessionAppendArg.close` needs to be true for the last
 // `uploadSessionStart` or `uploadSessionAppend` call. The maximum size of a
-// file one can upload to an upload session is 2^41 - 2^22
-// (2,199,019,061,248) bytes. This route will return a job_id immediately
-// and do the async commit job in background. Use
-// `uploadSessionFinishBatchCheck` to check the job status. For the same
-// account, this route should be executed serially. That means you should
-// not start the next job before current job finishes. We allow up to 1000
-// entries in a single request. Calls to this endpoint will count as data
-// transport calls for any Dropbox Business teams with a limit on the number
-// of data transport calls allowed per month. For more information, see the
-// Data transport limit page
+// file one can upload to an upload session is 2^41 - 2^22 (2,199,019,061,248)
+// bytes. This route will return a job_id immediately and do the async commit
+// job in background. Use `uploadSessionFinishBatchCheck` to check the job
+// status. For the same account, this route should be executed serially. That
+// means you should not start the next job before current job finishes. We allow
+// up to 1000 entries in a single request. Calls to this endpoint will count as
+// data transport calls for any Dropbox Business teams with a limit on the
+// number of data transport calls allowed per month. For more information, see
+// the Data transport limit page
 // https://www.dropbox.com/developers/reference/data-transport-limit.
 // Deprecated:
 func (dbx *apiImpl) UploadSessionFinishBatchContext(ctx context.Context, arg *UploadSessionFinishBatchArg) (res *UploadSessionFinishBatchLaunch, err error) {
@@ -3955,20 +3950,19 @@ type UploadSessionFinishBatchV2APIError struct {
 	EndpointError struct{} `json:"error"`
 }
 
-// UploadSessionFinishBatchV2Context : This route helps you commit many files at once
-// into a user's Dropbox. Use `uploadSessionStart` and `uploadSessionAppend`
-// to upload file contents. We recommend uploading many files in parallel to
-// increase throughput. Once the file contents have been uploaded, rather
-// than calling `uploadSessionFinish`, use this route to finish all your
-// upload sessions in a single request. `UploadSessionStartArg.close` or
-// `UploadSessionAppendArg.close` needs to be true for the last
-// `uploadSessionStart` or `uploadSessionAppend` call of each upload
-// session. The maximum size of a file one can upload to an upload session
-// is 2^41 - 2^22 (2,199,019,061,248) bytes. We allow up to 1000 entries in
-// a single request. Calls to this endpoint will count as data transport
-// calls for any Dropbox Business teams with a limit on the number of data
-// transport calls allowed per month. For more information, see the Data
-// transport limit page
+// UploadSessionFinishBatchV2Context : This route helps you commit many files at
+// once into a user's Dropbox. Use `uploadSessionStart` and
+// `uploadSessionAppend` to upload file contents. We recommend uploading many
+// files in parallel to increase throughput. Once the file contents have been
+// uploaded, rather than calling `uploadSessionFinish`, use this route to finish
+// all your upload sessions in a single request. `UploadSessionStartArg.close`
+// or `UploadSessionAppendArg.close` needs to be true for the last
+// `uploadSessionStart` or `uploadSessionAppend` call of each upload session.
+// The maximum size of a file one can upload to an upload session is 2^41 - 2^22
+// (2,199,019,061,248) bytes. We allow up to 1000 entries in a single request.
+// Calls to this endpoint will count as data transport calls for any Dropbox
+// Business teams with a limit on the number of data transport calls allowed per
+// month. For more information, see the Data transport limit page
 // https://www.dropbox.com/developers/reference/data-transport-limit.
 func (dbx *apiImpl) UploadSessionFinishBatchV2Context(ctx context.Context, arg *UploadSessionFinishBatchArg) (res *UploadSessionFinishBatchResult, err error) {
 	req := dropbox.Request{
@@ -4012,8 +4006,8 @@ type UploadSessionFinishBatchCheckAPIError struct {
 	EndpointError *async.PollError `json:"error"`
 }
 
-// UploadSessionFinishBatchCheckContext : Returns the status of an asynchronous job
-// for `uploadSessionFinishBatch`. If success, it returns list of result for
+// UploadSessionFinishBatchCheckContext : Returns the status of an asynchronous
+// job for `uploadSessionFinishBatch`. If success, it returns list of result for
 // each entry.
 func (dbx *apiImpl) UploadSessionFinishBatchCheckContext(ctx context.Context, arg *async.PollArg) (res *UploadSessionFinishBatchJobStatus, err error) {
 	req := dropbox.Request{
@@ -4057,38 +4051,36 @@ type UploadSessionStartAPIError struct {
 	EndpointError *UploadSessionStartError `json:"error"`
 }
 
-// UploadSessionStartContext : Upload sessions allow you to upload a single file in
-// one or more requests, for example where the size of the file is greater
-// than 150 MiB. This call starts a new upload session with the given data.
-// You can then use `uploadSessionAppend` or `uploadSessionAppendBatch` to
-// add more data, then `uploadSessionFinish` or `uploadSessionFinishBatch`
-// to save all the data to a file in Dropbox. A single request should not
-// upload more than 150 MiB. The maximum size of a file one can upload to an
-// upload session is 2^41 - 2^22 (2,199,019,061,248) bytes. An upload
-// session can be used for a maximum of 7 days. Attempting to use a
-// `UploadSessionStartResult.session_id` with `uploadSessionAppend` or other
-// upload session routes more than 7 days after its creation will return
-// `UploadSessionLookupError.not_found`. Calls to this endpoint will count
-// as data transport calls for any Dropbox Business teams with a limit on
-// the number of data transport calls allowed per month. For more
-// information, see the Data transport limit page
+// UploadSessionStartContext : Upload sessions allow you to upload a single file
+// in one or more requests, for example where the size of the file is greater
+// than 150 MiB. This call starts a new upload session with the given data. You
+// can then use `uploadSessionAppend` or `uploadSessionAppendBatch` to add more
+// data, then `uploadSessionFinish` or `uploadSessionFinishBatch` to save all
+// the data to a file in Dropbox. A single request should not upload more than
+// 150 MiB. The maximum size of a file one can upload to an upload session is
+// 2^41 - 2^22 (2,199,019,061,248) bytes. An upload session can be used for a
+// maximum of 7 days. Attempting to use a `UploadSessionStartResult.session_id`
+// with `uploadSessionAppend` or other upload session routes more than 7 days
+// after its creation will return `UploadSessionLookupError.not_found`. Calls to
+// this endpoint will count as data transport calls for any Dropbox Business
+// teams with a limit on the number of data transport calls allowed per month.
+// For more information, see the Data transport limit page
 // https://www.dropbox.com/developers/reference/data-transport-limit. By
 // default, upload sessions require you to send content of the file in
-// sequential order via consecutive `uploadSessionStart`,
-// `uploadSessionAppend`, and `uploadSessionFinish` calls (or their batch
-// variants). For better performance, you can optionally set
-// `UploadSessionStartArg.session_type` to `UploadSessionType.concurrent` to
-// start a concurrent upload session. Concurrent upload sessions may upload
-// file data in concurrent `uploadSessionAppend` requests, with a few
-// caveats. After all of the requests are complete, finish the session with
-// `uploadSessionFinish` as normal. You can not send data in a
-// `uploadSessionStart` or `uploadSessionFinish` call, only with
-// `uploadSessionAppend` or `uploadSessionAppendBatch`. Also, the length of
-// the uploaded data in a call to `uploadSessionAppend` or
+// sequential order via consecutive `uploadSessionStart`, `uploadSessionAppend`,
+// and `uploadSessionFinish` calls (or their batch variants). For better
+// performance, you can optionally set `UploadSessionStartArg.session_type` to
+// `UploadSessionType.concurrent` to start a concurrent upload session.
+// Concurrent upload sessions may upload file data in concurrent
+// `uploadSessionAppend` requests, with a few caveats. After all of the requests
+// are complete, finish the session with `uploadSessionFinish` as normal. You
+// can not send data in a `uploadSessionStart` or `uploadSessionFinish` call,
+// only with `uploadSessionAppend` or `uploadSessionAppendBatch`. Also, the
+// length of the uploaded data in a call to `uploadSessionAppend` or
 // `uploadSessionAppendBatch` must be a multiple of 2^22 (4,194,304) bytes,
-// except for the final append request with `UploadSessionAppendArg.close`
-// or `UploadSessionAppendBatchArgEntry.close` set to true that may contain
-// any remaining data.
+// except for the final append request with `UploadSessionAppendArg.close` or
+// `UploadSessionAppendBatchArgEntry.close` set to true that may contain any
+// remaining data.
 func (dbx *apiImpl) UploadSessionStartContext(ctx context.Context, arg *UploadSessionStartArg, content io.Reader) (res *UploadSessionStartResult, err error) {
 	arg, content, err = addAutoContentHashToUploadSessionStartArg(arg, content)
 	if err != nil {

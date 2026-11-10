@@ -7,9 +7,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"hash"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -161,23 +163,13 @@ func UploadFileStream(ctx context.Context, cfg *config.Config, targetFolderUUID,
 
 	// Handle unknown size by buffering entire stream
 	var preBuf []byte
-	if plainSize < 0 {
-		fmt.Printf("[DEBUG] UploadFileStream: Unknown size, buffering entire stream...\n")
+	knownSize := plainSize >= 0
+	if !knownSize {
 		preBuf, err = io.ReadAll(r)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read stream (unknown size): %w", err)
 		}
 		plainSize = int64(len(preBuf))
-	} else {
-		// Pre-read a buffer to reduce transfer startup latency
-		// Use 5MB or file size, whichever is smaller
-		bufSize := min(plainSize, int64(5*1024*1024))
-		preBuf = make([]byte, bufSize)
-		preReadN, preReadErr := io.ReadFull(r, preBuf)
-		if preReadErr != nil && preReadErr != io.ErrUnexpectedEOF && preReadErr != io.EOF {
-			return nil, fmt.Errorf("failed to pre-read data: %w", preReadErr)
-		}
-		preBuf = preBuf[:preReadN]
 	}
 
 	type startResult struct {
@@ -191,6 +183,20 @@ func UploadFileStream(ctx context.Context, cfg *config.Config, targetFolderUUID,
 		resp, err := StartUpload(ctx, cfg, cfg.Bucket, specs)
 		startChan <- startResult{resp: resp, err: err}
 	}()
+
+	if knownSize {
+		// Pre-read a buffer while StartUpload is in flight to reduce
+		// transfer startup latency. Reading can be slow if the stream
+		// is teed to a thumbnail generator.
+		// Use 5MB or file size, whichever is smaller
+		bufSize := min(plainSize, int64(5*1024*1024))
+		preBuf = make([]byte, bufSize)
+		preReadN, preReadErr := io.ReadFull(r, preBuf)
+		if preReadErr != nil && preReadErr != io.ErrUnexpectedEOF && preReadErr != io.EOF {
+			return nil, fmt.Errorf("failed to pre-read data: %w", preReadErr)
+		}
+		preBuf = preBuf[:preReadN]
+	}
 
 	// Wait for StartUpload to complete
 	startRes := <-startChan
@@ -297,54 +303,103 @@ func UploadFileStreamAuto(ctx context.Context, cfg *config.Config, targetFolderU
 		return meta, nil
 	}
 
-	var capturedData *bytes.Buffer
-	var capturedReader io.Reader = in
-
 	// Sniffing for an image format is a different question from how the name
 	// is stored, so this deliberately reads a leading dot as an extension: a
 	// file called ".png" still gets a thumbnail.
+	//
+	// The thumbnail is made from the data as it is uploaded so the file
+	// never has to be held in memory.
+	var thumbGen *thumbnails.Generator
 	ext := strings.TrimPrefix(filepath.Ext(fileName), ".")
 	if thumbnails.IsSupportedFormat(ext) && plainSize > 0 && plainSize <= config.MaxThumbnailSourceSize {
-		capturedData = &bytes.Buffer{}
-		capturedReader = io.TeeReader(in, capturedData)
+		thumbGen = thumbnails.NewGenerator(thumbnails.DefaultConfig())
+		in = io.TeeReader(in, thumbGen)
 	}
 
 	var meta *CreateMetaResponse
 	var err error
 	if plainSize >= config.DefaultMultipartMinSize {
-		meta, err = UploadFileStreamMultipart(ctx, cfg, targetFolderUUID, fileName, capturedReader, plainSize, modTime)
+		meta, err = UploadFileStreamMultipart(ctx, cfg, targetFolderUUID, fileName, in, plainSize, modTime)
 	} else {
-		meta, err = UploadFileStream(ctx, cfg, targetFolderUUID, fileName, capturedReader, plainSize, modTime)
+		meta, err = UploadFileStream(ctx, cfg, targetFolderUUID, fileName, in, plainSize, modTime)
 	}
 
 	if err != nil {
+		if thumbGen != nil {
+			_, _ = thumbGen.Finish(err)
+		}
 		return nil, err
 	}
 
-	if capturedData != nil && capturedData.Len() > 0 {
-		thumbnailWG.Add(1)
-		go uploadThumbnailAsync(ctx, cfg, meta.UUID, ext, capturedData.Bytes())
+	// The thumbnail is finished here rather than in the background so the
+	// decoded image, which is far larger than the file, is only ever held
+	// by uploads in progress.
+	if thumbGen != nil {
+		if thumb, err := thumbGen.Finish(nil); err != nil {
+			log.Printf("[WARN] Thumbnail generation failed for %s: %v\n", meta.UUID, err)
+		} else {
+			thumbnailWG.Add(1)
+			go uploadThumbnailAsync(cfg, meta.UUID, thumb)
+		}
 	}
 
 	return meta, nil
 }
 
 // uploadThumbnailAsync handles thumbnail upload in a background goroutine
-func uploadThumbnailAsync(ctx context.Context, cfg *config.Config, fileUUID, fileType string, originalData []byte) {
+func uploadThumbnailAsync(cfg *config.Config, fileUUID string, thumb []byte) {
 	defer thumbnailWG.Done()
 
-	thumbnailSem <- struct{}{}
-	defer func() { <-thumbnailSem }()
-
-	bgCtx := context.Background()
-
-	if err := uploadThumbnailWithRetry(bgCtx, cfg, fileUUID, fileType, originalData); err != nil {
-		fmt.Printf("[WARN] Thumbnail upload failed for %s after retries: %v\n", fileUUID, err)
+	if err := uploadThumbnailWithRetry(context.Background(), cfg, fileUUID, thumb); err != nil {
+		log.Printf("[WARN] Thumbnail upload failed for %s after retries: %v\n", fileUUID, err)
 	}
 }
 
-// uploadThumbnailWithRetry attempts thumbnail upload with exponential backoff
-func uploadThumbnailWithRetry(ctx context.Context, cfg *config.Config, fileUUID, fileType string, originalData []byte) error {
+// uploadThumbnailWithRetry uploads thumb, a PNG thumbnail made with the
+// default config, and registers it for the given file, retrying each step
+func uploadThumbnailWithRetry(ctx context.Context, cfg *config.Config, fileUUID string, thumb []byte) error {
+	var fileID string
+	err := retryThumbnail(ctx, isRetryableError, func() error {
+		var err error
+		fileID, err = uploadThumbnail(ctx, cfg, thumb)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	req := thumbnails.CreateThumbnailMetadata(
+		fileUUID,
+		cfg.Bucket,
+		fileID,
+		"03-aes",
+		int64(len(thumb)),
+		thumbnails.DefaultConfig(),
+	)
+	return retryThumbnail(ctx, isRegisterThumbnailRetryable, func() error {
+		if err := createThumbnailAPI(ctx, cfg, req); err != nil {
+			return fmt.Errorf("failed to register thumbnail: %w", err)
+		}
+		return nil
+	})
+}
+
+// isRegisterThumbnailRetryable reports whether registering a thumbnail
+// should be retried after err. The API doesn't find the file for a short while
+// after it is created as lookups are served by read replicas which lag behind,
+// so not found is retried too.
+func isRegisterThumbnailRetryable(err error) bool {
+	var httpErr *errors.HTTPError
+	if stderrors.As(err, &httpErr) && httpErr.StatusCode() == http.StatusNotFound {
+		return true
+	}
+	return isRetryableError(err)
+}
+
+// retryThumbnail calls fn until it succeeds, it returns an error retryable
+// rejects or it has been tried 5 times, backing off exponentially between
+// tries. Each call holds a slot of thumbnailSem.
+func retryThumbnail(ctx context.Context, retryable func(error) bool, fn func() error) error {
 	const maxRetries = 5
 	const baseDelay = 2 * time.Second
 
@@ -367,13 +422,15 @@ func uploadThumbnailWithRetry(ctx context.Context, cfg *config.Config, fileUUID,
 			}
 		}
 
-		err := uploadThumbnail(ctx, cfg, fileUUID, fileType, originalData)
+		thumbnailSem <- struct{}{}
+		err := fn()
+		<-thumbnailSem
 		if err == nil {
 			return nil
 		}
 
 		lastErr = err
-		if !isRetryableError(err) {
+		if !retryable(err) {
 			return fmt.Errorf("non-retryable error: %w", err)
 		}
 	}
@@ -381,39 +438,14 @@ func uploadThumbnailWithRetry(ctx context.Context, cfg *config.Config, fileUUID,
 	return fmt.Errorf("thumbnail upload failed after %d retries: %w", maxRetries, lastErr)
 }
 
-// uploadThumbnail generates and uploads a thumbnail for the given file
-func uploadThumbnail(ctx context.Context, cfg *config.Config, fileUUID, fileType string, originalData []byte) error {
-	thumbReader, thumbSize, thumbCfg, err := thumbnails.GenerateAndPrepare(fileType, originalData)
+// uploadThumbnail encrypts and uploads the thumbnail data thumb, returning
+// its network file ID
+func uploadThumbnail(ctx context.Context, cfg *config.Config, thumb []byte) (string, error) {
+	encryptedReader, sha256Hasher, encIndex, err := encryptionSetup(bytes.NewReader(thumb), cfg)
 	if err != nil {
-		return fmt.Errorf("failed to generate thumbnail: %w", err)
+		return "", err
 	}
-
-	fmt.Printf("[DEBUG] Uploading thumbnail for file %s\n", fileUUID)
-
-	encryptedReader, sha256Hasher, encIndex, err := encryptionSetup(thumbReader, cfg)
-	if err != nil {
-		return err
-	}
-
-	fileID, err := uploadEncryptedData(ctx, cfg, encryptedReader, sha256Hasher, encIndex, thumbSize)
-	if err != nil {
-		return err
-	}
-
-	req := thumbnails.CreateThumbnailMetadata(
-		fileUUID,
-		cfg.Bucket,
-		fileID,
-		"03-aes",
-		thumbSize,
-		thumbCfg,
-	)
-
-	if err := createThumbnailAPI(ctx, cfg, req); err != nil {
-		return fmt.Errorf("failed to register thumbnail: %w", err)
-	}
-
-	return nil
+	return uploadEncryptedData(ctx, cfg, encryptedReader, sha256Hasher, encIndex, int64(len(thumb)))
 }
 
 // createThumbnailAPI registers a thumbnail via POST /drive/files/thumbnail

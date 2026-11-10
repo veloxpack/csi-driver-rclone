@@ -2,6 +2,7 @@ package uploader
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
 	"time"
 
@@ -57,6 +58,15 @@ type CreateArchiveParams struct {
 	Transformations         string           `json:"transformations,omitempty"`
 	Type                    api.DeliveryType `json:"type,omitempty"`
 	UseOriginalFilename     *bool            `json:"use_original_filename,omitempty"`
+}
+
+// MarshalJSON sends ExpiresAt as a unix timestamp, as the API expects.
+func (p CreateArchiveParams) MarshalJSON() ([]byte, error) {
+	type params CreateArchiveParams
+	return json.Marshal(struct {
+		params
+		ExpiresAt *int64 `json:"expires_at,omitempty"`
+	}{params(p), unixTime(p.ExpiresAt)})
 }
 
 // CreateArchive creates a new archive in the server and returns information in JSON format.
@@ -172,11 +182,29 @@ func (u *API) DownloadBackedUpAsset(params DownloadBackedUpAssetParams) (string,
 // PrivateDownloadURLParams are the parameters for PrivateDownloadURL.
 type PrivateDownloadURLParams struct {
 	PublicID     string        `json:"public_id"`
-	Format       string        `json:"format"`
+	Format       string        `json:"format,omitempty"`
 	DeliveryType string        `json:"type,omitempty"`
 	Attachment   string        `json:"attachment,omitempty"`
 	ExpiresAt    *time.Time    `json:"expires_at,omitempty"`
 	ResourceType api.AssetType `json:"-"`
+}
+
+// MarshalJSON sends ExpiresAt as a unix timestamp, as the API expects.
+func (p PrivateDownloadURLParams) MarshalJSON() ([]byte, error) {
+	type params PrivateDownloadURLParams
+	return json.Marshal(struct {
+		params
+		ExpiresAt *int64 `json:"expires_at,omitempty"`
+	}{params(p), unixTime(p.ExpiresAt)})
+}
+
+// unixTime returns t as unix seconds, or nil when t is nil.
+func unixTime(t *time.Time) *int64 {
+	if t == nil {
+		return nil
+	}
+	unix := t.Unix()
+	return &unix
 }
 
 // PrivateDownloadURL returns a URL that when invoked downloads the asset.

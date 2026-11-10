@@ -79,7 +79,7 @@ This is required and is the name of the share to access.
 			Help: `Upload chunk size.
 
 Note that this is stored in memory and there may be up to
-"--transfers" * "--azurefile-upload-concurrency" chunks stored at once
+"--transfers" * "--azurefiles-upload-concurrency" chunks stored at once
 in memory.`,
 			Default:  defaultChunkSize,
 			Advanced: true,
@@ -95,7 +95,7 @@ links and these uploads do not fully utilize your bandwidth, then
 increasing this may help to speed up the transfers.
 
 Note that chunks are stored in memory and there may be up to
-"--transfers" * "--azurefile-upload-concurrency" chunks stored at once
+"--transfers" * "--azurefiles-upload-concurrency" chunks stored at once
 in memory.`,
 			Default:  16,
 			Advanced: true,
@@ -650,11 +650,6 @@ func (o *Object) Open(ctx context.Context, options ...fs.OpenOption) (io.ReadClo
 	return resp.Body, nil
 }
 
-// Returns a pointer to t - useful for returning pointers to constants
-func ptr[T any](t T) *T {
-	return &t
-}
-
 var warnStreamUpload sync.Once
 
 // Update the object with the contents of the io.Reader, modTime, size and MD5 hash
@@ -818,8 +813,8 @@ func (f *Fs) Move(ctx context.Context, src fs.Object, remote string) (fs.Object,
 		return nil, fmt.Errorf("Move: mkParentDir failed: %w", err)
 	}
 	opt := file.RenameOptions{
-		IgnoreReadOnly:  ptr(true),
-		ReplaceIfExists: ptr(true),
+		IgnoreReadOnly:  new(true),
+		ReplaceIfExists: new(true),
 	}
 	dstAbsPath := f.absPath(remote)
 	fc := srcObj.fileClient()
@@ -864,8 +859,8 @@ func (f *Fs) DirMove(ctx context.Context, src fs.Fs, srcRemote, dstRemote string
 	}
 
 	opt := directory.RenameOptions{
-		IgnoreReadOnly:  ptr(false),
-		ReplaceIfExists: ptr(false),
+		IgnoreReadOnly:  new(false),
+		ReplaceIfExists: new(false),
 	}
 	dstAbsPath := dstFs.absPath(dstRemote)
 	dirClient := srcFs.dirClient(srcRemote)
@@ -904,8 +899,8 @@ func (f *Fs) Copy(ctx context.Context, src fs.Object, remote string) (fs.Object,
 			ChangeTime:         file.SourceCopyFileChangeTime{},
 			CreationTime:       file.SourceCopyFileCreationTime{},
 			LastWriteTime:      file.SourceCopyFileLastWriteTime{},
-			PermissionCopyMode: ptr(file.PermissionCopyModeTypeSource),
-			IgnoreReadOnly:     ptr(true),
+			PermissionCopyMode: new(file.PermissionCopyModeTypeSource),
+			IgnoreReadOnly:     new(true),
 		},
 	}
 	srcURL := srcObj.fileClient().URL()

@@ -1,26 +1,29 @@
 package extsort
 
 // Config holds configuration settings for external sorting operations.
-// All fields have sensible defaults and can be left as zero values to use defaults.
+// Pass a nil *Config to use DefaultConfig(). In a non-nil Config, a ChunkSize or
+// NumWorkers below 1 and a negative ChanBuffSize or SortedChanBuffSize are replaced by
+// their defaults, but a zero ChanBuffSize or SortedChanBuffSize means an unbuffered channel.
+// The sorter works on its own copy, so one Config can be shared by several sorters.
 type Config struct {
 	// ChunkSize specifies the maximum number of records to store in each chunk
 	// before writing to disk. Larger chunks use more memory but reduce I/O operations.
-	// Default: 1,000,000 records. Must be > 1.
+	// Default: 1,000,000 records. Values below 1 use the default.
 	ChunkSize int
 
 	// NumWorkers controls the maximum number of goroutines used for parallel
 	// chunk sorting and merging. More workers can improve CPU utilization on multi-core systems.
-	// Default: 2 workers. Must be > 1.
+	// Default: 2 workers. Values below 1 use the default.
 	NumWorkers int
 
-	// ChanBuffSize sets the buffer size for internal channels used during chunk merging.
-	// Larger buffers can improve throughput but use more memory.
-	// Default: 1. Must be >= 0.
+	// ChanBuffSize sets how many whole chunks can wait between reading the input and
+	// sorting them. Each buffered chunk holds up to ChunkSize records in memory.
+	// Default: 1. Zero means unbuffered; negative values use the default.
 	ChanBuffSize int
 
 	// SortedChanBuffSize sets the buffer size for the output channel that delivers
 	// sorted results. Larger buffers allow more decoupling between sorting and consumption.
-	// Default: 1000. Must be >= 0.
+	// Default: 1000. Zero means unbuffered; negative values use the default.
 	SortedChanBuffSize int
 
 	// TempFilesDir specifies the directory for temporary files during sorting.
@@ -45,31 +48,32 @@ func DefaultConfig() *Config {
 	return &Config{
 		ChunkSize:          int(1e6), // 1M
 		NumWorkers:         2,
-		ChanBuffSize:       16,
+		ChanBuffSize:       1,
 		SortedChanBuffSize: 1000,
 		TempFilesDir:       "",
 	}
 }
 
-// mergeConfig validates and normalizes a Config by replacing zero/invalid values
-// with defaults. If config is nil, returns DefaultConfig().
-// This ensures all sorter instances have valid configuration values.
+// mergeConfig returns a validated and normalized copy of c, replacing invalid values
+// with defaults. If c is nil, returns DefaultConfig().
+// The caller's Config is never modified, since it may be shared by other sorters.
 func mergeConfig(c *Config) *Config {
 	d := DefaultConfig()
 	if c == nil {
 		return d
 	}
-	if c.ChunkSize < 1 {
-		c.ChunkSize = d.ChunkSize
+	merged := *c
+	if merged.ChunkSize < 1 {
+		merged.ChunkSize = d.ChunkSize
 	}
-	if c.NumWorkers < 1 {
-		c.NumWorkers = d.NumWorkers
+	if merged.NumWorkers < 1 {
+		merged.NumWorkers = d.NumWorkers
 	}
-	if c.ChanBuffSize < 0 {
-		c.ChanBuffSize = d.ChanBuffSize
+	if merged.ChanBuffSize < 0 {
+		merged.ChanBuffSize = d.ChanBuffSize
 	}
-	if c.SortedChanBuffSize < 0 {
-		c.SortedChanBuffSize = d.SortedChanBuffSize
+	if merged.SortedChanBuffSize < 0 {
+		merged.SortedChanBuffSize = d.SortedChanBuffSize
 	}
-	return c
+	return &merged
 }

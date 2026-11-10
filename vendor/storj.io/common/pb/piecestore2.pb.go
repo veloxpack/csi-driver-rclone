@@ -15,6 +15,31 @@ import (
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+// StorageMethod identifies which backend a piece is stored in.
+type StorageMethod int32
+
+const (
+	StorageMethod_STORAGE_METHOD_UNSPECIFIED StorageMethod = 0
+	StorageMethod_STORAGE_METHOD_PIECESTORE  StorageMethod = 1
+	StorageMethod_STORAGE_METHOD_HASHSTORE   StorageMethod = 2
+)
+
+var StorageMethod_name = map[int32]string{
+	0: "STORAGE_METHOD_UNSPECIFIED",
+	1: "STORAGE_METHOD_PIECESTORE",
+	2: "STORAGE_METHOD_HASHSTORE",
+}
+
+var StorageMethod_value = map[string]int32{
+	"STORAGE_METHOD_UNSPECIFIED": 0,
+	"STORAGE_METHOD_PIECESTORE":  1,
+	"STORAGE_METHOD_HASHSTORE":   2,
+}
+
+func (x StorageMethod) String() string {
+	return proto.EnumName(StorageMethod_name, int32(x))
+}
+
 type PieceHeader_FormatVersion int32
 
 const (
@@ -825,10 +850,17 @@ var xxx_messageInfo_ExistsRequest proto.InternalMessageInfo
 
 type ExistsResponse struct {
 	// input piece ids indices of the missing pieces
-	Missing              []uint32 `protobuf:"varint,1,rep,packed,name=missing,proto3" json:"missing,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Missing []uint32 `protobuf:"varint,1,rep,packed,name=missing,proto3" json:"missing,omitempty"`
+	// Length contract: either empty (responder predates this field or opted out),
+	// or exactly len(piece_ids) entries aligned by index with the request.
+	// Any other length is a protocol violation; readers MUST verify len(storage_method)
+	// against len(piece_ids) before indexing, and treat mismatched or missing entries
+	// as STORAGE_METHOD_UNSPECIFIED. `missing` remains authoritative for existence;
+	// storage_method[i] for indices in `missing` is undefined and MUST be ignored.
+	StorageMethod        []StorageMethod `protobuf:"varint,2,rep,packed,name=storage_method,json=storageMethod,proto3,enum=piecestore.StorageMethod" json:"storage_method,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
 }
 
 func (m *ExistsResponse) Reset()         { *m = ExistsResponse{} }
@@ -856,6 +888,13 @@ var xxx_messageInfo_ExistsResponse proto.InternalMessageInfo
 func (m *ExistsResponse) GetMissing() []uint32 {
 	if m != nil {
 		return m.Missing
+	}
+	return nil
+}
+
+func (m *ExistsResponse) GetStorageMethod() []StorageMethod {
+	if m != nil {
+		return m.StorageMethod
 	}
 	return nil
 }

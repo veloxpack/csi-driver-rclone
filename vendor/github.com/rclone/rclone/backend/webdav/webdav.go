@@ -601,6 +601,10 @@ func NewFs(ctx context.Context, name, root string, m configmap.Mapper) (fs.Fs, e
 	if !f.findHeader(opt.Headers, "Referer") {
 		f.srv.SetHeader("Referer", u.String())
 	}
+	// Nextcloud public shares reject requests without this header
+	if opt.Vendor == "nextcloud" && strings.Contains(u.Path, "public.php/dav/files") && !f.findHeader(opt.Headers, "X-Requested-With") {
+		f.srv.SetHeader("X-Requested-With", "XMLHttpRequest")
+	}
 
 	if root != "" && !rootIsDir {
 		// Check to see if the root actually an existing file
@@ -1630,6 +1634,18 @@ func (o *Object) Open(ctx context.Context, options ...fs.OpenOption) (in io.Read
 	}
 	err = o.fs.pacer.Call(func() (bool, error) {
 		resp, err = o.fs.srv.Call(ctx, &opts)
+		if err == nil {
+			err = rest.CheckContentRange(resp, options, o.size)
+			if err != nil {
+				if resp != nil && resp.Body != nil {
+					_ = resp.Body.Close()
+				}
+				if errors.Is(err, fs.ErrorRangeIgnored) {
+					return false, err
+				}
+				return true, fserrors.RetryError(err)
+			}
+		}
 		return o.fs.shouldRetry(ctx, resp, err)
 	})
 	if err != nil {
@@ -1767,7 +1783,7 @@ func (o *Object) updateSimple(ctx context.Context, body io.Reader, getBody func(
 		GetBody:       getBody,
 		Body:          body,
 		NoResponse:    true,
-		ContentLength: &size, // FIXME this isn't necessary with owncloud - See https://github.com/nextcloud/nextcloud-snap/issues/365
+		ContentLength: &size, // FIXME this isn't necessary with owncloud - See https://github.com/nextcloud-snap/nextcloud-snap/issues/365
 		ContentType:   contentType,
 		Options:       options,
 		ExtraHeaders:  extraHeaders,

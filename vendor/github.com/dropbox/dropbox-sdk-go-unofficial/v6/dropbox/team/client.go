@@ -208,6 +208,12 @@ type Client interface {
 	// `membersAdd` , use this to poll the status of the asynchronous request.
 	// Permission : Team member management.
 	MembersAddJobStatusGetV2(arg *async.PollArg) (res *MembersAddJobStatusV2Result, err error)
+	// MembersBulkSuspend : Launch a bulk suspend job. The server enforces a
+	// maximum of 500 members.
+	MembersBulkSuspend(arg *BulkSuspendArg) (res *async.LaunchResultBase, err error)
+	// MembersBulkSuspendJobStatusCheck : Poll a previously launched bulk
+	// suspend job.
+	MembersBulkSuspendJobStatusCheck(arg *async.PollArg) (res *BulkSuspendJobStatus, err error)
 	// MembersDeleteFormerMemberFiles : Permanently delete the files of a user
 	// who has been removed from the team. After permanent deletion, those files
 	// will not be available to be transferred to another team member.
@@ -434,23 +440,25 @@ type Client interface {
 // ContextClient interface describes all routes in this namespace with context support
 type ContextClient interface {
 	Client
-	// DevicesListMemberDevicesContext : List all device sessions of a team's member.
+	// DevicesListMemberDevicesContext : List all device sessions of a team's
+	// member.
 	DevicesListMemberDevicesContext(ctx context.Context, arg *ListMemberDevicesArg) (res *ListMemberDevicesResult, err error)
 	// DevicesListMembersDevicesContext : List all device sessions of a team.
 	// Permission : Team member file access.
 	DevicesListMembersDevicesContext(ctx context.Context, arg *ListMembersDevicesArg) (res *ListMembersDevicesResult, err error)
-	// DevicesListTeamDevicesContext : List all device sessions of a team. Permission :
-	// Team member file access.
+	// DevicesListTeamDevicesContext : List all device sessions of a team.
+	// Permission : Team member file access.
 	// Deprecated:
 	DevicesListTeamDevicesContext(ctx context.Context, arg *ListTeamDevicesArg) (res *ListTeamDevicesResult, err error)
-	// DevicesRevokeDeviceSessionContext : Revoke a device session of a team's member.
+	// DevicesRevokeDeviceSessionContext : Revoke a device session of a team's
+	// member.
 	DevicesRevokeDeviceSessionContext(ctx context.Context, arg *RevokeDeviceSessionArg) (err error)
-	// DevicesRevokeDeviceSessionBatchContext : Revoke a list of device sessions of
-	// team members.
+	// DevicesRevokeDeviceSessionBatchContext : Revoke a list of device sessions
+	// of team members.
 	DevicesRevokeDeviceSessionBatchContext(ctx context.Context, arg *RevokeDeviceSessionBatchArg) (res *RevokeDeviceSessionBatchResult, err error)
-	// FeaturesGetValuesContext : Get the values for one or more features. This route
-	// allows you to check your account's capability for what feature you can
-	// access or what value you have for certain features. Permission : Team
+	// FeaturesGetValuesContext : Get the values for one or more features. This
+	// route allows you to check your account's capability for what feature you
+	// can access or what value you have for certain features. Permission : Team
 	// information.
 	FeaturesGetValuesContext(ctx context.Context, arg *FeaturesGetValuesBatchArg) (res *FeaturesGetValuesBatchResult, err error)
 	// GetInfoContext : Retrieves information about a team.
@@ -458,13 +466,13 @@ type ContextClient interface {
 	// GroupsCreateContext : Creates a new, empty group, with a requested name.
 	// Permission : Team member management.
 	GroupsCreateContext(ctx context.Context, arg *GroupCreateArg) (res *GroupFullInfo, err error)
-	// GroupsDeleteContext : Deletes a group. The group is deleted immediately. However
-	// the revoking of group-owned resources may take additional time. Use the
-	// `groupsJobStatusGet` to determine whether this process has completed.
-	// Permission : Team member management.
+	// GroupsDeleteContext : Deletes a group. The group is deleted immediately.
+	// However the revoking of group-owned resources may take additional time.
+	// Use the `groupsJobStatusGet` to determine whether this process has
+	// completed. Permission : Team member management.
 	GroupsDeleteContext(ctx context.Context, arg *GroupSelector) (res *async.LaunchEmptyResult, err error)
-	// GroupsGetInfoContext : Retrieves information about one or more groups. Note that
-	// the optional field `GroupFullInfo.members` is not returned for
+	// GroupsGetInfoContext : Retrieves information about one or more groups.
+	// Note that the optional field `GroupFullInfo.members` is not returned for
 	// system-managed groups. Permission : Team Information.
 	GroupsGetInfoContext(ctx context.Context, arg *GroupsSelector) (res []*GroupsGetInfoItem, err error)
 	// GroupsJobStatusGetContext : Once an async_job_id is returned from
@@ -472,10 +480,12 @@ type ContextClient interface {
 	// method to poll the status of granting/revoking group members' access to
 	// group-owned resources. Permission : Team member management.
 	GroupsJobStatusGetContext(ctx context.Context, arg *async.PollArg) (res *async.PollEmptyResult, err error)
-	// GroupsListContext : Lists groups on a team. Permission : Team Information.
+	// GroupsListContext : Lists groups on a team. Permission : Team
+	// Information.
 	GroupsListContext(ctx context.Context, arg *GroupsListArg) (res *GroupsListResult, err error)
-	// GroupsListContinueContext : Once a cursor has been retrieved from `groupsList`,
-	// use this to paginate through all groups. Permission : Team Information.
+	// GroupsListContinueContext : Once a cursor has been retrieved from
+	// `groupsList`, use this to paginate through all groups. Permission : Team
+	// Information.
 	GroupsListContinueContext(ctx context.Context, arg *GroupsListContinueArg) (res *GroupsListResult, err error)
 	// GroupsMembersAddContext : Adds members to a group. The members are added
 	// immediately. However the granting of group-owned resources may take
@@ -489,115 +499,118 @@ type ContextClient interface {
 	// `groupsMembersList`, use this to paginate through all members of the
 	// group. Permission : Team information.
 	GroupsMembersListContinueContext(ctx context.Context, arg *GroupsMembersListContinueArg) (res *GroupsMembersListResult, err error)
-	// GroupsMembersRemoveContext : Removes members from a group. The members are
-	// removed immediately. However the revoking of group-owned resources may
-	// take additional time. Use the `groupsJobStatusGet` to determine whether
-	// this process has completed. This method permits removing the only owner
-	// of a group, even in cases where this is not possible via the web client.
-	// Permission : Team member management.
+	// GroupsMembersRemoveContext : Removes members from a group. The members
+	// are removed immediately. However the revoking of group-owned resources
+	// may take additional time. Use the `groupsJobStatusGet` to determine
+	// whether this process has completed. This method permits removing the only
+	// owner of a group, even in cases where this is not possible via the web
+	// client. Permission : Team member management.
 	GroupsMembersRemoveContext(ctx context.Context, arg *GroupMembersRemoveArg) (res *GroupMembersChangeResult, err error)
-	// GroupsMembersSetAccessTypeContext : Sets a member's access type in a group.
-	// Permission : Team member management.
+	// GroupsMembersSetAccessTypeContext : Sets a member's access type in a
+	// group. Permission : Team member management.
 	GroupsMembersSetAccessTypeContext(ctx context.Context, arg *GroupMembersSetAccessTypeArg) (res []*GroupsGetInfoItem, err error)
-	// GroupsUpdateContext : Updates a group's name and/or external ID. Permission :
-	// Team member management.
+	// GroupsUpdateContext : Updates a group's name and/or external ID.
+	// Permission : Team member management.
 	GroupsUpdateContext(ctx context.Context, arg *GroupUpdateArgs) (res *GroupFullInfo, err error)
-	// LegalHoldsCreatePolicyContext : Creates new legal hold policy. Note: Legal Holds
+	// LegalHoldsCreatePolicyContext : Creates new legal hold policy. Note:
+	// Legal Holds is a paid add-on. Not all teams have the feature. Permission
+	// : Team member file access.
+	LegalHoldsCreatePolicyContext(ctx context.Context, arg *LegalHoldsPolicyCreateArg) (res *LegalHoldPolicy, err error)
+	// LegalHoldsGetPolicyContext : Gets a legal hold by Id. Note: Legal Holds
 	// is a paid add-on. Not all teams have the feature. Permission : Team
 	// member file access.
-	LegalHoldsCreatePolicyContext(ctx context.Context, arg *LegalHoldsPolicyCreateArg) (res *LegalHoldPolicy, err error)
-	// LegalHoldsGetPolicyContext : Gets a legal hold by Id. Note: Legal Holds is a
-	// paid add-on. Not all teams have the feature. Permission : Team member
-	// file access.
 	LegalHoldsGetPolicyContext(ctx context.Context, arg *LegalHoldsGetPolicyArg) (res *LegalHoldPolicy, err error)
-	// LegalHoldsListHeldRevisionsContext : List the file metadata that's under the
-	// hold. Note: Legal Holds is a paid add-on. Not all teams have the feature.
-	// Permission : Team member file access.
+	// LegalHoldsListHeldRevisionsContext : List the file metadata that's under
+	// the hold. Note: Legal Holds is a paid add-on. Not all teams have the
+	// feature. Permission : Team member file access.
 	LegalHoldsListHeldRevisionsContext(ctx context.Context, arg *LegalHoldsListHeldRevisionsArg) (res *LegalHoldsListHeldRevisionResult, err error)
-	// LegalHoldsListHeldRevisionsContinueContext : Continue listing the file metadata
-	// that's under the hold. Note: Legal Holds is a paid add-on. Not all teams
-	// have the feature. Permission : Team member file access.
+	// LegalHoldsListHeldRevisionsContinueContext : Continue listing the file
+	// metadata that's under the hold. Note: Legal Holds is a paid add-on. Not
+	// all teams have the feature. Permission : Team member file access.
 	LegalHoldsListHeldRevisionsContinueContext(ctx context.Context, arg *LegalHoldsListHeldRevisionsContinueArg) (res *LegalHoldsListHeldRevisionResult, err error)
-	// LegalHoldsListPoliciesContext : Lists legal holds on a team. Note: Legal Holds
-	// is a paid add-on. Not all teams have the feature. Permission : Team
+	// LegalHoldsListPoliciesContext : Lists legal holds on a team. Note: Legal
+	// Holds is a paid add-on. Not all teams have the feature. Permission : Team
 	// member file access.
 	LegalHoldsListPoliciesContext(ctx context.Context, arg *LegalHoldsListPoliciesArg) (res *LegalHoldsListPoliciesResult, err error)
-	// LegalHoldsReleasePolicyContext : Releases a legal hold by Id. Note: Legal Holds
-	// is a paid add-on. Not all teams have the feature. Permission : Team
+	// LegalHoldsReleasePolicyContext : Releases a legal hold by Id. Note: Legal
+	// Holds is a paid add-on. Not all teams have the feature. Permission : Team
 	// member file access.
 	LegalHoldsReleasePolicyContext(ctx context.Context, arg *LegalHoldsPolicyReleaseArg) (err error)
-	// LegalHoldsUpdatePolicyContext : Updates a legal hold. Note: Legal Holds is a
-	// paid add-on. Not all teams have the feature. Permission : Team member
-	// file access.
+	// LegalHoldsUpdatePolicyContext : Updates a legal hold. Note: Legal Holds
+	// is a paid add-on. Not all teams have the feature. Permission : Team
+	// member file access.
 	LegalHoldsUpdatePolicyContext(ctx context.Context, arg *LegalHoldsPolicyUpdateArg) (res *LegalHoldPolicy, err error)
-	// LinkedAppsListMemberLinkedAppsContext : List all linked applications of the team
-	// member. Note, this endpoint does not list any team-linked applications.
-	LinkedAppsListMemberLinkedAppsContext(ctx context.Context, arg *ListMemberAppsArg) (res *ListMemberAppsResult, err error)
-	// LinkedAppsListMembersLinkedAppsContext : List all applications linked to the
-	// team members' accounts. Note, this endpoint does not list any team-linked
+	// LinkedAppsListMemberLinkedAppsContext : List all linked applications of
+	// the team member. Note, this endpoint does not list any team-linked
 	// applications.
+	LinkedAppsListMemberLinkedAppsContext(ctx context.Context, arg *ListMemberAppsArg) (res *ListMemberAppsResult, err error)
+	// LinkedAppsListMembersLinkedAppsContext : List all applications linked to
+	// the team members' accounts. Note, this endpoint does not list any
+	// team-linked applications.
 	LinkedAppsListMembersLinkedAppsContext(ctx context.Context, arg *ListMembersAppsArg) (res *ListMembersAppsResult, err error)
-	// LinkedAppsListTeamLinkedAppsContext : List all applications linked to the team
-	// members' accounts. Note, this endpoint doesn't list any team-linked
+	// LinkedAppsListTeamLinkedAppsContext : List all applications linked to the
+	// team members' accounts. Note, this endpoint doesn't list any team-linked
 	// applications.
 	// Deprecated:
 	LinkedAppsListTeamLinkedAppsContext(ctx context.Context, arg *ListTeamAppsArg) (res *ListTeamAppsResult, err error)
-	// LinkedAppsRevokeLinkedAppContext : Revoke a linked application of the team
-	// member.
+	// LinkedAppsRevokeLinkedAppContext : Revoke a linked application of the
+	// team member.
 	LinkedAppsRevokeLinkedAppContext(ctx context.Context, arg *RevokeLinkedApiAppArg) (err error)
-	// LinkedAppsRevokeLinkedAppBatchContext : Revoke a list of linked applications of
-	// the team members.
+	// LinkedAppsRevokeLinkedAppBatchContext : Revoke a list of linked
+	// applications of the team members.
 	LinkedAppsRevokeLinkedAppBatchContext(ctx context.Context, arg *RevokeLinkedApiAppBatchArg) (res *RevokeLinkedAppBatchResult, err error)
-	// MemberSpaceLimitsExcludedUsersAddContext : Add users to member space limits
-	// excluded users list.
-	MemberSpaceLimitsExcludedUsersAddContext(ctx context.Context, arg *ExcludedUsersUpdateArg) (res *ExcludedUsersUpdateResult, err error)
-	// MemberSpaceLimitsExcludedUsersListContext : List member space limits excluded
-	// users.
-	MemberSpaceLimitsExcludedUsersListContext(ctx context.Context, arg *ExcludedUsersListArg) (res *ExcludedUsersListResult, err error)
-	// MemberSpaceLimitsExcludedUsersListContinueContext : Continue listing member
-	// space limits excluded users.
-	MemberSpaceLimitsExcludedUsersListContinueContext(ctx context.Context, arg *ExcludedUsersListContinueArg) (res *ExcludedUsersListResult, err error)
-	// MemberSpaceLimitsExcludedUsersRemoveContext : Remove users from member space
+	// MemberSpaceLimitsExcludedUsersAddContext : Add users to member space
 	// limits excluded users list.
+	MemberSpaceLimitsExcludedUsersAddContext(ctx context.Context, arg *ExcludedUsersUpdateArg) (res *ExcludedUsersUpdateResult, err error)
+	// MemberSpaceLimitsExcludedUsersListContext : List member space limits
+	// excluded users.
+	MemberSpaceLimitsExcludedUsersListContext(ctx context.Context, arg *ExcludedUsersListArg) (res *ExcludedUsersListResult, err error)
+	// MemberSpaceLimitsExcludedUsersListContinueContext : Continue listing
+	// member space limits excluded users.
+	MemberSpaceLimitsExcludedUsersListContinueContext(ctx context.Context, arg *ExcludedUsersListContinueArg) (res *ExcludedUsersListResult, err error)
+	// MemberSpaceLimitsExcludedUsersRemoveContext : Remove users from member
+	// space limits excluded users list.
 	MemberSpaceLimitsExcludedUsersRemoveContext(ctx context.Context, arg *ExcludedUsersUpdateArg) (res *ExcludedUsersUpdateResult, err error)
-	// MemberSpaceLimitsGetCustomQuotaContext : Get users custom quota. A maximum of
-	// 1000 members can be specified in a single call. Note: to apply a custom
-	// space limit, a team admin needs to set a member space limit for the team
-	// first. (the team admin can check the settings here:
+	// MemberSpaceLimitsGetCustomQuotaContext : Get users custom quota. A
+	// maximum of 1000 members can be specified in a single call. Note: to apply
+	// a custom space limit, a team admin needs to set a member space limit for
+	// the team first. (the team admin can check the settings here:
 	// https://www.dropbox.com/team/admin/settings/space).
 	MemberSpaceLimitsGetCustomQuotaContext(ctx context.Context, arg *CustomQuotaUsersArg) (res []*CustomQuotaResult, err error)
-	// MemberSpaceLimitsRemoveCustomQuotaContext : Remove users custom quota. A maximum
-	// of 1000 members can be specified in a single call. Note: to apply a
-	// custom space limit, a team admin needs to set a member space limit for
+	// MemberSpaceLimitsRemoveCustomQuotaContext : Remove users custom quota. A
+	// maximum of 1000 members can be specified in a single call. Note: to apply
+	// a custom space limit, a team admin needs to set a member space limit for
 	// the team first. (the team admin can check the settings here:
 	// https://www.dropbox.com/team/admin/settings/space).
 	MemberSpaceLimitsRemoveCustomQuotaContext(ctx context.Context, arg *CustomQuotaUsersArg) (res []*RemoveCustomQuotaResult, err error)
-	// MemberSpaceLimitsSetCustomQuotaContext : Set users custom quota. Custom quota
-	// has to be at least 2GB. A maximum of 1000 members can be specified in a
-	// single call. Note: to apply a custom space limit, a team admin needs to
-	// set a member space limit for the team first. (the team admin can check
+	// MemberSpaceLimitsSetCustomQuotaContext : Set users custom quota. Custom
+	// quota has to be at least 2GB. A maximum of 1000 members can be specified
+	// in a single call. Note: to apply a custom space limit, a team admin needs
+	// to set a member space limit for the team first. (the team admin can check
 	// the settings here: https://www.dropbox.com/team/admin/settings/space).
 	MemberSpaceLimitsSetCustomQuotaContext(ctx context.Context, arg *SetCustomQuotaArg) (res []*CustomQuotaResult, err error)
-	// MembersAddContext : Adds members to a team. Permission : Team member management
-	// A maximum of 20 members can be specified in a single call. If no Dropbox
-	// account exists with the email address specified, a new Dropbox account
-	// will be created with the given email address, and that account will be
-	// invited to the team. If a personal Dropbox account exists with the email
-	// address specified in the call, this call will create a placeholder
-	// Dropbox account for the user on the team and send an email inviting the
-	// user to migrate their existing personal account onto the team. Team
-	// member management apps are required to set an initial given_name and
-	// surname for a user to use in the team invitation and for 'Perform as team
-	// member' actions taken on the user before they become 'active'.
+	// MembersAddContext : Adds members to a team. Permission : Team member
+	// management A maximum of 20 members can be specified in a single call. If
+	// no Dropbox account exists with the email address specified, a new Dropbox
+	// account will be created with the given email address, and that account
+	// will be invited to the team. If a personal Dropbox account exists with
+	// the email address specified in the call, this call will create a
+	// placeholder Dropbox account for the user on the team and send an email
+	// inviting the user to migrate their existing personal account onto the
+	// team. Team member management apps are required to set an initial
+	// given_name and surname for a user to use in the team invitation and for
+	// 'Perform as team member' actions taken on the user before they become
+	// 'active'.
 	MembersAddContext(ctx context.Context, arg *MembersAddArg) (res *MembersAddLaunch, err error)
-	// MembersAddV2Context : Adds members to a team. Permission : Team member management
-	// A maximum of 20 members can be specified in a single call. If no Dropbox
-	// account exists with the email address specified, a new Dropbox account
-	// will be created with the given email address, and that account will be
-	// invited to the team. If a personal Dropbox account exists with the email
-	// address specified in the call, this call will create a placeholder
-	// Dropbox account for the user on the team and send an email inviting the
-	// user to migrate their existing personal account onto the team.
+	// MembersAddV2Context : Adds members to a team. Permission : Team member
+	// management A maximum of 20 members can be specified in a single call. If
+	// no Dropbox account exists with the email address specified, a new Dropbox
+	// account will be created with the given email address, and that account
+	// will be invited to the team. If a personal Dropbox account exists with
+	// the email address specified in the call, this call will create a
+	// placeholder Dropbox account for the user on the team and send an email
+	// inviting the user to migrate their existing personal account onto the
+	// team.
 	MembersAddV2Context(ctx context.Context, arg *MembersAddV2Arg) (res *MembersAddLaunchV2Result, err error)
 	// MembersAddJobStatusGetContext : Once an async_job_id is returned from
 	// `membersAdd` , use this to poll the status of the asynchronous request.
@@ -607,20 +620,26 @@ type ContextClient interface {
 	// `membersAdd` , use this to poll the status of the asynchronous request.
 	// Permission : Team member management.
 	MembersAddJobStatusGetV2Context(ctx context.Context, arg *async.PollArg) (res *MembersAddJobStatusV2Result, err error)
-	// MembersDeleteFormerMemberFilesContext : Permanently delete the files of a user
-	// who has been removed from the team. After permanent deletion, those files
-	// will not be available to be transferred to another team member.
+	// MembersBulkSuspendContext : Launch a bulk suspend job. The server
+	// enforces a maximum of 500 members.
+	MembersBulkSuspendContext(ctx context.Context, arg *BulkSuspendArg) (res *async.LaunchResultBase, err error)
+	// MembersBulkSuspendJobStatusCheckContext : Poll a previously launched bulk
+	// suspend job.
+	MembersBulkSuspendJobStatusCheckContext(ctx context.Context, arg *async.PollArg) (res *BulkSuspendJobStatus, err error)
+	// MembersDeleteFormerMemberFilesContext : Permanently delete the files of a
+	// user who has been removed from the team. After permanent deletion, those
+	// files will not be available to be transferred to another team member.
 	// Permission : Team member management Exactly one of team_member_id, email,
 	// or external_id must be provided to identify the user account.
 	MembersDeleteFormerMemberFilesContext(ctx context.Context, arg *MembersFormerMemberArg) (err error)
 	// MembersDeleteProfilePhotoContext : Deletes a team member's profile photo.
 	// Permission : Team member management.
 	MembersDeleteProfilePhotoContext(ctx context.Context, arg *MembersDeleteProfilePhotoArg) (res *TeamMemberInfo, err error)
-	// MembersDeleteProfilePhotoV2Context : Deletes a team member's profile photo.
-	// Permission : Team member management.
+	// MembersDeleteProfilePhotoV2Context : Deletes a team member's profile
+	// photo. Permission : Team member management.
 	MembersDeleteProfilePhotoV2Context(ctx context.Context, arg *MembersDeleteProfilePhotoArg) (res *TeamMemberInfoV2Result, err error)
-	// MembersGetAvailableTeamMemberRolesContext : Get available TeamMemberRoles for
-	// the connected team. To be used with `membersSetAdminPermissions`.
+	// MembersGetAvailableTeamMemberRolesContext : Get available TeamMemberRoles
+	// for the connected team. To be used with `membersSetAdminPermissions`.
 	// Permission : Team member management.
 	MembersGetAvailableTeamMemberRolesContext(ctx context.Context) (res *MembersGetAvailableTeamMemberRolesResult, err error)
 	// MembersGetInfoContext : Returns information about multiple team members.
@@ -628,14 +647,16 @@ type ContextClient interface {
 	// `MembersGetInfoItem.id_not_found`, for IDs (or emails) that cannot be
 	// matched to a valid team member.
 	MembersGetInfoContext(ctx context.Context, arg *MembersGetInfoArgs) (res []*MembersGetInfoItem, err error)
-	// MembersGetInfoV2Context : Returns information about multiple team members.
-	// Permission : Team information This endpoint will return
+	// MembersGetInfoV2Context : Returns information about multiple team
+	// members. Permission : Team information This endpoint will return
 	// `MembersGetInfoItem.id_not_found`, for IDs (or emails) that cannot be
 	// matched to a valid team member.
 	MembersGetInfoV2Context(ctx context.Context, arg *MembersGetInfoV2Arg) (res *MembersGetInfoV2Result, err error)
-	// MembersListContext : Lists members of a team. Permission : Team information.
+	// MembersListContext : Lists members of a team. Permission : Team
+	// information.
 	MembersListContext(ctx context.Context, arg *MembersListArg) (res *MembersListResult, err error)
-	// MembersListV2Context : Lists members of a team. Permission : Team information.
+	// MembersListV2Context : Lists members of a team. Permission : Team
+	// information.
 	MembersListV2Context(ctx context.Context, arg *MembersListArg) (res *MembersListV2Result, err error)
 	// MembersListContinueContext : Once a cursor has been retrieved from
 	// `membersList`, use this to paginate through all team members. Permission
@@ -651,18 +672,18 @@ type ContextClient interface {
 	// `membersMoveFormerMemberFilesJobStatusCheck`. Permission : Team member
 	// management.
 	MembersMoveFormerMemberFilesContext(ctx context.Context, arg *MembersDataTransferArg) (res *async.LaunchEmptyResult, err error)
-	// MembersMoveFormerMemberFilesJobStatusCheckContext : Once an async_job_id is
-	// returned from `membersMoveFormerMemberFiles` , use this to poll the
+	// MembersMoveFormerMemberFilesJobStatusCheckContext : Once an async_job_id
+	// is returned from `membersMoveFormerMemberFiles` , use this to poll the
 	// status of the asynchronous request. Permission : Team member management.
 	MembersMoveFormerMemberFilesJobStatusCheckContext(ctx context.Context, arg *async.PollArg) (res *async.PollEmptyResult, err error)
-	// MembersRecoverContext : Recover a deleted member. Permission : Team member
-	// management Exactly one of team_member_id, email, or external_id must be
-	// provided to identify the user account.
+	// MembersRecoverContext : Recover a deleted member. Permission : Team
+	// member management Exactly one of team_member_id, email, or external_id
+	// must be provided to identify the user account.
 	MembersRecoverContext(ctx context.Context, arg *MembersRecoverArg) (err error)
-	// MembersRemoveContext : Removes a member from a team. Permission : Team member
-	// management Exactly one of team_member_id, email, or external_id must be
-	// provided to identify the user account. Accounts can be recovered via
-	// `membersRecover` for a 7 day period or until the account has been
+	// MembersRemoveContext : Removes a member from a team. Permission : Team
+	// member management Exactly one of team_member_id, email, or external_id
+	// must be provided to identify the user account. Accounts can be recovered
+	// via `membersRecover` for a 7 day period or until the account has been
 	// permanently deleted or transferred to another account (whichever comes
 	// first). Calling `membersAdd` while a user is still recoverable on your
 	// team will return with `MemberAddResult.user_already_on_team`. Accounts
@@ -678,35 +699,35 @@ type ContextClient interface {
 	// `membersRemove` , use this to poll the status of the asynchronous
 	// request. Permission : Team member management.
 	MembersRemoveJobStatusGetContext(ctx context.Context, arg *async.PollArg) (res *async.PollEmptyResult, err error)
-	// MembersSecondaryEmailsAddContext : Add secondary emails to users. Permission :
-	// Team member management. Emails that are on verified domains will be
-	// verified automatically. For each email address not on a verified domain a
-	// verification email will be sent.
+	// MembersSecondaryEmailsAddContext : Add secondary emails to users.
+	// Permission : Team member management. Emails that are on verified domains
+	// will be verified automatically. For each email address not on a verified
+	// domain a verification email will be sent.
 	MembersSecondaryEmailsAddContext(ctx context.Context, arg *AddSecondaryEmailsArg) (res *AddSecondaryEmailsResult, err error)
 	// MembersSecondaryEmailsDeleteContext : Delete secondary emails from users
 	// Permission : Team member management. Users will be notified of deletions
 	// of verified secondary emails at both the secondary email and their
 	// primary email.
 	MembersSecondaryEmailsDeleteContext(ctx context.Context, arg *DeleteSecondaryEmailsArg) (res *DeleteSecondaryEmailsResult, err error)
-	// MembersSecondaryEmailsResendVerificationEmailsContext : Resend secondary email
-	// verification emails. Permission : Team member management.
+	// MembersSecondaryEmailsResendVerificationEmailsContext : Resend secondary
+	// email verification emails. Permission : Team member management.
 	MembersSecondaryEmailsResendVerificationEmailsContext(ctx context.Context, arg *ResendVerificationEmailArg) (res *ResendVerificationEmailResult, err error)
-	// MembersSendWelcomeEmailContext : Sends welcome email to pending team member.
-	// Permission : Team member management Exactly one of team_member_id, email,
-	// or external_id must be provided to identify the user account. No-op if
-	// team member is not pending.
+	// MembersSendWelcomeEmailContext : Sends welcome email to pending team
+	// member. Permission : Team member management Exactly one of
+	// team_member_id, email, or external_id must be provided to identify the
+	// user account. No-op if team member is not pending.
 	MembersSendWelcomeEmailContext(ctx context.Context, arg *UserSelectorArg) (err error)
 	// MembersSetAdminPermissionsContext : Updates a team member's permissions.
 	// Permission : Team member management.
 	MembersSetAdminPermissionsContext(ctx context.Context, arg *MembersSetPermissionsArg) (res *MembersSetPermissionsResult, err error)
-	// MembersSetAdminPermissionsV2Context : Updates a team member's permissions.
-	// Permission : Team member management.
+	// MembersSetAdminPermissionsV2Context : Updates a team member's
+	// permissions. Permission : Team member management.
 	MembersSetAdminPermissionsV2Context(ctx context.Context, arg *MembersSetPermissions2Arg) (res *MembersSetPermissions2Result, err error)
-	// MembersSetProfileContext : Updates a team member's profile. Permission : Team
-	// member management.
+	// MembersSetProfileContext : Updates a team member's profile. Permission :
+	// Team member management.
 	MembersSetProfileContext(ctx context.Context, arg *MembersSetProfileArg) (res *TeamMemberInfo, err error)
-	// MembersSetProfileV2Context : Updates a team member's profile. Permission : Team
-	// member management.
+	// MembersSetProfileV2Context : Updates a team member's profile. Permission
+	// : Team member management.
 	MembersSetProfileV2Context(ctx context.Context, arg *MembersSetProfileArg) (res *TeamMemberInfoV2Result, err error)
 	// MembersSetProfilePhotoContext : Updates a team member's profile photo.
 	// Permission : Team member management.
@@ -714,20 +735,20 @@ type ContextClient interface {
 	// MembersSetProfilePhotoV2Context : Updates a team member's profile photo.
 	// Permission : Team member management.
 	MembersSetProfilePhotoV2Context(ctx context.Context, arg *MembersSetProfilePhotoArg) (res *TeamMemberInfoV2Result, err error)
-	// MembersSuspendContext : Suspend a member from a team. Permission : Team member
-	// management Exactly one of team_member_id, email, or external_id must be
-	// provided to identify the user account.
-	MembersSuspendContext(ctx context.Context, arg *MembersDeactivateArg) (err error)
-	// MembersUnsuspendContext : Unsuspend a member from a team. Permission : Team
+	// MembersSuspendContext : Suspend a member from a team. Permission : Team
 	// member management Exactly one of team_member_id, email, or external_id
 	// must be provided to identify the user account.
+	MembersSuspendContext(ctx context.Context, arg *MembersDeactivateArg) (err error)
+	// MembersUnsuspendContext : Unsuspend a member from a team. Permission :
+	// Team member management Exactly one of team_member_id, email, or
+	// external_id must be provided to identify the user account.
 	MembersUnsuspendContext(ctx context.Context, arg *MembersUnsuspendArg) (err error)
-	// NamespacesListContext : Returns a list of all team-accessible namespaces. This
-	// list includes team folders, shared folders containing team members, team
-	// members' home namespaces, and team members' app folders. Home namespaces
-	// and app folders are always owned by this team or members of the team, but
-	// shared folders may be owned by other users or other teams. Duplicates may
-	// occur in the list.
+	// NamespacesListContext : Returns a list of all team-accessible namespaces.
+	// This list includes team folders, shared folders containing team members,
+	// team members' home namespaces, and team members' app folders. Home
+	// namespaces and app folders are always owned by this team or members of
+	// the team, but shared folders may be owned by other users or other teams.
+	// Duplicates may occur in the list.
 	NamespacesListContext(ctx context.Context, arg *TeamNamespacesListArg) (res *TeamNamespacesListResult, err error)
 	// NamespacesListContinueContext : Once a cursor has been retrieved from
 	// `namespacesList`, use this to paginate through all team-accessible
@@ -736,8 +757,8 @@ type ContextClient interface {
 	// PropertiesTemplateAddContext : Permission : Team member file access.
 	// Deprecated:
 	PropertiesTemplateAddContext(ctx context.Context, arg *file_properties.AddTemplateArg) (res *file_properties.AddTemplateResult, err error)
-	// PropertiesTemplateGetContext : Permission : Team member file access. The scope
-	// for the route is files.team_metadata.write.
+	// PropertiesTemplateGetContext : Permission : Team member file access. The
+	// scope for the route is files.team_metadata.write.
 	// Deprecated:
 	PropertiesTemplateGetContext(ctx context.Context, arg *file_properties.GetTemplateArg) (res *file_properties.GetTemplateResult, err error)
 	// ReportsGetActivityContext : Retrieves reporting data about a team's user
@@ -752,60 +773,60 @@ type ContextClient interface {
 	// membership. Deprecated: Will be removed on July 1st 2021.
 	// Deprecated:
 	ReportsGetMembershipContext(ctx context.Context, arg *DateRange) (res *GetMembershipReport, err error)
-	// ReportsGetStorageContext : Retrieves reporting data about a team's storage
-	// usage. Deprecated: Will be removed on July 1st 2021.
+	// ReportsGetStorageContext : Retrieves reporting data about a team's
+	// storage usage. Deprecated: Will be removed on July 1st 2021.
 	// Deprecated:
 	ReportsGetStorageContext(ctx context.Context, arg *DateRange) (res *GetStorageReport, err error)
-	// SharingAllowlistAddContext : Endpoint adds Approve List entries. Changes are
-	// effective immediately. Changes are committed in transaction. In case of
-	// single validation error - all entries are rejected. Valid domains
+	// SharingAllowlistAddContext : Endpoint adds Approve List entries. Changes
+	// are effective immediately. Changes are committed in transaction. In case
+	// of single validation error - all entries are rejected. Valid domains
 	// (RFC-1034/5) and emails (RFC-5322/822) are accepted. Added entries cannot
 	// overflow limit of 10000 entries per team. Maximum 100 entries per call is
 	// allowed.
 	SharingAllowlistAddContext(ctx context.Context, arg *SharingAllowlistAddArgs) (res *SharingAllowlistAddResponse, err error)
-	// SharingAllowlistListContext : Lists Approve List entries for given team, from
-	// newest to oldest, returning up to `limit` entries at a time. If there are
-	// more than `limit` entries associated with the current team, more can be
-	// fetched by passing the returned `cursor` to
+	// SharingAllowlistListContext : Lists Approve List entries for given team,
+	// from newest to oldest, returning up to `limit` entries at a time. If
+	// there are more than `limit` entries associated with the current team,
+	// more can be fetched by passing the returned `cursor` to
 	// `sharingAllowlistListContinue`.
 	SharingAllowlistListContext(ctx context.Context, arg *SharingAllowlistListArg) (res *SharingAllowlistListResponse, err error)
-	// SharingAllowlistListContinueContext : Lists entries associated with given team,
-	// starting from a the cursor. See `sharingAllowlistList`.
+	// SharingAllowlistListContinueContext : Lists entries associated with given
+	// team, starting from a the cursor. See `sharingAllowlistList`.
 	SharingAllowlistListContinueContext(ctx context.Context, arg *SharingAllowlistListContinueArg) (res *SharingAllowlistListResponse, err error)
-	// SharingAllowlistRemoveContext : Endpoint removes Approve List entries. Changes
-	// are effective immediately. Changes are committed in transaction. In case
-	// of single validation error - all entries are rejected. Valid domains
-	// (RFC-1034/5) and emails (RFC-5322/822) are accepted. Entries being
-	// removed have to be present on the list. Maximum 1000 entries per call is
-	// allowed.
+	// SharingAllowlistRemoveContext : Endpoint removes Approve List entries.
+	// Changes are effective immediately. Changes are committed in transaction.
+	// In case of single validation error - all entries are rejected. Valid
+	// domains (RFC-1034/5) and emails (RFC-5322/822) are accepted. Entries
+	// being removed have to be present on the list. Maximum 1000 entries per
+	// call is allowed.
 	SharingAllowlistRemoveContext(ctx context.Context, arg *SharingAllowlistRemoveArgs) (res *SharingAllowlistRemoveResponse, err error)
-	// TeamFolderActivateContext : Sets an archived team folder's status to active.
-	// Permission : Team member file access.
+	// TeamFolderActivateContext : Sets an archived team folder's status to
+	// active. Permission : Team member file access.
 	TeamFolderActivateContext(ctx context.Context, arg *TeamFolderIdArg) (res *TeamFolderMetadata, err error)
-	// TeamFolderArchiveContext : Sets an active team folder's status to archived and
-	// removes all folder and file members. This endpoint cannot be used for
-	// teams that have a shared team space. This route will either finish
-	// synchronously, or return a job ID and do the async archive job in
+	// TeamFolderArchiveContext : Sets an active team folder's status to
+	// archived and removes all folder and file members. This endpoint cannot be
+	// used for teams that have a shared team space. This route will either
+	// finish synchronously, or return a job ID and do the async archive job in
 	// background. Please use team_folder/archive/check to check the job status.
 	// Permission : Team member file access.
 	TeamFolderArchiveContext(ctx context.Context, arg *TeamFolderArchiveArg) (res *TeamFolderArchiveLaunch, err error)
-	// TeamFolderArchiveCheckContext : Returns the status of an asynchronous job for
-	// archiving a team folder. The job may show '.tag' as complete, but the
+	// TeamFolderArchiveCheckContext : Returns the status of an asynchronous job
+	// for archiving a team folder. The job may show '.tag' as complete, but the
 	// team folder could still be in the process of archiving (indicated by
 	// `TeamFolderMetadata.status` with 'archive_in_progress'). To confirm that
 	// the team folder is fully archived, check the field
 	// `TeamFolderMetadata.status` in the response for the value 'archived'.
 	// Permission : Team member file access.
 	TeamFolderArchiveCheckContext(ctx context.Context, arg *async.PollArg) (res *TeamFolderArchiveJobStatus, err error)
-	// TeamFolderCreateContext : Creates a new, active, team folder with no members.
-	// This endpoint can only be used for teams that do not already have a
-	// shared team space. Permission : Team member file access.
+	// TeamFolderCreateContext : Creates a new, active, team folder with no
+	// members. This endpoint can only be used for teams that do not already
+	// have a shared team space. Permission : Team member file access.
 	TeamFolderCreateContext(ctx context.Context, arg *TeamFolderCreateArg) (res *TeamFolderMetadata, err error)
-	// TeamFolderGetInfoContext : Retrieves metadata for team folders. Permission :
-	// Team member file access.
+	// TeamFolderGetInfoContext : Retrieves metadata for team folders.
+	// Permission : Team member file access.
 	TeamFolderGetInfoContext(ctx context.Context, arg *TeamFolderIdListArg) (res []*TeamFolderGetInfoItem, err error)
-	// TeamFolderListContext : Lists all team folders. Permission : Team member file
-	// access.
+	// TeamFolderListContext : Lists all team folders. Permission : Team member
+	// file access.
 	TeamFolderListContext(ctx context.Context, arg *TeamFolderListArg) (res *TeamFolderListResult, err error)
 	// TeamFolderListContinueContext : Once a cursor has been retrieved from
 	// `teamFolderList`, use this to paginate through all team folders.
@@ -815,18 +836,18 @@ type ContextClient interface {
 	// folder. This endpoint cannot be used for teams that have a shared team
 	// space. Permission : Team member file access.
 	TeamFolderPermanentlyDeleteContext(ctx context.Context, arg *TeamFolderIdArg) (err error)
-	// TeamFolderRenameContext : Changes an active team folder's name. Permission :
-	// Team member file access.
+	// TeamFolderRenameContext : Changes an active team folder's name.
+	// Permission : Team member file access.
 	TeamFolderRenameContext(ctx context.Context, arg *TeamFolderRenameArg) (res *TeamFolderMetadata, err error)
-	// TeamFolderRestoreContext : Sets an inactive team folder's status to active.
-	// Permission: Team member file access.
+	// TeamFolderRestoreContext : Sets an inactive team folder's status to
+	// active. Permission: Team member file access.
 	TeamFolderRestoreContext(ctx context.Context, arg *TeamFolderIdArg) (res *TeamFolderMetadata, err error)
-	// TeamFolderUpdateSyncSettingsContext : Updates the sync settings on a team folder
-	// or its contents.  Use of this endpoint requires that the team has team
-	// selective sync enabled.
+	// TeamFolderUpdateSyncSettingsContext : Updates the sync settings on a team
+	// folder or its contents.  Use of this endpoint requires that the team has
+	// team selective sync enabled.
 	TeamFolderUpdateSyncSettingsContext(ctx context.Context, arg *TeamFolderUpdateSyncSettingsArg) (res *TeamFolderMetadata, err error)
-	// TokenGetAuthenticatedAdminContext : Returns the member profile of the admin who
-	// generated the team access token used to make the call.
+	// TokenGetAuthenticatedAdminContext : Returns the member profile of the
+	// admin who generated the team access token used to make the call.
 	TokenGetAuthenticatedAdminContext(ctx context.Context) (res *TokenGetAuthenticatedAdminResult, err error)
 }
 
@@ -838,7 +859,8 @@ type DevicesListMemberDevicesAPIError struct {
 	EndpointError *ListMemberDevicesError `json:"error"`
 }
 
-// DevicesListMemberDevicesContext : List all device sessions of a team's member.
+// DevicesListMemberDevicesContext : List all device sessions of a team's
+// member.
 func (dbx *apiImpl) DevicesListMemberDevicesContext(ctx context.Context, arg *ListMemberDevicesArg) (res *ListMemberDevicesResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -925,8 +947,8 @@ type DevicesListTeamDevicesAPIError struct {
 	EndpointError *ListTeamDevicesError `json:"error"`
 }
 
-// DevicesListTeamDevicesContext : List all device sessions of a team. Permission :
-// Team member file access.
+// DevicesListTeamDevicesContext : List all device sessions of a team.
+// Permission : Team member file access.
 // Deprecated:
 func (dbx *apiImpl) DevicesListTeamDevicesContext(ctx context.Context, arg *ListTeamDevicesArg) (res *ListTeamDevicesResult, err error) {
 	log.Printf("WARNING: API `DevicesListTeamDevices` is deprecated")
@@ -972,7 +994,8 @@ type DevicesRevokeDeviceSessionAPIError struct {
 	EndpointError *RevokeDeviceSessionError `json:"error"`
 }
 
-// DevicesRevokeDeviceSessionContext : Revoke a device session of a team's member.
+// DevicesRevokeDeviceSessionContext : Revoke a device session of a team's
+// member.
 func (dbx *apiImpl) DevicesRevokeDeviceSessionContext(ctx context.Context, arg *RevokeDeviceSessionArg) (err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1055,8 +1078,8 @@ type FeaturesGetValuesAPIError struct {
 	EndpointError *FeaturesGetValuesBatchError `json:"error"`
 }
 
-// FeaturesGetValuesContext : Get the values for one or more features. This route
-// allows you to check your account's capability for what feature you can
+// FeaturesGetValuesContext : Get the values for one or more features. This
+// route allows you to check your account's capability for what feature you can
 // access or what value you have for certain features. Permission : Team
 // information.
 func (dbx *apiImpl) FeaturesGetValuesContext(ctx context.Context, arg *FeaturesGetValuesBatchArg) (res *FeaturesGetValuesBatchResult, err error) {
@@ -1188,9 +1211,9 @@ type GroupsDeleteAPIError struct {
 	EndpointError *GroupDeleteError `json:"error"`
 }
 
-// GroupsDeleteContext : Deletes a group. The group is deleted immediately. However
-// the revoking of group-owned resources may take additional time. Use the
-// `groupsJobStatusGet` to determine whether this process has completed.
+// GroupsDeleteContext : Deletes a group. The group is deleted immediately.
+// However the revoking of group-owned resources may take additional time. Use
+// the `groupsJobStatusGet` to determine whether this process has completed.
 // Permission : Team member management.
 func (dbx *apiImpl) GroupsDeleteContext(ctx context.Context, arg *GroupSelector) (res *async.LaunchEmptyResult, err error) {
 	req := dropbox.Request{
@@ -1234,8 +1257,8 @@ type GroupsGetInfoAPIError struct {
 	EndpointError *GroupsGetInfoError `json:"error"`
 }
 
-// GroupsGetInfoContext : Retrieves information about one or more groups. Note that
-// the optional field `GroupFullInfo.members` is not returned for
+// GroupsGetInfoContext : Retrieves information about one or more groups. Note
+// that the optional field `GroupFullInfo.members` is not returned for
 // system-managed groups. Permission : Team Information.
 func (dbx *apiImpl) GroupsGetInfoContext(ctx context.Context, arg *GroupsSelector) (res []*GroupsGetInfoItem, err error) {
 	req := dropbox.Request{
@@ -1280,9 +1303,9 @@ type GroupsJobStatusGetAPIError struct {
 }
 
 // GroupsJobStatusGetContext : Once an async_job_id is returned from
-// `groupsDelete`, `groupsMembersAdd` , or `groupsMembersRemove` use this
-// method to poll the status of granting/revoking group members' access to
-// group-owned resources. Permission : Team member management.
+// `groupsDelete`, `groupsMembersAdd` , or `groupsMembersRemove` use this method
+// to poll the status of granting/revoking group members' access to group-owned
+// resources. Permission : Team member management.
 func (dbx *apiImpl) GroupsJobStatusGetContext(ctx context.Context, arg *async.PollArg) (res *async.PollEmptyResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1368,8 +1391,9 @@ type GroupsListContinueAPIError struct {
 	EndpointError *GroupsListContinueError `json:"error"`
 }
 
-// GroupsListContinueContext : Once a cursor has been retrieved from `groupsList`,
-// use this to paginate through all groups. Permission : Team Information.
+// GroupsListContinueContext : Once a cursor has been retrieved from
+// `groupsList`, use this to paginate through all groups. Permission : Team
+// Information.
 func (dbx *apiImpl) GroupsListContinueContext(ctx context.Context, arg *GroupsListContinueArg) (res *GroupsListResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1503,8 +1527,8 @@ type GroupsMembersListContinueAPIError struct {
 }
 
 // GroupsMembersListContinueContext : Once a cursor has been retrieved from
-// `groupsMembersList`, use this to paginate through all members of the
-// group. Permission : Team information.
+// `groupsMembersList`, use this to paginate through all members of the group.
+// Permission : Team information.
 func (dbx *apiImpl) GroupsMembersListContinueContext(ctx context.Context, arg *GroupsMembersListContinueArg) (res *GroupsMembersListResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1548,10 +1572,10 @@ type GroupsMembersRemoveAPIError struct {
 }
 
 // GroupsMembersRemoveContext : Removes members from a group. The members are
-// removed immediately. However the revoking of group-owned resources may
-// take additional time. Use the `groupsJobStatusGet` to determine whether
-// this process has completed. This method permits removing the only owner
-// of a group, even in cases where this is not possible via the web client.
+// removed immediately. However the revoking of group-owned resources may take
+// additional time. Use the `groupsJobStatusGet` to determine whether this
+// process has completed. This method permits removing the only owner of a
+// group, even in cases where this is not possible via the web client.
 // Permission : Team member management.
 func (dbx *apiImpl) GroupsMembersRemoveContext(ctx context.Context, arg *GroupMembersRemoveArg) (res *GroupMembersChangeResult, err error) {
 	req := dropbox.Request{
@@ -1683,8 +1707,8 @@ type LegalHoldsCreatePolicyAPIError struct {
 	EndpointError *LegalHoldsPolicyCreateError `json:"error"`
 }
 
-// LegalHoldsCreatePolicyContext : Creates new legal hold policy. Note: Legal Holds
-// is a paid add-on. Not all teams have the feature. Permission : Team
+// LegalHoldsCreatePolicyContext : Creates new legal hold policy. Note: Legal
+// Holds is a paid add-on. Not all teams have the feature. Permission : Team
 // member file access.
 func (dbx *apiImpl) LegalHoldsCreatePolicyContext(ctx context.Context, arg *LegalHoldsPolicyCreateArg) (res *LegalHoldPolicy, err error) {
 	req := dropbox.Request{
@@ -1729,8 +1753,8 @@ type LegalHoldsGetPolicyAPIError struct {
 }
 
 // LegalHoldsGetPolicyContext : Gets a legal hold by Id. Note: Legal Holds is a
-// paid add-on. Not all teams have the feature. Permission : Team member
-// file access.
+// paid add-on. Not all teams have the feature. Permission : Team member file
+// access.
 func (dbx *apiImpl) LegalHoldsGetPolicyContext(ctx context.Context, arg *LegalHoldsGetPolicyArg) (res *LegalHoldPolicy, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1818,9 +1842,9 @@ type LegalHoldsListHeldRevisionsContinueAPIError struct {
 	EndpointError *LegalHoldsListHeldRevisionsError `json:"error"`
 }
 
-// LegalHoldsListHeldRevisionsContinueContext : Continue listing the file metadata
-// that's under the hold. Note: Legal Holds is a paid add-on. Not all teams
-// have the feature. Permission : Team member file access.
+// LegalHoldsListHeldRevisionsContinueContext : Continue listing the file
+// metadata that's under the hold. Note: Legal Holds is a paid add-on. Not all
+// teams have the feature. Permission : Team member file access.
 func (dbx *apiImpl) LegalHoldsListHeldRevisionsContinueContext(ctx context.Context, arg *LegalHoldsListHeldRevisionsContinueArg) (res *LegalHoldsListHeldRevisionResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1863,8 +1887,8 @@ type LegalHoldsListPoliciesAPIError struct {
 	EndpointError *LegalHoldsListPoliciesError `json:"error"`
 }
 
-// LegalHoldsListPoliciesContext : Lists legal holds on a team. Note: Legal Holds
-// is a paid add-on. Not all teams have the feature. Permission : Team
+// LegalHoldsListPoliciesContext : Lists legal holds on a team. Note: Legal
+// Holds is a paid add-on. Not all teams have the feature. Permission : Team
 // member file access.
 func (dbx *apiImpl) LegalHoldsListPoliciesContext(ctx context.Context, arg *LegalHoldsListPoliciesArg) (res *LegalHoldsListPoliciesResult, err error) {
 	req := dropbox.Request{
@@ -1908,8 +1932,8 @@ type LegalHoldsReleasePolicyAPIError struct {
 	EndpointError *LegalHoldsPolicyReleaseError `json:"error"`
 }
 
-// LegalHoldsReleasePolicyContext : Releases a legal hold by Id. Note: Legal Holds
-// is a paid add-on. Not all teams have the feature. Permission : Team
+// LegalHoldsReleasePolicyContext : Releases a legal hold by Id. Note: Legal
+// Holds is a paid add-on. Not all teams have the feature. Permission : Team
 // member file access.
 func (dbx *apiImpl) LegalHoldsReleasePolicyContext(ctx context.Context, arg *LegalHoldsPolicyReleaseArg) (err error) {
 	req := dropbox.Request{
@@ -1950,8 +1974,8 @@ type LegalHoldsUpdatePolicyAPIError struct {
 }
 
 // LegalHoldsUpdatePolicyContext : Updates a legal hold. Note: Legal Holds is a
-// paid add-on. Not all teams have the feature. Permission : Team member
-// file access.
+// paid add-on. Not all teams have the feature. Permission : Team member file
+// access.
 func (dbx *apiImpl) LegalHoldsUpdatePolicyContext(ctx context.Context, arg *LegalHoldsPolicyUpdateArg) (res *LegalHoldPolicy, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1994,8 +2018,8 @@ type LinkedAppsListMemberLinkedAppsAPIError struct {
 	EndpointError *ListMemberAppsError `json:"error"`
 }
 
-// LinkedAppsListMemberLinkedAppsContext : List all linked applications of the team
-// member. Note, this endpoint does not list any team-linked applications.
+// LinkedAppsListMemberLinkedAppsContext : List all linked applications of the
+// team member. Note, this endpoint does not list any team-linked applications.
 func (dbx *apiImpl) LinkedAppsListMemberLinkedAppsContext(ctx context.Context, arg *ListMemberAppsArg) (res *ListMemberAppsResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2083,8 +2107,8 @@ type LinkedAppsListTeamLinkedAppsAPIError struct {
 	EndpointError *ListTeamAppsError `json:"error"`
 }
 
-// LinkedAppsListTeamLinkedAppsContext : List all applications linked to the team
-// members' accounts. Note, this endpoint doesn't list any team-linked
+// LinkedAppsListTeamLinkedAppsContext : List all applications linked to the
+// team members' accounts. Note, this endpoint doesn't list any team-linked
 // applications.
 // Deprecated:
 func (dbx *apiImpl) LinkedAppsListTeamLinkedAppsContext(ctx context.Context, arg *ListTeamAppsArg) (res *ListTeamAppsResult, err error) {
@@ -2171,8 +2195,8 @@ type LinkedAppsRevokeLinkedAppBatchAPIError struct {
 	EndpointError *RevokeLinkedAppBatchError `json:"error"`
 }
 
-// LinkedAppsRevokeLinkedAppBatchContext : Revoke a list of linked applications of
-// the team members.
+// LinkedAppsRevokeLinkedAppBatchContext : Revoke a list of linked applications
+// of the team members.
 func (dbx *apiImpl) LinkedAppsRevokeLinkedAppBatchContext(ctx context.Context, arg *RevokeLinkedApiAppBatchArg) (res *RevokeLinkedAppBatchResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2392,9 +2416,9 @@ type MemberSpaceLimitsGetCustomQuotaAPIError struct {
 }
 
 // MemberSpaceLimitsGetCustomQuotaContext : Get users custom quota. A maximum of
-// 1000 members can be specified in a single call. Note: to apply a custom
-// space limit, a team admin needs to set a member space limit for the team
-// first. (the team admin can check the settings here:
+// 1000 members can be specified in a single call. Note: to apply a custom space
+// limit, a team admin needs to set a member space limit for the team first.
+// (the team admin can check the settings here:
 // https://www.dropbox.com/team/admin/settings/space).
 func (dbx *apiImpl) MemberSpaceLimitsGetCustomQuotaContext(ctx context.Context, arg *CustomQuotaUsersArg) (res []*CustomQuotaResult, err error) {
 	req := dropbox.Request{
@@ -2438,10 +2462,10 @@ type MemberSpaceLimitsRemoveCustomQuotaAPIError struct {
 	EndpointError *CustomQuotaError `json:"error"`
 }
 
-// MemberSpaceLimitsRemoveCustomQuotaContext : Remove users custom quota. A maximum
-// of 1000 members can be specified in a single call. Note: to apply a
-// custom space limit, a team admin needs to set a member space limit for
-// the team first. (the team admin can check the settings here:
+// MemberSpaceLimitsRemoveCustomQuotaContext : Remove users custom quota. A
+// maximum of 1000 members can be specified in a single call. Note: to apply a
+// custom space limit, a team admin needs to set a member space limit for the
+// team first. (the team admin can check the settings here:
 // https://www.dropbox.com/team/admin/settings/space).
 func (dbx *apiImpl) MemberSpaceLimitsRemoveCustomQuotaContext(ctx context.Context, arg *CustomQuotaUsersArg) (res []*RemoveCustomQuotaResult, err error) {
 	req := dropbox.Request{
@@ -2487,9 +2511,9 @@ type MemberSpaceLimitsSetCustomQuotaAPIError struct {
 
 // MemberSpaceLimitsSetCustomQuotaContext : Set users custom quota. Custom quota
 // has to be at least 2GB. A maximum of 1000 members can be specified in a
-// single call. Note: to apply a custom space limit, a team admin needs to
-// set a member space limit for the team first. (the team admin can check
-// the settings here: https://www.dropbox.com/team/admin/settings/space).
+// single call. Note: to apply a custom space limit, a team admin needs to set a
+// member space limit for the team first. (the team admin can check the settings
+// here: https://www.dropbox.com/team/admin/settings/space).
 func (dbx *apiImpl) MemberSpaceLimitsSetCustomQuotaContext(ctx context.Context, arg *SetCustomQuotaArg) (res []*CustomQuotaResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2532,17 +2556,17 @@ type MembersAddAPIError struct {
 	EndpointError struct{} `json:"error"`
 }
 
-// MembersAddContext : Adds members to a team. Permission : Team member management
-// A maximum of 20 members can be specified in a single call. If no Dropbox
-// account exists with the email address specified, a new Dropbox account
-// will be created with the given email address, and that account will be
-// invited to the team. If a personal Dropbox account exists with the email
-// address specified in the call, this call will create a placeholder
-// Dropbox account for the user on the team and send an email inviting the
-// user to migrate their existing personal account onto the team. Team
-// member management apps are required to set an initial given_name and
-// surname for a user to use in the team invitation and for 'Perform as team
-// member' actions taken on the user before they become 'active'.
+// MembersAddContext : Adds members to a team. Permission : Team member
+// management A maximum of 20 members can be specified in a single call. If no
+// Dropbox account exists with the email address specified, a new Dropbox
+// account will be created with the given email address, and that account will
+// be invited to the team. If a personal Dropbox account exists with the email
+// address specified in the call, this call will create a placeholder Dropbox
+// account for the user on the team and send an email inviting the user to
+// migrate their existing personal account onto the team. Team member management
+// apps are required to set an initial given_name and surname for a user to use
+// in the team invitation and for 'Perform as team member' actions taken on the
+// user before they become 'active'.
 func (dbx *apiImpl) MembersAddContext(ctx context.Context, arg *MembersAddArg) (res *MembersAddLaunch, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2585,14 +2609,14 @@ type MembersAddV2APIError struct {
 	EndpointError struct{} `json:"error"`
 }
 
-// MembersAddV2Context : Adds members to a team. Permission : Team member management
-// A maximum of 20 members can be specified in a single call. If no Dropbox
-// account exists with the email address specified, a new Dropbox account
-// will be created with the given email address, and that account will be
-// invited to the team. If a personal Dropbox account exists with the email
-// address specified in the call, this call will create a placeholder
-// Dropbox account for the user on the team and send an email inviting the
-// user to migrate their existing personal account onto the team.
+// MembersAddV2Context : Adds members to a team. Permission : Team member
+// management A maximum of 20 members can be specified in a single call. If no
+// Dropbox account exists with the email address specified, a new Dropbox
+// account will be created with the given email address, and that account will
+// be invited to the team. If a personal Dropbox account exists with the email
+// address specified in the call, this call will create a placeholder Dropbox
+// account for the user on the team and send an email inviting the user to
+// migrate their existing personal account onto the team.
 func (dbx *apiImpl) MembersAddV2Context(ctx context.Context, arg *MembersAddV2Arg) (res *MembersAddLaunchV2Result, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2719,17 +2743,105 @@ func (dbx *apiImpl) MembersAddJobStatusGetV2(arg *async.PollArg) (res *MembersAd
 	return dbx.MembersAddJobStatusGetV2Context(context.Background(), arg)
 }
 
+// MembersBulkSuspendAPIError is an error-wrapper for the members/bulk_suspend route
+type MembersBulkSuspendAPIError struct {
+	dropbox.APIError
+	EndpointError *BulkSuspendError `json:"error"`
+}
+
+// MembersBulkSuspendContext : Launch a bulk suspend job. The server enforces a
+// maximum of 500 members.
+func (dbx *apiImpl) MembersBulkSuspendContext(ctx context.Context, arg *BulkSuspendArg) (res *async.LaunchResultBase, err error) {
+	req := dropbox.Request{
+		Host:         "api",
+		Namespace:    "team",
+		Route:        "members/bulk_suspend",
+		Auth:         "team",
+		Style:        "rpc",
+		Arg:          arg,
+		ExtraHeaders: nil,
+	}
+
+	var resp []byte
+	var respBody io.ReadCloser
+	resp, respBody, err = (*dropbox.Context)(dbx).ExecuteContext(ctx, req, nil)
+	if err != nil {
+		var appErr MembersBulkSuspendAPIError
+		err = auth.ParseError(err, &appErr)
+		if errors.Is(err, &appErr) {
+			err = appErr
+		}
+		return
+	}
+
+	err = json.Unmarshal(resp, &res)
+	if err != nil {
+		return
+	}
+
+	_ = respBody
+	return
+}
+
+func (dbx *apiImpl) MembersBulkSuspend(arg *BulkSuspendArg) (res *async.LaunchResultBase, err error) {
+	return dbx.MembersBulkSuspendContext(context.Background(), arg)
+}
+
+// MembersBulkSuspendJobStatusCheckAPIError is an error-wrapper for the members/bulk_suspend/job_status/check route
+type MembersBulkSuspendJobStatusCheckAPIError struct {
+	dropbox.APIError
+	EndpointError *async.PollError `json:"error"`
+}
+
+// MembersBulkSuspendJobStatusCheckContext : Poll a previously launched bulk
+// suspend job.
+func (dbx *apiImpl) MembersBulkSuspendJobStatusCheckContext(ctx context.Context, arg *async.PollArg) (res *BulkSuspendJobStatus, err error) {
+	req := dropbox.Request{
+		Host:         "api",
+		Namespace:    "team",
+		Route:        "members/bulk_suspend/job_status/check",
+		Auth:         "team",
+		Style:        "rpc",
+		Arg:          arg,
+		ExtraHeaders: nil,
+	}
+
+	var resp []byte
+	var respBody io.ReadCloser
+	resp, respBody, err = (*dropbox.Context)(dbx).ExecuteContext(ctx, req, nil)
+	if err != nil {
+		var appErr MembersBulkSuspendJobStatusCheckAPIError
+		err = auth.ParseError(err, &appErr)
+		if errors.Is(err, &appErr) {
+			err = appErr
+		}
+		return
+	}
+
+	err = json.Unmarshal(resp, &res)
+	if err != nil {
+		return
+	}
+
+	_ = respBody
+	return
+}
+
+func (dbx *apiImpl) MembersBulkSuspendJobStatusCheck(arg *async.PollArg) (res *BulkSuspendJobStatus, err error) {
+	return dbx.MembersBulkSuspendJobStatusCheckContext(context.Background(), arg)
+}
+
 // MembersDeleteFormerMemberFilesAPIError is an error-wrapper for the members/delete_former_member_files route
 type MembersDeleteFormerMemberFilesAPIError struct {
 	dropbox.APIError
 	EndpointError *MembersDeleteFormerMemberFilesError `json:"error"`
 }
 
-// MembersDeleteFormerMemberFilesContext : Permanently delete the files of a user
-// who has been removed from the team. After permanent deletion, those files
-// will not be available to be transferred to another team member.
-// Permission : Team member management Exactly one of team_member_id, email,
-// or external_id must be provided to identify the user account.
+// MembersDeleteFormerMemberFilesContext : Permanently delete the files of a
+// user who has been removed from the team. After permanent deletion, those
+// files will not be available to be transferred to another team member.
+// Permission : Team member management Exactly one of team_member_id, email, or
+// external_id must be provided to identify the user account.
 func (dbx *apiImpl) MembersDeleteFormerMemberFilesContext(ctx context.Context, arg *MembersFormerMemberArg) (err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2857,8 +2969,8 @@ type MembersGetAvailableTeamMemberRolesAPIError struct {
 }
 
 // MembersGetAvailableTeamMemberRolesContext : Get available TeamMemberRoles for
-// the connected team. To be used with `membersSetAdminPermissions`.
-// Permission : Team member management.
+// the connected team. To be used with `membersSetAdminPermissions`. Permission
+// : Team member management.
 func (dbx *apiImpl) MembersGetAvailableTeamMemberRolesContext(ctx context.Context) (res *MembersGetAvailableTeamMemberRolesResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2903,8 +3015,8 @@ type MembersGetInfoAPIError struct {
 
 // MembersGetInfoContext : Returns information about multiple team members.
 // Permission : Team information This endpoint will return
-// `MembersGetInfoItem.id_not_found`, for IDs (or emails) that cannot be
-// matched to a valid team member.
+// `MembersGetInfoItem.id_not_found`, for IDs (or emails) that cannot be matched
+// to a valid team member.
 func (dbx *apiImpl) MembersGetInfoContext(ctx context.Context, arg *MembersGetInfoArgs) (res []*MembersGetInfoItem, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2949,8 +3061,8 @@ type MembersGetInfoV2APIError struct {
 
 // MembersGetInfoV2Context : Returns information about multiple team members.
 // Permission : Team information This endpoint will return
-// `MembersGetInfoItem.id_not_found`, for IDs (or emails) that cannot be
-// matched to a valid team member.
+// `MembersGetInfoItem.id_not_found`, for IDs (or emails) that cannot be matched
+// to a valid team member.
 func (dbx *apiImpl) MembersGetInfoV2Context(ctx context.Context, arg *MembersGetInfoV2Arg) (res *MembersGetInfoV2Result, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3036,7 +3148,8 @@ type MembersListV2APIError struct {
 	EndpointError *MembersListError `json:"error"`
 }
 
-// MembersListV2Context : Lists members of a team. Permission : Team information.
+// MembersListV2Context : Lists members of a team. Permission : Team
+// information.
 func (dbx *apiImpl) MembersListV2Context(ctx context.Context, arg *MembersListArg) (res *MembersListV2Result, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3080,8 +3193,8 @@ type MembersListContinueAPIError struct {
 }
 
 // MembersListContinueContext : Once a cursor has been retrieved from
-// `membersList`, use this to paginate through all team members. Permission
-// : Team information.
+// `membersList`, use this to paginate through all team members. Permission :
+// Team information.
 func (dbx *apiImpl) MembersListContinueContext(ctx context.Context, arg *MembersListContinueArg) (res *MembersListResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3125,8 +3238,8 @@ type MembersListContinueV2APIError struct {
 }
 
 // MembersListContinueV2Context : Once a cursor has been retrieved from
-// `membersList`, use this to paginate through all team members. Permission
-// : Team information.
+// `membersList`, use this to paginate through all team members. Permission :
+// Team information.
 func (dbx *apiImpl) MembersListContinueV2Context(ctx context.Context, arg *MembersListContinueArg) (res *MembersListV2Result, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3170,8 +3283,8 @@ type MembersMoveFormerMemberFilesAPIError struct {
 }
 
 // MembersMoveFormerMemberFilesContext : Moves removed member's files to a
-// different member. This endpoint initiates an asynchronous job. To obtain
-// the final result of the job, the client should periodically poll
+// different member. This endpoint initiates an asynchronous job. To obtain the
+// final result of the job, the client should periodically poll
 // `membersMoveFormerMemberFilesJobStatusCheck`. Permission : Team member
 // management.
 func (dbx *apiImpl) MembersMoveFormerMemberFilesContext(ctx context.Context, arg *MembersDataTransferArg) (res *async.LaunchEmptyResult, err error) {
@@ -3217,8 +3330,8 @@ type MembersMoveFormerMemberFilesJobStatusCheckAPIError struct {
 }
 
 // MembersMoveFormerMemberFilesJobStatusCheckContext : Once an async_job_id is
-// returned from `membersMoveFormerMemberFiles` , use this to poll the
-// status of the asynchronous request. Permission : Team member management.
+// returned from `membersMoveFormerMemberFiles` , use this to poll the status of
+// the asynchronous request. Permission : Team member management.
 func (dbx *apiImpl) MembersMoveFormerMemberFilesJobStatusCheckContext(ctx context.Context, arg *async.PollArg) (res *async.PollEmptyResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3305,17 +3418,16 @@ type MembersRemoveAPIError struct {
 // MembersRemoveContext : Removes a member from a team. Permission : Team member
 // management Exactly one of team_member_id, email, or external_id must be
 // provided to identify the user account. Accounts can be recovered via
-// `membersRecover` for a 7 day period or until the account has been
-// permanently deleted or transferred to another account (whichever comes
-// first). Calling `membersAdd` while a user is still recoverable on your
-// team will return with `MemberAddResult.user_already_on_team`. Accounts
-// can have their files transferred via the admin console for a limited
-// time, based on the version history length associated with the team (180
-// days for most teams). Accounts can have their stacks transferred through
-// the admin console. This only transfers stacks that they have created.
-// This endpoint may initiate an asynchronous job. To obtain the final
-// result of the job, the client should periodically poll
-// `membersRemoveJobStatusGet`.
+// `membersRecover` for a 7 day period or until the account has been permanently
+// deleted or transferred to another account (whichever comes first). Calling
+// `membersAdd` while a user is still recoverable on your team will return with
+// `MemberAddResult.user_already_on_team`. Accounts can have their files
+// transferred via the admin console for a limited time, based on the version
+// history length associated with the team (180 days for most teams). Accounts
+// can have their stacks transferred through the admin console. This only
+// transfers stacks that they have created. This endpoint may initiate an
+// asynchronous job. To obtain the final result of the job, the client should
+// periodically poll `membersRemoveJobStatusGet`.
 func (dbx *apiImpl) MembersRemoveContext(ctx context.Context, arg *MembersRemoveArg) (res *async.LaunchEmptyResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3359,8 +3471,8 @@ type MembersRemoveJobStatusGetAPIError struct {
 }
 
 // MembersRemoveJobStatusGetContext : Once an async_job_id is returned from
-// `membersRemove` , use this to poll the status of the asynchronous
-// request. Permission : Team member management.
+// `membersRemove` , use this to poll the status of the asynchronous request.
+// Permission : Team member management.
 func (dbx *apiImpl) MembersRemoveJobStatusGetContext(ctx context.Context, arg *async.PollArg) (res *async.PollEmptyResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3403,8 +3515,8 @@ type MembersSecondaryEmailsAddAPIError struct {
 	EndpointError *AddSecondaryEmailsError `json:"error"`
 }
 
-// MembersSecondaryEmailsAddContext : Add secondary emails to users. Permission :
-// Team member management. Emails that are on verified domains will be
+// MembersSecondaryEmailsAddContext : Add secondary emails to users. Permission
+// : Team member management. Emails that are on verified domains will be
 // verified automatically. For each email address not on a verified domain a
 // verification email will be sent.
 func (dbx *apiImpl) MembersSecondaryEmailsAddContext(ctx context.Context, arg *AddSecondaryEmailsArg) (res *AddSecondaryEmailsResult, err error) {
@@ -3450,9 +3562,9 @@ type MembersSecondaryEmailsDeleteAPIError struct {
 }
 
 // MembersSecondaryEmailsDeleteContext : Delete secondary emails from users
-// Permission : Team member management. Users will be notified of deletions
-// of verified secondary emails at both the secondary email and their
-// primary email.
+// Permission : Team member management. Users will be notified of deletions of
+// verified secondary emails at both the secondary email and their primary
+// email.
 func (dbx *apiImpl) MembersSecondaryEmailsDeleteContext(ctx context.Context, arg *DeleteSecondaryEmailsArg) (res *DeleteSecondaryEmailsResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3495,8 +3607,8 @@ type MembersSecondaryEmailsResendVerificationEmailsAPIError struct {
 	EndpointError struct{} `json:"error"`
 }
 
-// MembersSecondaryEmailsResendVerificationEmailsContext : Resend secondary email
-// verification emails. Permission : Team member management.
+// MembersSecondaryEmailsResendVerificationEmailsContext : Resend secondary
+// email verification emails. Permission : Team member management.
 func (dbx *apiImpl) MembersSecondaryEmailsResendVerificationEmailsContext(ctx context.Context, arg *ResendVerificationEmailArg) (res *ResendVerificationEmailResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3540,9 +3652,9 @@ type MembersSendWelcomeEmailAPIError struct {
 }
 
 // MembersSendWelcomeEmailContext : Sends welcome email to pending team member.
-// Permission : Team member management Exactly one of team_member_id, email,
-// or external_id must be provided to identify the user account. No-op if
-// team member is not pending.
+// Permission : Team member management Exactly one of team_member_id, email, or
+// external_id must be provided to identify the user account. No-op if team
+// member is not pending.
 func (dbx *apiImpl) MembersSendWelcomeEmailContext(ctx context.Context, arg *UserSelectorArg) (err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3713,8 +3825,8 @@ type MembersSetProfileV2APIError struct {
 	EndpointError *MembersSetProfileError `json:"error"`
 }
 
-// MembersSetProfileV2Context : Updates a team member's profile. Permission : Team
-// member management.
+// MembersSetProfileV2Context : Updates a team member's profile. Permission :
+// Team member management.
 func (dbx *apiImpl) MembersSetProfileV2Context(ctx context.Context, arg *MembersSetProfileArg) (res *TeamMemberInfoV2Result, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3845,9 +3957,9 @@ type MembersSuspendAPIError struct {
 	EndpointError *MembersSuspendError `json:"error"`
 }
 
-// MembersSuspendContext : Suspend a member from a team. Permission : Team member
-// management Exactly one of team_member_id, email, or external_id must be
-// provided to identify the user account.
+// MembersSuspendContext : Suspend a member from a team. Permission : Team
+// member management Exactly one of team_member_id, email, or external_id must
+// be provided to identify the user account.
 func (dbx *apiImpl) MembersSuspendContext(ctx context.Context, arg *MembersDeactivateArg) (err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3887,8 +3999,8 @@ type MembersUnsuspendAPIError struct {
 }
 
 // MembersUnsuspendContext : Unsuspend a member from a team. Permission : Team
-// member management Exactly one of team_member_id, email, or external_id
-// must be provided to identify the user account.
+// member management Exactly one of team_member_id, email, or external_id must
+// be provided to identify the user account.
 func (dbx *apiImpl) MembersUnsuspendContext(ctx context.Context, arg *MembersUnsuspendArg) (err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -3927,12 +4039,12 @@ type NamespacesListAPIError struct {
 	EndpointError *TeamNamespacesListError `json:"error"`
 }
 
-// NamespacesListContext : Returns a list of all team-accessible namespaces. This
-// list includes team folders, shared folders containing team members, team
-// members' home namespaces, and team members' app folders. Home namespaces
-// and app folders are always owned by this team or members of the team, but
-// shared folders may be owned by other users or other teams. Duplicates may
-// occur in the list.
+// NamespacesListContext : Returns a list of all team-accessible namespaces.
+// This list includes team folders, shared folders containing team members, team
+// members' home namespaces, and team members' app folders. Home namespaces and
+// app folders are always owned by this team or members of the team, but shared
+// folders may be owned by other users or other teams. Duplicates may occur in
+// the list.
 func (dbx *apiImpl) NamespacesListContext(ctx context.Context, arg *TeamNamespacesListArg) (res *TeamNamespacesListResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -4066,8 +4178,8 @@ type PropertiesTemplateGetAPIError struct {
 	EndpointError *file_properties.TemplateError `json:"error"`
 }
 
-// PropertiesTemplateGetContext : Permission : Team member file access. The scope
-// for the route is files.team_metadata.write.
+// PropertiesTemplateGetContext : Permission : Team member file access. The
+// scope for the route is files.team_metadata.write.
 // Deprecated:
 func (dbx *apiImpl) PropertiesTemplateGetContext(ctx context.Context, arg *file_properties.GetTemplateArg) (res *file_properties.GetTemplateResult, err error) {
 	log.Printf("WARNING: API `PropertiesTemplateGet` is deprecated")
@@ -4352,8 +4464,7 @@ type SharingAllowlistListAPIError struct {
 // SharingAllowlistListContext : Lists Approve List entries for given team, from
 // newest to oldest, returning up to `limit` entries at a time. If there are
 // more than `limit` entries associated with the current team, more can be
-// fetched by passing the returned `cursor` to
-// `sharingAllowlistListContinue`.
+// fetched by passing the returned `cursor` to `sharingAllowlistListContinue`.
 func (dbx *apiImpl) SharingAllowlistListContext(ctx context.Context, arg *SharingAllowlistListArg) (res *SharingAllowlistListResponse, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -4396,8 +4507,8 @@ type SharingAllowlistListContinueAPIError struct {
 	EndpointError *SharingAllowlistListContinueError `json:"error"`
 }
 
-// SharingAllowlistListContinueContext : Lists entries associated with given team,
-// starting from a the cursor. See `sharingAllowlistList`.
+// SharingAllowlistListContinueContext : Lists entries associated with given
+// team, starting from a the cursor. See `sharingAllowlistList`.
 func (dbx *apiImpl) SharingAllowlistListContinueContext(ctx context.Context, arg *SharingAllowlistListContinueArg) (res *SharingAllowlistListResponse, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -4440,12 +4551,11 @@ type SharingAllowlistRemoveAPIError struct {
 	EndpointError *SharingAllowlistRemoveError `json:"error"`
 }
 
-// SharingAllowlistRemoveContext : Endpoint removes Approve List entries. Changes
-// are effective immediately. Changes are committed in transaction. In case
-// of single validation error - all entries are rejected. Valid domains
-// (RFC-1034/5) and emails (RFC-5322/822) are accepted. Entries being
-// removed have to be present on the list. Maximum 1000 entries per call is
-// allowed.
+// SharingAllowlistRemoveContext : Endpoint removes Approve List entries.
+// Changes are effective immediately. Changes are committed in transaction. In
+// case of single validation error - all entries are rejected. Valid domains
+// (RFC-1034/5) and emails (RFC-5322/822) are accepted. Entries being removed
+// have to be present on the list. Maximum 1000 entries per call is allowed.
 func (dbx *apiImpl) SharingAllowlistRemoveContext(ctx context.Context, arg *SharingAllowlistRemoveArgs) (res *SharingAllowlistRemoveResponse, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -4532,12 +4642,12 @@ type TeamFolderArchiveAPIError struct {
 	EndpointError *TeamFolderArchiveError `json:"error"`
 }
 
-// TeamFolderArchiveContext : Sets an active team folder's status to archived and
-// removes all folder and file members. This endpoint cannot be used for
+// TeamFolderArchiveContext : Sets an active team folder's status to archived
+// and removes all folder and file members. This endpoint cannot be used for
 // teams that have a shared team space. This route will either finish
-// synchronously, or return a job ID and do the async archive job in
-// background. Please use team_folder/archive/check to check the job status.
-// Permission : Team member file access.
+// synchronously, or return a job ID and do the async archive job in background.
+// Please use team_folder/archive/check to check the job status. Permission :
+// Team member file access.
 func (dbx *apiImpl) TeamFolderArchiveContext(ctx context.Context, arg *TeamFolderArchiveArg) (res *TeamFolderArchiveLaunch, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -4581,12 +4691,11 @@ type TeamFolderArchiveCheckAPIError struct {
 }
 
 // TeamFolderArchiveCheckContext : Returns the status of an asynchronous job for
-// archiving a team folder. The job may show '.tag' as complete, but the
-// team folder could still be in the process of archiving (indicated by
-// `TeamFolderMetadata.status` with 'archive_in_progress'). To confirm that
-// the team folder is fully archived, check the field
-// `TeamFolderMetadata.status` in the response for the value 'archived'.
-// Permission : Team member file access.
+// archiving a team folder. The job may show '.tag' as complete, but the team
+// folder could still be in the process of archiving (indicated by
+// `TeamFolderMetadata.status` with 'archive_in_progress'). To confirm that the
+// team folder is fully archived, check the field `TeamFolderMetadata.status` in
+// the response for the value 'archived'. Permission : Team member file access.
 func (dbx *apiImpl) TeamFolderArchiveCheckContext(ctx context.Context, arg *async.PollArg) (res *TeamFolderArchiveJobStatus, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -4630,8 +4739,8 @@ type TeamFolderCreateAPIError struct {
 }
 
 // TeamFolderCreateContext : Creates a new, active, team folder with no members.
-// This endpoint can only be used for teams that do not already have a
-// shared team space. Permission : Team member file access.
+// This endpoint can only be used for teams that do not already have a shared
+// team space. Permission : Team member file access.
 func (dbx *apiImpl) TeamFolderCreateContext(ctx context.Context, arg *TeamFolderCreateArg) (res *TeamFolderMetadata, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -4763,8 +4872,8 @@ type TeamFolderListContinueAPIError struct {
 }
 
 // TeamFolderListContinueContext : Once a cursor has been retrieved from
-// `teamFolderList`, use this to paginate through all team folders.
-// Permission : Team member file access.
+// `teamFolderList`, use this to paginate through all team folders. Permission :
+// Team member file access.
 func (dbx *apiImpl) TeamFolderListContinueContext(ctx context.Context, arg *TeamFolderListContinueArg) (res *TeamFolderListResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -4808,8 +4917,8 @@ type TeamFolderPermanentlyDeleteAPIError struct {
 }
 
 // TeamFolderPermanentlyDeleteContext : Permanently deletes an archived team
-// folder. This endpoint cannot be used for teams that have a shared team
-// space. Permission : Team member file access.
+// folder. This endpoint cannot be used for teams that have a shared team space.
+// Permission : Team member file access.
 func (dbx *apiImpl) TeamFolderPermanentlyDeleteContext(ctx context.Context, arg *TeamFolderIdArg) (err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -4936,8 +5045,8 @@ type TeamFolderUpdateSyncSettingsAPIError struct {
 	EndpointError *TeamFolderUpdateSyncSettingsError `json:"error"`
 }
 
-// TeamFolderUpdateSyncSettingsContext : Updates the sync settings on a team folder
-// or its contents.  Use of this endpoint requires that the team has team
+// TeamFolderUpdateSyncSettingsContext : Updates the sync settings on a team
+// folder or its contents.  Use of this endpoint requires that the team has team
 // selective sync enabled.
 func (dbx *apiImpl) TeamFolderUpdateSyncSettingsContext(ctx context.Context, arg *TeamFolderUpdateSyncSettingsArg) (res *TeamFolderMetadata, err error) {
 	req := dropbox.Request{
@@ -4981,8 +5090,8 @@ type TokenGetAuthenticatedAdminAPIError struct {
 	EndpointError *TokenGetAuthenticatedAdminError `json:"error"`
 }
 
-// TokenGetAuthenticatedAdminContext : Returns the member profile of the admin who
-// generated the team access token used to make the call.
+// TokenGetAuthenticatedAdminContext : Returns the member profile of the admin
+// who generated the team access token used to make the call.
 func (dbx *apiImpl) TokenGetAuthenticatedAdminContext(ctx context.Context) (res *TokenGetAuthenticatedAdminResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",

@@ -141,14 +141,14 @@ var (
 )
 
 func init() {
-	for i := 0; i < 256; i++ {
-		for j := 0; j < 256; j++ {
+	for i := range 256 {
+		for j := range 256 {
 			log_i := int(gf_log[i])
 			log_j := int(gf_log[j])
 			gf_mul_table[i][j] = gf_exp[(log_i+log_j)%255]
 		}
 	}
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		gf_mul_table[0][i], gf_mul_table[i][0] = 0, 0
 	}
 }

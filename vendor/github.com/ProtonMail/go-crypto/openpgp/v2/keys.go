@@ -153,7 +153,10 @@ func (e *Entity) EncryptionKeyWithError(now time.Time, config *packet.Config) (K
 			latestSelectionError = subkeyErr(err)
 			continue
 		}
-		if maxTime.IsZero() || subkeySelfSig.CreationTime.Unix() >= maxTime.Unix() {
+		preferNewSubkey := maxTime.IsZero() ||
+			subkeySelfSig.CreationTime.After(maxTime) ||
+			(subkeySelfSig.CreationTime.Equal(maxTime) && subkey.IsPQ())
+		if preferNewSubkey {
 			candidateSubkey = i
 			selectedSubkeySelfSig = subkeySelfSig
 			maxTime = subkeySelfSig.CreationTime
@@ -264,7 +267,9 @@ func (e *Entity) signingKeyByIdUsage(now time.Time, id uint64, flags int, config
 			(flags&packet.KeyFlagCertify == 0 || isValidCertificationKey(subkeySelfSig, subkey.PublicKey.PubKeyAlgo, config)) &&
 			(flags&packet.KeyFlagSign == 0 || isValidSigningKey(subkeySelfSig, subkey.PublicKey.PubKeyAlgo, config)) &&
 			checkKeyRequirements(subkey.PublicKey, config) == nil &&
-			(maxTime.IsZero() || subkeySelfSig.CreationTime.Unix() >= maxTime.Unix()) &&
+			(maxTime.IsZero() ||
+				subkeySelfSig.CreationTime.After(maxTime) ||
+				(subkeySelfSig.CreationTime.Equal(maxTime) && subkey.IsPQ())) &&
 			(id == 0 || subkey.PublicKey.KeyId == id) {
 			candidateSubkey = idx
 			maxTime = subkeySelfSig.CreationTime

@@ -353,7 +353,7 @@ func (f *Fs) List(ctx context.Context, dir string) (entries fs.DirEntries, err e
 	}
 
 	for it.Next() {
-		item := ptr(it.File())
+		item := new(it.File())
 		remote := f.opt.Enc.ToStandardPath(item.DisplayName)
 		remote = path.Join(dir, remote)
 		if remote == dir {
@@ -424,7 +424,7 @@ func (f *Fs) mkdir(ctx context.Context, path string) error {
 
 	params := files_sdk.FolderCreateParams{
 		Path:         path,
-		MkdirParents: ptr(true),
+		MkdirParents: new(true),
 	}
 
 	err := f.pacer.Call(func() (bool, error) {
@@ -466,7 +466,7 @@ func (f *Fs) purgeCheck(ctx context.Context, dir string, check bool) error {
 
 	params := files_sdk.FileDeleteParams{
 		Path:      path,
-		Recursive: ptr(!check),
+		Recursive: new(!check),
 	}
 
 	err := f.pacer.Call(func() (bool, error) {
@@ -537,7 +537,7 @@ func (f *Fs) Copy(ctx context.Context, src fs.Object, remote string) (dstObj fs.
 	params := files_sdk.FileCopyParams{
 		Path:        srcPath,
 		Destination: dstPath,
-		Overwrite:   ptr(true),
+		Overwrite:   new(true),
 	}
 
 	var action files_sdk.FileAction
@@ -680,7 +680,7 @@ func (f *Fs) PublicLink(ctx context.Context, remote string, expire fs.Duration, 
 		Paths: []string{f.absPath(remote)},
 	}
 	if expire < fs.DurationOff {
-		params.ExpiresAt = ptr(time.Now().Add(time.Duration(expire)))
+		params.ExpiresAt = new(time.Now().Add(time.Duration(expire)))
 	}
 
 	var bundle files_sdk.Bundle
@@ -840,11 +840,6 @@ func (o *Object) Open(ctx context.Context, options ...fs.OpenOption) (in io.Read
 		return shouldRetry(ctx, err)
 	})
 	return
-}
-
-// Returns a pointer to t - useful for returning pointers to constants
-func ptr[T any](t T) *T {
-	return &t
 }
 
 func isFolderNotEmpty(err error) bool {

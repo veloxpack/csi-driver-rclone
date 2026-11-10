@@ -16,7 +16,7 @@ const (
 	// Don't map reserved characters
 	MapCharsNone MapChars = 0
 	// Map reserved characters using the Services for Mac scheme. This is
-	// equivalent to using the 'mapposix' when mounting a volume in Linux.
+	// equivalent to using 'mapposix' when mounting a volume in Linux.
 	MapCharsSFM MapChars = 1
 	// Map reserved characters using the Services for Unix scheme. This is
 	// equivalent to using 'mapchars' when mounting a volume in Linux.

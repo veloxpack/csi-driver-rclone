@@ -128,7 +128,7 @@ func (u *API) Upload(ctx context.Context, file interface{}, uploadParams UploadP
 	}
 
 	err = api.HandleRawResponse(body, result)
-	return result, nil
+	return result, err
 }
 
 // Eager contains information about eagerly transformed derived assets.

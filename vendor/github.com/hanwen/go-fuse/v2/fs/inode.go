@@ -742,14 +742,15 @@ func (n *Inode) NotifyEntry(name string) syscall.Errno {
 // in response.  If the receiver Inode must be forgotten too it must
 // be included in the argument separately.
 func (n *Inode) NotifyPrune(nodes []*Inode) syscall.Errno {
-	if n.bridge.server == nil {
+	server, ok := n.bridge.server.(*fuse.Server)
+	if !ok {
 		return syscall.ENOSYS
 	}
 	ids := make([]uint64, 0, len(nodes))
 	for _, n := range nodes {
 		ids = append(ids, n.nodeId)
 	}
-	status := n.bridge.server.(*fuse.Server).PruneNotify(ids)
+	status := server.PruneNotify(ids)
 	return syscall.Errno(status)
 }
 

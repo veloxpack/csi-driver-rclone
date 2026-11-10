@@ -1,27 +1,9 @@
 package thumbnails
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"io"
+	"log"
 )
-
-// GenerateAndPrepare generates a thumbnail and prepares it for upload.
-// Returns the thumbnail data as a reader, the size, and any error.
-func GenerateAndPrepare(fileType string, originalData []byte) (io.Reader, int64, *Config, error) {
-	if !IsSupportedFormat(fileType) {
-		return nil, 0, nil, fmt.Errorf("unsupported format: %s", fileType)
-	}
-
-	thumbCfg := DefaultConfig()
-	thumbData, thumbSize, err := Generate(originalData, thumbCfg)
-	if err != nil {
-		return nil, 0, nil, fmt.Errorf("failed to generate thumbnail: %w", err)
-	}
-
-	return bytes.NewReader(thumbData), thumbSize, thumbCfg, nil
-}
 
 // CreateThumbnailMetadata creates the metadata struct for registering a thumbnail.
 func CreateThumbnailMetadata(fileUUID, bucketID, bucketFile, encryptVersion string, size int64, cfg *Config) CreateThumbnailRequest {
@@ -57,7 +39,7 @@ func ProcessAsync(task *ThumbnailUploadTask, uploadFunc UploadFunc) {
 		bgCtx := context.Background()
 
 		if err := uploadFunc(bgCtx, task); err != nil {
-			fmt.Printf("[WARN] Thumbnail generation failed for %s: %v\n", task.FileUUID, err)
+			log.Printf("[WARN] Thumbnail generation failed for %s: %v\n", task.FileUUID, err)
 		}
 	}()
 }

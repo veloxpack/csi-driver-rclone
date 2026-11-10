@@ -859,9 +859,10 @@ type RawDeleteObjectsResultItem struct {
 // DeleteObjectsResultItemRemoved contains information about an object that was removed
 // as a result of processing a DeleteObjects request item.
 type DeleteObjectsResultItemRemoved struct {
-	Version     []byte
-	IsCommitted bool
-	IsVersioned bool
+	Version        []byte
+	IsCommitted    bool
+	IsVersioned    bool
+	IsDeleteMarker bool
 }
 
 // DeleteObjectsResultItemMarker contains information about a delete marker that was inserted
@@ -881,9 +882,10 @@ func newDeleteObjectsResponse(pbResponse *pb.DeleteObjectsResponse) []RawDeleteO
 		}
 		if pbItem.Removed != nil {
 			item.Removed = &DeleteObjectsResultItemRemoved{
-				Version:     pbItem.Removed.ObjectVersion,
-				IsCommitted: isStatusCommitted(pbItem.Removed.Status),
-				IsVersioned: isStatusVersioned(pbItem.Removed.Status),
+				Version:        pbItem.Removed.ObjectVersion,
+				IsCommitted:    isStatusCommitted(pbItem.Removed.Status),
+				IsVersioned:    isStatusVersioned(pbItem.Removed.Status),
+				IsDeleteMarker: isStatusDeleteMarker(pbItem.Removed.Status),
 			}
 		}
 		if pbItem.Marker != nil {

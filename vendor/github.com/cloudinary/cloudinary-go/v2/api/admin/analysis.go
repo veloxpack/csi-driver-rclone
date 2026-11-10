@@ -5,6 +5,10 @@ import (
 	"github.com/cloudinary/cloudinary-go/v2/api"
 )
 
+type contextKey string
+
+const apiVersionKey contextKey = "api_version"
+
 const (
 	analysis api.EndPoint = "analysis"
 	analyze  api.EndPoint = "analyze"
@@ -46,7 +50,7 @@ Currently supports the following analysis options:
 * Custom
 */
 func (a *API) Analyze(ctx context.Context, params AnalyzeParams) (*AnalyzeResult, error) {
-	v2APICtx := context.WithValue(ctx, "api_version", "2")
+	v2APICtx := context.WithValue(ctx, apiVersionKey, "2")
 	res := &AnalyzeResult{}
 	_, err := a.post(v2APICtx, api.BuildPath(analysis, analyze, uri), params, res)
 

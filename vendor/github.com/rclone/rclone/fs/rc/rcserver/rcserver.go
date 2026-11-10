@@ -11,7 +11,6 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -25,10 +24,8 @@ import (
 	"github.com/rclone/rclone/fs/list"
 	"github.com/rclone/rclone/fs/rc"
 	"github.com/rclone/rclone/fs/rc/jobs"
-	"github.com/rclone/rclone/fs/rc/webgui"
 	libhttp "github.com/rclone/rclone/lib/http"
 	"github.com/rclone/rclone/lib/http/serve"
-	"github.com/rclone/rclone/lib/random"
 	"github.com/skratchdot/open-golang/open"
 )
 
@@ -48,6 +45,11 @@ func Start(ctx context.Context, opt *rc.Options) (*Server, error) {
 	return nil, nil
 }
 
+// maxUnauthenticatedBodySize is the largest POST body accepted when
+// the rc server has no authentication. It is kept small as decoding
+// JSON can use many times the size of its input in memory.
+const maxUnauthenticatedBodySize = 64 << 10
+
 // Server contains everything to run the rc server
 type Server struct {
 	ctx            context.Context // for global config
@@ -65,41 +67,12 @@ func newServer(ctx context.Context, opt *rc.Options, mux *http.ServeMux) (*Serve
 	_ = mime.AddExtensionType(".wasm", "application/wasm")
 	_ = mime.AddExtensionType(".js", "application/javascript")
 
-	cachePath := filepath.Join(config.GetCacheDir(), "webgui")
-	extractPath := filepath.Join(cachePath, "current/build")
 	// File handling
 	if opt.Files != "" {
-		if opt.WebUI {
-			fs.Logf(nil, "--rc-files overrides --rc-web-gui command\n")
-		}
 		fs.Logf(nil, "Serving files from %q", opt.Files)
 		fileHandler = http.FileServer(http.Dir(opt.Files))
 	} else if opt.WebUI {
-		if err := webgui.CheckAndDownloadWebGUIRelease(opt.WebGUIUpdate, opt.WebGUIForceUpdate, opt.WebGUIFetchURL, config.GetCacheDir()); err != nil {
-			fs.Errorf(nil, "Error while fetching the latest release of Web GUI: %v", err)
-		}
-		if opt.NoAuth {
-			fs.Logf(nil, "It is recommended to use web gui with auth.")
-		} else {
-			if opt.Auth.BasicUser == "" && opt.Auth.HtPasswd == "" {
-				opt.Auth.BasicUser = "gui"
-				fs.Infof(nil, "No username specified. Using default username: %s \n", rc.Opt.Auth.BasicUser)
-			}
-			if opt.Auth.BasicPass == "" && opt.Auth.HtPasswd == "" {
-				randomPass, err := random.Password(128)
-				if err != nil {
-					fs.Fatalf(nil, "Failed to make password: %v", err)
-				}
-				opt.Auth.BasicPass = randomPass
-				fs.Infof(nil, "No password specified. Using random password: %s \n", randomPass)
-			}
-		}
-		opt.Serve = true
-
-		fs.Logf(nil, "Serving Web GUI")
-		fileHandler = http.FileServer(http.Dir(extractPath))
-
-		pluginsHandler = http.FileServer(http.Dir(webgui.PluginsPath))
+		return nil, errors.New("--rc-web-gui has been superseded by the `rclone gui` command")
 	}
 
 	s := &Server{
@@ -170,7 +143,7 @@ func (s *Server) Serve() error {
 				openURL.RawPath = "/#/login"
 			}
 			// Don't open browser if serving in testing environment or required not to do so.
-			if flag.Lookup("test.v") == nil && !s.opt.WebGUINoOpenBrowser {
+			if flag.Lookup("test.v") == nil {
 				if err := open.Start(openURL.String()); err != nil {
 					fs.Errorf(nil, "Failed to open Web GUI in browser: %v. Manually access it at: %s", err, openURL.String())
 				}
@@ -212,9 +185,35 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// bodyErrorStatus returns the HTTP status for an error reading the request body
+func bodyErrorStatus(err error) int {
+	if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+		return http.StatusRequestEntityTooLarge
+	}
+	return http.StatusBadRequest
+}
+
 func (s *Server) handlePost(w http.ResponseWriter, r *http.Request, path string) {
 	ctx := r.Context()
 	contentType := r.Header.Get("Content-Type")
+
+	// Find the call and check authorisation before reading the
+	// body so rejected requests can't make the server use memory
+	call := rc.Calls.Get(path)
+	if call == nil {
+		writeError(path, rc.Params{}, w, fmt.Errorf("couldn't find method %q", path), http.StatusNotFound)
+		return
+	}
+	if !s.noAuth && !call.NoAuth && !s.server.UsingAuth() {
+		writeError(path, rc.Params{}, w, fmt.Errorf("authentication must be set up on the rc server to use %q or the --rc-no-auth flag must be in use", path), http.StatusForbidden)
+		return
+	}
+
+	// Without auth anyone who can connect may POST, so bound the
+	// memory a request can make the server use
+	if !s.noAuth && !s.server.UsingAuth() {
+		r.Body = http.MaxBytesReader(w, r.Body, maxUnauthenticatedBodySize)
+	}
 
 	var (
 		contentTypeMediaType string
@@ -234,7 +233,7 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request, path string)
 		// Parse the POST and URL parameters into r.Form, for others r.Form will be empty value
 		err := r.ParseForm()
 		if err != nil {
-			writeError(path, nil, w, fmt.Errorf("failed to parse form/URL parameters: %w", err), http.StatusBadRequest)
+			writeError(path, nil, w, fmt.Errorf("failed to parse form/URL parameters: %w", err), bodyErrorStatus(err))
 			return
 		}
 		values = r.Form
@@ -258,32 +257,23 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request, path string)
 
 		err := json.NewDecoder(r.Body).Decode(&in)
 		if err != nil {
-			writeError(path, in, w, fmt.Errorf("failed to read input JSON: %w", err), http.StatusBadRequest)
+			status := bodyErrorStatus(err)
+			if status == http.StatusRequestEntityTooLarge {
+				in = nil // don't echo back the partial input
+			}
+			writeError(path, in, w, fmt.Errorf("failed to read input JSON: %w", err), status)
 			return
 		}
 	}
 
 	// Check for Prefer: respond-async header (RFC 7240)
 	preferAsync := false
-	for _, pref := range strings.Split(r.Header.Get("Prefer"), ",") {
+	for pref := range strings.SplitSeq(r.Header.Get("Prefer"), ",") {
 		if strings.EqualFold(strings.TrimSpace(pref), "respond-async") {
 			preferAsync = true
 			in["_async"] = true
 			break
 		}
-	}
-
-	// Find the call
-	call := rc.Calls.Get(path)
-	if call == nil {
-		writeError(path, in, w, fmt.Errorf("couldn't find method %q", path), http.StatusNotFound)
-		return
-	}
-
-	// Check to see if it requires authorisation
-	if !s.noAuth && !call.NoAuth && !s.server.UsingAuth() {
-		writeError(path, in, w, fmt.Errorf("authentication must be set up on the rc server to use %q or the --rc-no-auth flag must be in use", path), http.StatusForbidden)
-		return
 	}
 
 	inOrig := in.Copy()
@@ -459,21 +449,6 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request, path string) 
 		s.serveRoot(w, r)
 		return
 	case s.files != nil:
-		if s.opt.WebUI {
-			pluginsMatchResult := webgui.PluginsMatch.FindStringSubmatch(path)
-
-			if len(pluginsMatchResult) > 2 {
-				ok := webgui.ServePluginOK(w, r, pluginsMatchResult)
-				if !ok {
-					r.URL.Path = fmt.Sprintf("/%s/%s/app/build/%s", pluginsMatchResult[1], pluginsMatchResult[2], pluginsMatchResult[3])
-					s.pluginsHandler.ServeHTTP(w, r)
-					return
-				}
-				return
-			} else if webgui.ServePluginWithReferrerOK(w, r, path) {
-				return
-			}
-		}
 		// Serve the files
 		r.URL.Path = "/" + path
 		s.files.ServeHTTP(w, r)

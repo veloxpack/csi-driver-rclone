@@ -79,10 +79,38 @@ type Permission struct {
 	// either AllowDownload or AllowList is granted too, no object metadata and
 	// no error info will be returned for deleted objects.
 	AllowDelete bool
-	// AllowLock gives permission for retention periods and legal holds to be
-	// placed on and retrieved from objects. It also gives permission for
-	// Object Lock configurations to be placed on and retrieved from buckets.
+	// AllowLock gives permission for retention periods to be placed on and
+	// retrieved from objects. It also gives permission for Object Lock
+	// configurations to be placed on and retrieved from buckets.
+	//
+	// Deprecated: Prefer the granular Object Lock permissions below. AllowLock
+	// is granted as AllowPutObjectRetention, AllowGetObjectRetention,
+	// AllowPutBucketObjectLockConfiguration and
+	// AllowGetBucketObjectLockConfiguration. It does not grant legal hold
+	// permissions; use AllowPutObjectLegalHold and AllowGetObjectLegalHold
+	// for those.
 	AllowLock bool
+	// AllowPutObjectRetention gives permission for retention periods to be
+	// placed on and retrieved from objects.
+	AllowPutObjectRetention bool
+	// AllowGetObjectRetention gives permission for retention periods to be
+	// retrieved from objects.
+	AllowGetObjectRetention bool
+	// AllowPutObjectLegalHold gives permission for legal hold status to be
+	// placed on objects.
+	AllowPutObjectLegalHold bool
+	// AllowGetObjectLegalHold gives permission for legal hold status to be
+	// retrieved from objects.
+	AllowGetObjectLegalHold bool
+	// AllowBypassGovernanceRetention gives permission for governance retention
+	// to be bypassed on objects.
+	AllowBypassGovernanceRetention bool
+	// AllowPutBucketObjectLockConfiguration gives permission for Object Lock
+	// configuration to be placed on buckets.
+	AllowPutBucketObjectLockConfiguration bool
+	// AllowGetBucketObjectLockConfiguration gives permission for Object Lock
+	// configuration to be retrieved from buckets.
+	AllowGetBucketObjectLockConfiguration bool
 	// NotBefore restricts when the resulting access grant is valid for.
 	// If set, the resulting access grant will not work if the Satellite
 	// believes the time is before NotBefore.
@@ -251,19 +279,33 @@ func (access *Access) Share(permission Permission, prefixes ...SharePrefix) (*Ac
 	for _, prefix := range prefixes {
 		internalPrefixes = append(internalPrefixes, grant.SharePrefix(prefix))
 	}
-	rv, err := access_toInternal(access).Restrict(
-		grant.Permission{
-			AllowDownload: permission.AllowDownload,
-			AllowUpload:   permission.AllowUpload,
-			AllowList:     permission.AllowList,
-			AllowDelete:   permission.AllowDelete,
-			AllowLock:     permission.AllowLock,
-			NotBefore:     permission.NotBefore,
-			NotAfter:      permission.NotAfter,
-			MaxObjectTTL:  permission.MaxObjectTTL,
-		},
-		internalPrefixes...,
-	)
+	internalPermission := grant.Permission{
+		AllowDownload:                         permission.AllowDownload,
+		AllowUpload:                           permission.AllowUpload,
+		AllowList:                             permission.AllowList,
+		AllowDelete:                           permission.AllowDelete,
+		AllowPutObjectRetention:               permission.AllowPutObjectRetention,
+		AllowGetObjectRetention:               permission.AllowGetObjectRetention,
+		AllowPutObjectLegalHold:               permission.AllowPutObjectLegalHold,
+		AllowGetObjectLegalHold:               permission.AllowGetObjectLegalHold,
+		AllowBypassGovernanceRetention:        permission.AllowBypassGovernanceRetention,
+		AllowPutBucketObjectLockConfiguration: permission.AllowPutBucketObjectLockConfiguration,
+		AllowGetBucketObjectLockConfiguration: permission.AllowGetBucketObjectLockConfiguration,
+		NotBefore:                             permission.NotBefore,
+		NotAfter:                              permission.NotAfter,
+		MaxObjectTTL:                          permission.MaxObjectTTL,
+	}
+	if permission.AllowLock {
+		// AllowLock is deprecated; map it onto the granular permissions it
+		// used to cover instead of setting the deprecated coarse permission,
+		// which satellites no longer honor.
+		internalPermission.AllowPutObjectRetention = true
+		internalPermission.AllowGetObjectRetention = true
+		internalPermission.AllowPutBucketObjectLockConfiguration = true
+		internalPermission.AllowGetBucketObjectLockConfiguration = true
+	}
+
+	rv, err := access_toInternal(access).Restrict(internalPermission, internalPrefixes...)
 	if err != nil {
 		return nil, err
 	}
@@ -353,14 +395,26 @@ func WriteOnlyPermission() Permission {
 }
 
 // FullPermission returns a Permission that allows all actions that the
-// parent access grant already allows.
+// parent access grant already allows, with the exception of bucket
+// notification configuration, which this type does not expose.
+//
+// Note that this includes AllowBypassGovernanceRetention. Bypassing
+// governance-mode retention still requires the individual request to ask for
+// it explicitly, so the permission alone does not put retained objects at
+// risk.
 func FullPermission() Permission {
 	return Permission{
-		AllowDownload: true,
-		AllowUpload:   true,
-		AllowList:     true,
-		AllowDelete:   true,
-		AllowLock:     true,
+		AllowDownload:                         true,
+		AllowUpload:                           true,
+		AllowList:                             true,
+		AllowDelete:                           true,
+		AllowPutObjectRetention:               true,
+		AllowGetObjectRetention:               true,
+		AllowPutObjectLegalHold:               true,
+		AllowGetObjectLegalHold:               true,
+		AllowBypassGovernanceRetention:        true,
+		AllowPutBucketObjectLockConfiguration: true,
+		AllowGetBucketObjectLockConfiguration: true,
 	}
 }
 

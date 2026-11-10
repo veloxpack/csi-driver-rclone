@@ -23,7 +23,6 @@
 // SOFTWARE.
 
 //go:build !purego
-// +build !purego
 
 package infectious
 
@@ -34,30 +33,39 @@ func addmulSSSE3(lowhigh *pair, in, out *byte, len int, mul *byte)
 func addmulAVX2(lowhigh *pair, in, out *byte, len int)
 
 func addmul(z, x []byte, y byte) {
-	if len(z) == 0 {
+	if len(z) == 0 || y == 0 {
 		return
 	}
 
+	// addmulAVX2 only handles whole 32 byte blocks, so calling it at all is
+	// pointless below that size.
 	var done int
 	if hasAVX2 {
-		_, z[0] = x[0], z[0] // hints to race detector
-		addmulAVX2(&mul_table_pair[y], &x[0], &z[0], len(z))
-		done = (len(x) >> 5) << 5
-	} else if hasSSSE3 {
+		done = len(z) &^ 31
+		if done > 0 {
+			_, z[0] = x[0], z[0] // hints to race detector
+			addmulAVX2(&mul_table_pair[y], &x[0], &z[0], done)
+			if done == len(z) {
+				return
+			}
+		}
+	}
+
+	// hints to the compiler to remove bounds checks
+	z = z[done:]
+	x = x[done : done+len(z)]
+
+	// addmulSSSE3 does 16 byte blocks plus a byte tail, all in assembly, and
+	// beats the Go loop from 16 bytes up. Below that the call overhead wins.
+	// AVX2 implies SSSE3, so this also mops up an AVX2 remainder.
+	if hasSSSE3 && len(z) >= 16 {
 		_, z[0] = x[0], z[0] // hints to race detector
 		addmulSSSE3(&mul_table_pair[y], &x[0], &z[0], len(z), &gf_mul_table[y][0])
-		//done = (len(x) >> 4) << 4
 		return
 	}
 
-	if done < len(z) {
-		// hints to the compiler to remove bounds checks
-		z = z[done:]
-		x = x[done : done+len(z)]
-
-		gf_mul_y := gf_mul_table[y][:]
-		for i := range z {
-			z[i] ^= gf_mul_y[x[i]]
-		}
+	gf_mul_y := gf_mul_table[y][:]
+	for i := range z {
+		z[i] ^= gf_mul_y[x[i]]
 	}
 }

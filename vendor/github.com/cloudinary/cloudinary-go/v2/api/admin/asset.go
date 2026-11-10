@@ -221,7 +221,7 @@ type UpdateAssetParams struct {
 	BackgroundRemoval string               `json:"background_removal,omitempty"`
 	QualityOverride   int                  `json:"quality_override,omitempty"`
 	NotificationURL   string               `json:"notification_url,omitempty"`
-	Tags              api.CldAPIArray      `json:"tags,omitempty,omitempty"`
+	Tags              api.CldAPIArray      `json:"tags,omitempty"`
 	Context           api.CldAPIMap        `json:"context,omitempty"`
 	AdminContext      []api.AdminContext   `json:"admin_context,omitempty"`
 	FaceCoordinates   api.Coordinates      `json:"face_coordinates,omitempty"`

@@ -29,6 +29,33 @@ import (
 // file IO buffer size for each file
 const fileBufferSize = 1 << 16 // 64k
 
+const (
+	// readBufferBudget caps the combined read buffers of all sections. A merge reads every
+	// section at once, so with many sections each gets an equal share instead of fileBufferSize.
+	readBufferBudget = 64 << 20 // 64 MiB
+	// minReadBufferSize is the smallest share a section larger than it gets.
+	minReadBufferSize = 4 << 10 // 4 KiB
+)
+
+// readBufferSize returns the read buffer size for one of n sections of length sectionLen:
+// fileBufferSize, shrunk to an equal share of readBufferBudget when there are many
+// sections, and to the section length when the section is smaller.
+func readBufferSize(n int, sectionLen int64) int {
+	size := fileBufferSize
+	if share := readBufferBudget / max(n, 1); share < size {
+		size = max(share, minReadBufferSize)
+	}
+	if sectionLen < int64(size) {
+		size = int(sectionLen) // bufio raises tiny sizes to its minimum
+	}
+	return size
+}
+
+// newSectionReader returns a buffered reader for bytes [start, end) of ra, one of n sections.
+func newSectionReader(ra io.ReaderAt, start, end int64, n int) *bufio.Reader {
+	return bufio.NewReaderSize(io.NewSectionReader(ra, start, end-start), readBufferSize(n, end-start))
+}
+
 // filename prefix for files put in temp directory
 var mergeFilenamePrefix = fmt.Sprintf("extsort_%d_", os.Getpid())
 
@@ -49,6 +76,7 @@ type FileWriter struct {
 	file         *os.File
 	bufWriter    *bufio.Writer
 	sections     []int64
+	pending      bool   // data was written since the last Next
 	needsCleanup bool   // true if manual cleanup is needed (Windows)
 	createdDir   string // directory we created (for cleanup)
 }
@@ -56,9 +84,10 @@ type FileWriter struct {
 type fileReader struct {
 	file         *os.File
 	sections     []int64
-	readers      []*bufio.Reader
-	needsCleanup bool   // true if manual cleanup is needed (Windows)
-	filename     string // filename for cleanup
+	readers      []*bufio.Reader // created by Read on first use
+	needsCleanup bool            // true if manual cleanup is needed (Windows)
+	filename     string          // filename for cleanup
+	createdDir   string          // directory we created (for cleanup), taken over from the FileWriter
 }
 
 // New creates a new FileWriter for virtual temporary files in the specified directory.
@@ -109,11 +138,14 @@ func New(dir string, preferDiskBacked bool) (*FileWriter, error) {
 	return &w, nil
 }
 
-// Size returns the total number of virtual file sections created.
-// This includes the current section being written plus all completed sections.
+// Size returns the number of virtual file sections Save will produce: all completed
+// sections, plus the current one if anything was written to it. A writer with no data
+// has one empty section.
 func (w *FileWriter) Size() int {
-	// we add one because we only write to the sections when we are done
-	return len(w.sections) + 1
+	if w.pending || len(w.sections) == 0 {
+		return len(w.sections) + 1
+	}
+	return len(w.sections)
 }
 
 // Name returns the full filesystem path of the underlying physical temporary file.
@@ -142,6 +174,7 @@ func (w *FileWriter) Close() error {
 	// Clean up directory if we created it and no other writers are using it
 	if w.createdDir != "" {
 		decrementDirRefCount(w.createdDir)
+		w.createdDir = ""
 	}
 
 	return err
@@ -150,13 +183,21 @@ func (w *FileWriter) Close() error {
 // Write appends data to the current virtual file section.
 // Data is buffered for efficiency and will be flushed when Next() or Save() is called.
 func (w *FileWriter) Write(p []byte) (int, error) {
-	return w.bufWriter.Write(p)
+	n, err := w.bufWriter.Write(p)
+	if n > 0 {
+		w.pending = true
+	}
+	return n, err
 }
 
 // WriteString appends a string to the current virtual file section.
 // This is more efficient than Write() for string data as it avoids byte slice conversion.
 func (w *FileWriter) WriteString(s string) (int, error) {
-	return w.bufWriter.WriteString(s)
+	n, err := w.bufWriter.WriteString(s)
+	if n > 0 {
+		w.pending = true
+	}
+	return n, err
 }
 
 // Next finalizes the current virtual file section and prepares for writing the next section.
@@ -173,23 +214,28 @@ func (w *FileWriter) Next() (int64, error) {
 		return 0, err
 	}
 	w.sections = append(w.sections, pos)
+	w.pending = false
 
 	return pos, nil
 }
 
 // Save finalizes all virtual file sections and returns a TempReader for accessing the data.
+// The current section becomes the last one only if anything was written to it, so a
+// Next after the final section does not add an empty section.
 // After calling Save(), the FileWriter can no longer be used for writing.
 // The returned TempReader allows concurrent access to any virtual file section.
 func (w *FileWriter) Save() (TempReader, error) {
-	_, err := w.Next()
-	if err != nil {
-		return nil, err
-	}
-	err = w.file.Sync()
-	if err != nil {
-		return nil, err
+	// No Sync: the file is only read back by this process, and on Unix it is already
+	// unlinked, so flushing it to stable storage only costs time.
+	var err error
+	if w.pending || len(w.sections) == 0 {
+		// Next also flushes; otherwise the last Next already did
+		if _, err = w.Next(); err != nil {
+			return nil, err
+		}
 	}
 
+	var r *fileReader
 	if w.needsCleanup {
 		// Windows case: close file and reopen for reading
 		filename := w.file.Name()
@@ -197,11 +243,19 @@ func (w *FileWriter) Save() (TempReader, error) {
 		if err != nil {
 			return nil, err
 		}
-		return newTempReader(filename, w.sections, w.needsCleanup)
+		r, err = newTempReader(filename, w.sections, w.needsCleanup)
 	} else {
 		// Unix case: file is unlinked, reuse the same file handle
-		return newTempReaderFromFile(w.file, w.sections, w.needsCleanup)
+		r, err = newTempReaderFromFile(w.file, w.sections, w.needsCleanup)
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	// The reader now owns the directory reference and releases it on Close
+	r.createdDir = w.createdDir
+	w.createdDir = ""
+	return r, nil
 }
 
 // newTempReader creates a TempReader by opening a file by name.
@@ -219,13 +273,6 @@ func newTempReader(filename string, sections []int64, needsCleanup bool) (*fileR
 	r.needsCleanup = needsCleanup
 	r.filename = filename
 
-	offset := int64(0)
-	for i, end := range r.sections {
-		section := io.NewSectionReader(r.file, offset, end-offset)
-		offset = end
-		r.readers[i] = bufio.NewReaderSize(section, fileBufferSize)
-	}
-
 	return &r, nil
 }
 
@@ -239,13 +286,6 @@ func newTempReaderFromFile(file *os.File, sections []int64, needsCleanup bool) (
 	r.readers = make([]*bufio.Reader, len(r.sections))
 	r.needsCleanup = needsCleanup
 	r.filename = file.Name()
-
-	offset := int64(0)
-	for i, end := range r.sections {
-		section := io.NewSectionReader(r.file, offset, end-offset)
-		offset = end
-		r.readers[i] = bufio.NewReaderSize(section, fileBufferSize)
-	}
 
 	return &r, nil
 }
@@ -263,6 +303,12 @@ func (r *fileReader) Close() error {
 		}
 	}
 
+	// Clean up directory if we created it and no other writers are using it
+	if r.createdDir != "" {
+		decrementDirRefCount(r.createdDir)
+		r.createdDir = ""
+	}
+
 	return err
 }
 
@@ -272,10 +318,20 @@ func (r *fileReader) Size() int {
 }
 
 // Read returns a buffered reader for the specified virtual file section.
+// The reader is created on first use, with a buffer sized by readBufferSize, so the
+// memory used grows with the sections read rather than 64 KiB per section up front.
+// Read may be called concurrently for different sections.
 // Panics if the section index is out of range.
 func (r *fileReader) Read(i int) *bufio.Reader {
 	if i < 0 || i >= len(r.readers) {
 		panic("tempfile: read request out of range")
+	}
+	if r.readers[i] == nil {
+		var start int64
+		if i > 0 {
+			start = r.sections[i-1]
+		}
+		r.readers[i] = newSectionReader(r.file, start, r.sections[i], len(r.sections))
 	}
 	return r.readers[i]
 }

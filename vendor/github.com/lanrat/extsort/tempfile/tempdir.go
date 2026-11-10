@@ -16,23 +16,22 @@ var (
 	memoryAllowedDir string
 	dirDiscoveryOnce sync.Once
 
-	// Cached expensive operations
+	// Cached expensive operations, filled on first use by cacheOnce
+	cacheOnce     sync.Once
 	cachedHomeDir string
 	cachedWorkDir string
 	cachedOSTemp  string
 )
 
 // GetTempDir returns the optimal temporary directory for the given preference.
-// If dir is provided and non-empty, it's validated and returned if usable.
-// Otherwise, returns a pre-computed optimal directory based on preferDiskBacked.
+// If dir is provided and non-empty, it is returned unchanged: an unusable
+// caller-provided directory is reported as an error by New rather than being
+// silently replaced. Otherwise, returns a pre-computed optimal directory based on preferDiskBacked.
 // This function is thread-safe and performs O(1) lookups after initialization.
 func GetTempDir(dir string, preferDiskBacked bool) string {
-	// If caller provides a specific directory, validate and use it
+	// If caller provides a specific directory, use it as given
 	if dir != "" {
-		if isDirectoryUsable(dir) {
-			return dir
-		}
-		// Fall through to use pre-computed directory if provided dir is unusable
+		return dir
 	}
 
 	// Ensure directories have been discovered (happens once)
@@ -48,9 +47,6 @@ func GetTempDir(dir string, preferDiskBacked bool) string {
 // This runs once and caches expensive operations like os.UserHomeDir() and os.Getwd().
 // Called by sync.Once to ensure thread-safe initialization.
 func discoverOptimalDirectories() {
-	// Cache expensive operations once
-	cacheExpensiveOperations()
-
 	// Find optimal directory for disk-preferred usage
 	diskPreferredDir = findBestDirectory(true)
 
@@ -76,22 +72,39 @@ func cacheExpensiveOperations() {
 // It iterates through candidates in priority order and returns the first usable directory.
 // Falls back to OS temp directory if no candidates are usable.
 func findBestDirectory(preferDiskBacked bool) string {
-	candidates := buildCandidateList(preferDiskBacked)
-
-	for _, candidate := range candidates {
-		if isDirectoryUsable(candidate) {
-			return candidate
-		}
+	if dir := firstUsableDir(buildCandidateList(preferDiskBacked)); dir != "" {
+		return dir
 	}
 
 	// Final fallback to OS default temp dir
 	return cachedOSTemp
 }
 
+// firstUsableDir returns the first candidate that can hold temp files, or "" if none can.
+// Our own process-specific directories are usable if they exist or can be created, since
+// New creates them on demand. Any other candidate (such as /var/tmp or os.TempDir()) is
+// never created, so it must already be a directory we can write to; a missing or read-only
+// one falls through to the next candidate.
+func firstUsableDir(candidates []string) string {
+	for _, candidate := range candidates {
+		if isExtsortDirectory(candidate) {
+			if isDirectoryUsable(candidate) {
+				return candidate
+			}
+			continue
+		}
+		if isWritableDirectory(candidate) {
+			return candidate
+		}
+	}
+	return ""
+}
+
 // buildCandidateList returns a prioritized list of temporary directory candidates.
 // When preferDiskBacked is true, disk-preferred candidates are prioritized first.
 // Uses cached values for performance. The order depends on the OS and preferDiskBacked setting.
 func buildCandidateList(preferDiskBacked bool) []string {
+	cacheOnce.Do(cacheExpensiveOperations)
 	var candidates []string
 
 	if preferDiskBacked {
@@ -141,6 +154,7 @@ func buildDiskPreferredCandidates() []string {
 // Creates process-specific subdirectories in the user's home directory and current
 // working directory. Uses cached directory values for performance.
 func buildAdditionalFallbacks() []string {
+	cacheOnce.Do(cacheExpensiveOperations)
 	var candidates []string
 
 	// Try user home directory with subdirectory (using cached value)
@@ -156,6 +170,20 @@ func buildAdditionalFallbacks() []string {
 	}
 
 	return candidates
+}
+
+// isWritableDirectory reports whether dir is an existing directory in which files can be
+// created, by creating and removing a probe file. Unlike isDirectoryUsable, it returns false
+// for a directory that does not exist, and detects read-only filesystems and permission errors.
+func isWritableDirectory(dir string) bool {
+	f, err := os.CreateTemp(dir, mergeFilenamePrefix+"probe_")
+	if err != nil {
+		return false
+	}
+	name := f.Name()
+	_ = f.Close()
+	_ = os.Remove(name)
+	return true
 }
 
 // isDirectoryUsable checks if a directory exists and is a directory, or can be created.

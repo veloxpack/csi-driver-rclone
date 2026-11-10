@@ -1,3 +1,13 @@
+2.16.1 / 2026-09-30
+==================
+
+  * Fix token-based authentication signing the unescaped URL path
+  * Fix encoding of spaces, `+`, `%` and `//` in asset URLs
+  * Fix empty `format` sent in `PrivateDownloadURL`
+  * Fix `ExpiresAt` sent as RFC 3339 instead of a unix timestamp in archive and download URLs
+  * Fix `VerifyApiResponseSignature` returning false for valid signatures
+  * Support Go 1.24-1.27 and modernize deprecated APIs
+
 2.16.0 / 2026-05-28
 ==================
 

@@ -3,7 +3,6 @@ package tempfile
 import (
 	"bufio"
 	"bytes"
-	"io"
 )
 
 // MockFileWriter provides an in-memory implementation of the TempWriter interface.
@@ -12,6 +11,7 @@ import (
 type MockFileWriter struct {
 	data     *bytes.Buffer
 	sections []int
+	pending  bool // data was written since the last Next
 }
 
 // mockFileReader provides an in-memory implementation of the TempReader interface.
@@ -33,11 +33,14 @@ func Mock(n int) *MockFileWriter {
 	return &m
 }
 
-// Size returns the total number of virtual file sections that have been created.
-// This includes the current section being written plus all completed sections.
+// Size returns the number of virtual file sections Save will produce: all completed
+// sections, plus the current one if anything was written to it. A writer with no data
+// has one empty section.
 func (w *MockFileWriter) Size() int {
-	// we add one because we only write to the sections when we are done
-	return len(w.sections) + 1
+	if w.pending || len(w.sections) == 0 {
+		return len(w.sections) + 1
+	}
+	return len(w.sections)
 }
 
 // Close terminates the MockFileWriter and releases all memory.
@@ -52,12 +55,20 @@ func (w *MockFileWriter) Close() error {
 
 // Write appends data to the current virtual file section in memory.
 func (w *MockFileWriter) Write(p []byte) (int, error) {
-	return w.data.Write(p)
+	n, err := w.data.Write(p)
+	if n > 0 {
+		w.pending = true
+	}
+	return n, err
 }
 
 // WriteString appends string data to the current virtual file section in memory.
 func (w *MockFileWriter) WriteString(s string) (int, error) {
-	return w.data.WriteString(s)
+	n, err := w.data.WriteString(s)
+	if n > 0 {
+		w.pending = true
+	}
+	return n, err
 }
 
 // Next finalizes the current virtual file section and prepares for writing the next section.
@@ -66,16 +77,19 @@ func (w *MockFileWriter) Next() (int64, error) {
 	// save offsets
 	pos := w.data.Len()
 	w.sections = append(w.sections, pos)
+	w.pending = false
 	return int64(pos), nil
 }
 
 // Save finalizes all virtual file sections and returns a TempReader for accessing the data.
+// The current section becomes the last one only if anything was written to it, as with FileWriter.
 // After calling Save(), the MockFileWriter can no longer be used for writing.
 // The returned TempReader allows concurrent access to any virtual file section.
 func (w *MockFileWriter) Save() (TempReader, error) {
-	_, err := w.Next()
-	if err != nil {
-		return nil, err
+	if w.pending || len(w.sections) == 0 {
+		if _, err := w.Next(); err != nil {
+			return nil, err
+		}
 	}
 	return newMockTempReader(w.sections, w.data.Bytes())
 }
@@ -88,13 +102,6 @@ func newMockTempReader(sections []int, data []byte) (*mockFileReader, error) {
 	r.data = bytes.NewReader(data)
 	r.sections = sections
 	r.readers = make([]*bufio.Reader, len(r.sections))
-
-	offset := 0
-	for i, end := range r.sections {
-		section := io.NewSectionReader(r.data, int64(offset), int64(end-offset))
-		offset = end
-		r.readers[i] = bufio.NewReaderSize(section, fileBufferSize)
-	}
 
 	return &r, nil
 }
@@ -112,11 +119,19 @@ func (r *mockFileReader) Size() int {
 	return len(r.readers)
 }
 
-// Read returns a buffered reader for the specified virtual file section.
+// Read returns a buffered reader for the specified virtual file section, created on
+// first use like the disk-based reader. Read may be called concurrently for different sections.
 // Panics if the section index is out of range.
 func (r *mockFileReader) Read(i int) *bufio.Reader {
 	if i < 0 || i >= len(r.readers) {
 		panic("tempfile: read request out of range")
+	}
+	if r.readers[i] == nil {
+		start := 0
+		if i > 0 {
+			start = r.sections[i-1]
+		}
+		r.readers[i] = newSectionReader(r.data, int64(start), int64(r.sections[i]), len(r.sections))
 	}
 	return r.readers[i]
 }

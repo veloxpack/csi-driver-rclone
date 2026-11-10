@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -168,7 +167,7 @@ func (a *API) postFile(ctx context.Context, path interface{}, file interface{}, 
 func (a *API) executeRequest(ctx context.Context, method string, path interface{}, body io.Reader, queryParams string,
 	headers map[string]string, result interface{}) (*http.Response, error) {
 	apiVersion := ""
-	if apiVersionRaw := ctx.Value("api_version"); apiVersionRaw != nil {
+	if apiVersionRaw := ctx.Value(apiVersionKey); apiVersionRaw != nil {
 		apiVersion = apiVersionRaw.(string)
 	}
 
@@ -205,7 +204,7 @@ func (a *API) executeRequest(ctx context.Context, method string, path interface{
 
 	defer api.DeferredClose(resp.Body)
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

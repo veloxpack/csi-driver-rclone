@@ -223,9 +223,6 @@ func (i *targetInfoEncoder) encode(dst []byte) {
 
 	le.PutUint16(dst[off:off+2], MsvAvEOL)
 	le.PutUint16(dst[off+2:off+4], 0)
-
-	//nolint:ineffassign // we know that this does nothing, it will be removed in a later cleanup
-	off += 4
 }
 
 func mac(dst []byte, negotiateFlags uint32, handle *rc4.Cipher, signingKey []byte, seqNum uint32, msg []byte) ([]byte, uint32) {

@@ -166,7 +166,22 @@ message ExistsRequest {
     repeated bytes piece_ids = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
 }
 
+// StorageMethod identifies which backend a piece is stored in.
+enum StorageMethod {
+    STORAGE_METHOD_UNSPECIFIED = 0;  // missing, or responder too old to report
+    STORAGE_METHOD_PIECESTORE  = 1;  // classic filestore backend
+    STORAGE_METHOD_HASHSTORE   = 2;
+}
+
 message ExistsResponse {
     // input piece ids indices of the missing pieces
     repeated uint32 missing = 1;
+
+    // Length contract: either empty (responder predates this field or opted out),
+    // or exactly len(piece_ids) entries aligned by index with the request.
+    // Any other length is a protocol violation; readers MUST verify len(storage_method)
+    // against len(piece_ids) before indexing, and treat mismatched or missing entries
+    // as STORAGE_METHOD_UNSPECIFIED. `missing` remains authoritative for existence;
+    // storage_method[i] for indices in `missing` is undefined and MUST be ignored.
+    repeated StorageMethod storage_method = 2;
 }

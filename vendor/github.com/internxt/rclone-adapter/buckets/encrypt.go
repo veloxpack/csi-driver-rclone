@@ -10,7 +10,7 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/tyler-smith/go-bip39"
+	"github.com/internxt/rclone-adapter/internal/bip39"
 	"golang.org/x/crypto/ripemd160"
 )
 

@@ -5,7 +5,6 @@
 package fuse
 
 import (
-	"log"
 	"sync"
 	"syscall"
 )
@@ -19,8 +18,6 @@ type protocolServer struct {
 	interruptMu    sync.Mutex
 	reqInflight    []*request
 	connectionDead bool
-
-	latencies LatencyMap
 
 	kernelSettings InitIn
 
@@ -40,14 +37,27 @@ func (ms *protocolServer) handleRequest(h *operationHandler, req *request) {
 		ms.opts.Logger.Println(req.InputDebug())
 	}
 
-	if req.inHeader().NodeId == pollHackInode ||
+	if h == nil || h.Func == nil {
+		c := req.inHeader().Opcode
+		if c != _OP_COPY_FILE_RANGE_64 { // _OP_COPY_FILE_RANGE_64 is intentionally not supported.
+			ms.opts.Logger.Printf("Unimplemented opcode %v", operationName(c))
+		}
+		req.status = ENOSYS
+	} else if req.inHeader().NodeId == pollHackInode ||
 		req.inHeader().NodeId == FUSE_ROOT_ID && h.FileNames > 0 && req.filename() == pollHackName {
 		doPollHackLookup(ms, req)
-	} else if req.status.Ok() && h.Func == nil {
-		ms.opts.Logger.Printf("Unimplemented opcode %v", operationName(req.inHeader().Opcode))
-		req.status = ENOSYS
 	} else if req.status.Ok() {
-		h.Func(ms, req)
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					req.status = ms.opts.PanicHandler(r)
+					if req.status == 0 {
+						req.status = EIO
+					}
+				}
+			}()
+			h.Func(ms, req)
+		}()
 	}
 
 	// Forget/NotifyReply do not wait for reply from filesystem server.
@@ -57,6 +67,8 @@ func (ms *protocolServer) handleRequest(h *operationHandler, req *request) {
 		if req.status.Ok() {
 			req.suppressReply = true
 		}
+	default:
+		req.suppressReply = h != nil && h.SuppressReply
 	}
 	if req.status == EINTR {
 		ms.interruptMu.Lock()
@@ -145,10 +157,9 @@ func NewProtocolServer(fs RawFileSystem, opts *MountOptions) *ProtocolServer {
 	// ProtocolServer has no pipe, so splicing READ results to the
 	// caller is not possible; force the in-process READ path.
 	optsCopy := *opts
+	optsCopy.setDefaults(fs)
 	optsCopy.DisableSplice = true
-	if optsCopy.Logger == nil {
-		optsCopy.Logger = log.Default()
-	}
+
 	return &ProtocolServer{
 		protocolServer: protocolServer{
 			fileSystem:  fs,

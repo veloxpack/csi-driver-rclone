@@ -92,11 +92,11 @@ func (r *request) clear() {
 	r.readResult = nil
 }
 
-func asType(ptr unsafe.Pointer, typ interface{}) interface{} {
+func asType(ptr unsafe.Pointer, typ any) any {
 	return reflect.NewAt(reflect.ValueOf(typ).Type(), ptr).Interface()
 }
 
-func typSize(typ interface{}) uintptr {
+func typSize(typ any) uintptr {
 	return reflect.ValueOf(typ).Type().Size()
 }
 
@@ -216,7 +216,6 @@ func parseRequest(in []byte, kernelSettings *InitIn) (h *operationHandler, inSiz
 	hdr := (*InHeader)(inData)
 	h = getHandler(hdr.Opcode)
 	if h == nil {
-		log.Printf("Unknown opcode %d", hdr.Opcode)
 		errno = ENOSYS
 		return
 	}
@@ -293,7 +292,7 @@ func (r *request) serializeHeader(outPayloadSize int) {
 	// The InitOut structure has 24 bytes (ie. TimeGran and
 	// further fields not available) in fuse version <= 22.
 	// https://john-millikin.com/the-fuse-protocol#FUSE_INIT
-	if r.inHeader().Opcode == _OP_INIT {
+	if r.status.Ok() && r.inHeader().Opcode == _OP_INIT {
 		out := (*InitOut)(r.outData())
 		if out.Minor <= 22 {
 			r.outDataBuf = r.outDataBuf[:24]

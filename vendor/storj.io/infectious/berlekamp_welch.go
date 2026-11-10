@@ -23,8 +23,8 @@
 package infectious
 
 import (
+	"encoding/binary"
 	"errors"
-	"sort"
 	"strconv"
 )
 
@@ -32,8 +32,9 @@ import (
 // (pieces). It will return the data passed in to the corresponding Encode
 // call or return an error.
 //
-// It will first correct the shares using Correct, mutating and reordering the
-// passed-in shares arguments. Then it will rebuild the data using Rebuild.
+// It will first correct the shares using Correct, reordering the passed-in
+// shares slice and replacing the Data of corrected shares with new buffers.
+// Then it will rebuild the data using Rebuild.
 // Finally it will concatenate the data into the given output buffer dst if it
 // has capacity, growing it otherwise.
 //
@@ -75,15 +76,39 @@ func (f *FEC) decode(shares []Share, output func(Share)) error {
 	return f.Rebuild(shares, output)
 }
 
+// firstNonZero returns the index of the first nonzero byte of b, or len(b) if
+// every byte is zero. It reads a word at a time: the syndrome check calls it
+// on buffers that are entirely zero whenever the data is intact, which is the
+// case it needs to get through quickly.
+func firstNonZero(b []byte) int {
+	i := 0
+	for ; i+8 <= len(b); i += 8 {
+		if binary.LittleEndian.Uint64(b[i:]) != 0 {
+			break
+		}
+	}
+	for ; i < len(b); i++ {
+		if b[i] != 0 {
+			return i
+		}
+	}
+	return len(b)
+}
+
 // Correct implements the Berlekamp-Welch algorithm for correcting
 // errors in given FEC encoded data. It will correct the supplied shares,
-// mutating the underlying byte slices and reordering the shares
+// reordering the shares slice and replacing the Data of corrected shares
+// with new buffers; the passed-in byte slices are not modified.
 func (fc *FEC) Correct(shares []Share) error {
 	if len(shares) < fc.k {
 		return errors.New("must specify at least the number of required shares")
 	}
 
-	sort.Sort(byNumber(shares))
+	sortByNumber(shares)
+
+	if err := checkShares(shares, fc.n); err != nil {
+		return err
+	}
 
 	// fast path: check to see if there are no errors by evaluating it with
 	// the syndrome matrix.
@@ -96,19 +121,13 @@ func (fc *FEC) Correct(shares []Share) error {
 	recreated := make([]bool, len(shares))
 	correction := make([]byte, fc.n)
 	for i := 0; i < synd.r; i++ {
-		for j := range buf {
-			buf[j] = 0
-		}
+		clear(buf)
 
 		for j := 0; j < synd.c; j++ {
 			addmul(buf, shares[j].Data, byte(synd.get(i, j)))
 		}
 
-		for j := range buf {
-			if buf[j] == 0 {
-				continue
-			}
-
+		for j := firstNonZero(buf); j < len(buf); j += 1 + firstNonZero(buf[j+1:]) {
 			err := fc.berlekampWelch(shares, j, correction)
 			if err != nil {
 				return err
@@ -158,27 +177,30 @@ func (fc *FEC) berlekampWelch(shares []Share, index int, out []byte) error {
 	f := make(gfVals, dim)   // constant column vector
 	u := make(gfVals, dim)   // solution vector
 
-	for i := 0; i < dim; i++ {
+	for i := range dim {
+		a.set(i, i, gfConst(1))
+	}
+
+	for i := range dim {
 		x_i := eval_point(shares[i].Number)
 		r_i := gfConst(shares[i].Data[index])
 
-		f[i] = x_i.pow(e).mul(r_i)
-
-		for j := 0; j < q; j++ {
-			s.set(i, j, x_i.pow(j))
-			if i == j {
-				a.set(i, j, gfConst(1))
-			}
+		// The powers of x_i are consecutive, so carry a running product
+		// instead of calling pow once per entry.
+		xp := gfConst(1)
+		for j := range q {
+			s.set(i, j, xp)
+			xp = xp.mul(x_i)
 		}
 
-		for k := 0; k < e; k++ {
-			j := k + q
-
-			s.set(i, j, x_i.pow(k).mul(r_i))
-			if i == j {
-				a.set(i, j, gfConst(1))
-			}
+		xp = gfConst(1)
+		for k := range e {
+			s.set(i, k+q, xp.mul(r_i))
+			xp = xp.mul(x_i)
 		}
+
+		// e < q, so xp is x_i^e here.
+		f[i] = xp.mul(r_i)
 	}
 
 	// invert and put the result in a
@@ -188,7 +210,7 @@ func (fc *FEC) berlekampWelch(shares []Share, index int, out []byte) error {
 	}
 
 	// multiply the inverted matrix by the column vector
-	for i := 0; i < dim; i++ {
+	for i := range dim {
 		ri := a.indexRow(i)
 		u[i] = ri.dot(f)
 	}
@@ -215,12 +237,12 @@ func (fc *FEC) berlekampWelch(shares []Share, index int, out []byte) error {
 		return errors.New("out should be of length " + strconv.Itoa(fc.n))
 	}
 
-	for i := range out {
-		pt := gfConst(0)
-		if i != 0 {
-			pt = interp_base.pow(i - 1)
-		}
+	// Same evaluation points as eval_point, walked with a running product.
+	out[0] = byte(p_poly.eval(gfConst(0)))
+	pt := gfConst(1)
+	for i := 1; i < len(out); i++ {
 		out[i] = byte(p_poly.eval(pt))
+		pt = pt.mul(interp_base)
 	}
 
 	return nil

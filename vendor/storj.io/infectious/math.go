@@ -85,14 +85,14 @@ func invertMatrix(matrix []byte, k int) error {
 	indxr := make([]int, k)
 	id_row := make([]byte, k)
 
-	for col := 0; col < k; col++ {
+	for col := range k {
 		icol, irow, err := pivot_searcher.search(col, matrix)
 		if err != nil {
 			return err
 		}
 
 		if irow != icol {
-			for i := 0; i < k; i++ {
+			for i := range k {
 				swap(&matrix[irow*k+i], &matrix[icol*k+i])
 			}
 		}
@@ -111,7 +111,7 @@ func invertMatrix(matrix []byte, k int) error {
 			pivot_row[icol] = 1
 			mul_c := gf_mul_table[c][:]
 
-			for i := 0; i < k; i++ {
+			for i := range k {
 				pivot_row[i] = mul_c[pivot_row[i]]
 			}
 		}
@@ -119,7 +119,7 @@ func invertMatrix(matrix []byte, k int) error {
 		id_row[icol] = 1
 		if !bytes.Equal(pivot_row, id_row) {
 			p := matrix
-			for i := 0; i < k; i++ {
+			for i := range k {
 				if i != icol {
 					c = p[icol]
 					p[icol] = 0
@@ -132,9 +132,9 @@ func invertMatrix(matrix []byte, k int) error {
 		id_row[icol] = 0
 	}
 
-	for i := 0; i < k; i++ {
+	for i := range k {
 		if indxr[i] != indxc[i] {
-			for row := 0; row < k; row++ {
+			for row := range k {
 				swap(&matrix[row*k+indxr[i]], &matrix[row*k+indxc[i]])
 			}
 		}
@@ -160,7 +160,7 @@ func createInvertedVdm(vdm []byte, k int) {
 		c[k-1] ^= gf_exp[i]
 	}
 
-	for row := 0; row < k; row++ {
+	for row := range k {
 		index := 0
 		if row != 0 {
 			index = int(gf_exp[row])
@@ -175,7 +175,7 @@ func createInvertedVdm(vdm []byte, k int) {
 		}
 
 		mul_t_inv := gf_mul_table[gf_inverse[t]][:]
-		for col := 0; col < k; col++ {
+		for col := range k {
 			vdm[col*k+row] = mul_t_inv[b[col]]
 		}
 	}

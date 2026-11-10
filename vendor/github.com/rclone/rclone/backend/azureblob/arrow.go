@@ -1,4 +1,4 @@
-//go:build !plan9 && !solaris && !js
+//go:build !plan9 && !js
 
 // Parallel listing support for azureblob, built on the Apache Arrow
 // listing format.
@@ -62,7 +62,7 @@ func (f *Fs) listArrowParallel(ctx context.Context, containerName, directory, pr
 
 	// Schedule every shard; SetLimit bounds concurrency, so more shards than
 	// workers gives free load balancing as workers pick up the next shard.
-	var total int64
+	var total atomic.Int64
 	g, gCtx := errgroup.WithContext(ctx)
 	g.SetLimit(f.opt.ListParallelism)
 	for _, sh := range shards {
@@ -85,12 +85,12 @@ func (f *Fs) listArrowParallel(ctx context.Context, containerName, directory, pr
 				shardOpts.EndBefore = nil
 			}
 			n, err := f.listBlobsPager(gCtx, containerName, directory, prefix, addContainer, &shardOpts, delimiter, safeFn)
-			atomic.AddInt64(&total, int64(n))
+			total.Add(int64(n))
 			return err
 		})
 	}
 	err := g.Wait()
-	found := int(atomic.LoadInt64(&total))
+	found := int(total.Load())
 	if isEndBeforeUnsupported(err) {
 		// The account can't honour the shards' endBefore bounds, so parallel
 		// listing can't be used on it.

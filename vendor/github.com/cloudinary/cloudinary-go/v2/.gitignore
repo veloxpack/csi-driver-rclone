@@ -1,0 +1,31 @@
+# Credentials — never commit these.
+.env
+.env.*
+# ...except the committed template, which holds only placeholders.
+!.env.example
+
+# Media downloaded by the runnable examples in examples/.
+dog.mp4
+examples/**/*.mp4
+examples/**/*.jpg
+examples/**/*.png
+
+# Go build and test output.
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.txt
+
+# Go workspace files.
+go.work
+go.work.sum
+
+# Editor and IDE directories.
+.idea/
+.vscode/
+*.iml
+.DS_Store

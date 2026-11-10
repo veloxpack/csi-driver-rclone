@@ -79,6 +79,7 @@ func verifyECDSASignatureWithoutHashing(pubKey *ecdsa.PublicKey, digest, signatu
 	race2.ReadSlice(digest)
 	race2.ReadSlice(signatureBytes)
 
+	digest = normalizeECDSADigest(digest)
 	if !ecdsa.VerifyASN1(pubKey, digest, signatureBytes) {
 		return ErrVerifySignature.New("signature is not valid")
 	}
@@ -161,8 +162,19 @@ func VerifyHMACSHA256(privKey crypto.PrivateKey, data, signature []byte) error {
 func signECDSAWithoutHashing(privKey *ecdsa.PrivateKey, digest []byte) ([]byte, error) {
 	race2.ReadSlice(digest)
 
+	digest = normalizeECDSADigest(digest)
 	sig, err := ecdsa.SignASN1(rand.Reader, privKey, digest)
 	return sig, ErrSign.Wrap(err)
+}
+
+// normalizeECDSADigest preserves support for signing an empty digest. ECDSA
+// interprets both an empty byte slice and {0} as the integer zero, but Go 1.27
+// rejects the empty representation.
+func normalizeECDSADigest(digest []byte) []byte {
+	if len(digest) == 0 {
+		return []byte{0}
+	}
+	return digest
 }
 
 func signRSAWithoutHashing(privKey *rsa.PrivateKey, digest []byte) ([]byte, error) {

@@ -33,6 +33,7 @@ import (
 	"github.com/rclone/rclone/lib/encoder"
 	"github.com/rclone/rclone/lib/oauthutil"
 	"github.com/rclone/rclone/lib/pacer"
+	"github.com/rclone/rclone/lib/pool"
 	"github.com/rclone/rclone/lib/readers"
 	"github.com/rclone/rclone/lib/rest"
 	"golang.org/x/oauth2"
@@ -48,6 +49,10 @@ const (
 	uploadURL                   = "https://driveapis.cloud.huawei.com.cn/upload/drive/v1"
 	defaultChunkSize            = 8 * fs.Mebi
 )
+
+// jsonContentType is sent with JSON request bodies as the API doesn't
+// decode non-ASCII file names in them as UTF-8 unless told the charset.
+const jsonContentType = "application/json; charset=UTF-8"
 
 // OAuth2 configuration
 var oauthConfig = &oauthutil.Config{
@@ -546,6 +551,7 @@ func (f *Fs) CreateDir(ctx context.Context, pathID, leaf string) (newID string, 
 		Parameters: url.Values{
 			"fields": []string{"*"},
 		},
+		ExtraHeaders: map[string]string{"Content-Type": jsonContentType},
 	}
 
 	var info *api.File
@@ -1014,6 +1020,7 @@ func (f *Fs) Copy(ctx context.Context, src fs.Object, remote string) (fs.Object,
 		Parameters: url.Values{
 			"fields": []string{"*"},
 		},
+		ExtraHeaders: map[string]string{"Content-Type": jsonContentType},
 	}
 
 	copyReq := api.CopyFileRequest{
@@ -1031,7 +1038,7 @@ func (f *Fs) Copy(ctx context.Context, src fs.Object, remote string) (fs.Object,
 		fs.Debugf(f, "Copy: failed to get metadata options: %v", err)
 	}
 	if len(mergedMeta) > 0 {
-		copyReq.Properties = make(map[string]interface{})
+		copyReq.Properties = make(map[string]any)
 		for key, value := range mergedMeta {
 			switch key {
 			case "content-type", "sha256", "btime", "mtime", "utime",
@@ -1198,9 +1205,10 @@ func (f *Fs) updateFile(ctx context.Context, fileID string, parameters url.Value
 	}
 	parameters.Set("fields", "*")
 	opts := rest.Opts{
-		Method:     "PATCH",
-		Path:       "/files/" + fileID,
-		Parameters: parameters,
+		Method:       "PATCH",
+		Path:         "/files/" + fileID,
+		Parameters:   parameters,
+		ExtraHeaders: map[string]string{"Content-Type": jsonContentType},
 	}
 	err = f.pacer.Call(func() (bool, error) {
 		resp, err := f.srv.CallJSON(ctx, &opts, req, &info)
@@ -1670,6 +1678,7 @@ func (o *Object) uploadEmpty(ctx context.Context, leaf, directoryID string, src 
 		Parameters: url.Values{
 			"fields": []string{"*"},
 		},
+		ExtraHeaders: map[string]string{"Content-Type": jsonContentType},
 	}
 
 	var info *api.File
@@ -1721,7 +1730,7 @@ func (o *Object) uploadMultipart(ctx context.Context, in io.Reader, leaf, direct
 	}
 
 	// Create metadata
-	metadata := map[string]interface{}{
+	metadata := map[string]any{
 		"fileName": leaf,
 		"mimeType": mimeType,
 	}
@@ -1741,9 +1750,10 @@ func (o *Object) uploadMultipart(ctx context.Context, in io.Reader, leaf, direct
 		metadata["autoRename"] = 3
 	}
 
-	// Create multipart form
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
+	// Build the multipart body in pooled memory so it can be re-sent on retry
+	rw := pool.NewRW(pool.Global())
+	defer fs.CheckClose(rw, &err)
+	writer := multipart.NewWriter(rw)
 
 	// Add metadata part - use exact format from Huawei docs
 	metadataWriter, err := writer.CreatePart(textproto.MIMEHeader{
@@ -1789,15 +1799,17 @@ func (o *Object) uploadMultipart(ctx context.Context, in io.Reader, leaf, direct
 		return fmt.Errorf("failed to close multipart writer: %w", err)
 	}
 
-	bodyBytes := buf.Bytes()
+	bodySize := rw.Size()
 	opts := rest.Opts{
 		Method: "POST",
 		Parameters: url.Values{
 			"uploadType": []string{"multipart"},
 			"fields":     []string{"*"},
 		},
-		ContentType: fmt.Sprintf("multipart/related; boundary=%s", writer.Boundary()),
-		RootURL:     o.fs.uploadURL,
+		ContentType:   fmt.Sprintf("multipart/related; boundary=%s", writer.Boundary()),
+		ContentLength: &bodySize,
+		RootURL:       o.fs.uploadURL,
+		Body:          rw,
 	}
 
 	if o.id != "" {
@@ -1811,7 +1823,10 @@ func (o *Object) uploadMultipart(ctx context.Context, in io.Reader, leaf, direct
 
 	var info *api.File
 	err = o.fs.pacer.Call(func() (bool, error) {
-		opts.Body = bytes.NewReader(bodyBytes)
+		_, err := rw.Seek(0, io.SeekStart)
+		if err != nil {
+			return false, err
+		}
 		resp, err := srv.CallJSON(ctx, &opts, nil, &info)
 		return shouldRetry(ctx, resp, err)
 	})
@@ -1839,6 +1854,7 @@ func (o *Object) uploadResume(ctx context.Context, in io.Reader, leaf, directory
 			"fields":     []string{"*"},
 		},
 		ExtraHeaders: map[string]string{
+			"Content-Type":            jsonContentType,
 			"X-Upload-Content-Length": strconv.FormatInt(size, 10),
 		},
 		RootURL: o.fs.uploadURL,
@@ -1872,7 +1888,7 @@ func (o *Object) uploadResume(ctx context.Context, in io.Reader, leaf, directory
 	}
 
 	// Prepare metadata for resumable upload initialization
-	metadata := map[string]interface{}{
+	metadata := map[string]any{
 		"fileName": leaf,
 	}
 
@@ -1905,25 +1921,26 @@ func (o *Object) uploadResume(ctx context.Context, in io.Reader, leaf, directory
 	}
 
 	// Now upload the content in chunks
-	chunkSize := int64(o.fs.opt.ChunkSize)
-	if chunkSize < 256*1024 {
-		chunkSize = 256 * 1024 // Minimum chunk size according to Huawei Drive API
-	}
-	if chunkSize > 64*1024*1024 {
-		chunkSize = 64 * 1024 * 1024 // Maximum single upload size
-	}
+	// Note 256k is the minimum chunk size and 64M the maximum
+	// single upload size according to the Huawei Drive API
+	chunkSize := min(max(int64(o.fs.opt.ChunkSize), 256*1024), 64*1024*1024)
 
-	buf := make([]byte, chunkSize)
 	var offset int64
 
 	for offset < size {
-		n, err := io.ReadFull(in, buf)
-		if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		// Buffer the chunk in pooled memory so it can be re-sent on retry
+		rw := pool.NewRW(pool.Global())
+		n, err := io.CopyN(rw, in, min(size-offset, chunkSize))
+		if err != nil {
+			// io.EOF here means the source ran out before the declared size
+			if err == io.EOF {
+				err = io.ErrUnexpectedEOF
+			}
+			_ = rw.Close()
 			return fmt.Errorf("failed to read chunk at offset %d: %w", offset, err)
 		}
 
-		chunk := buf[:n]
-		end := offset + int64(n) - 1
+		end := offset + n - 1
 
 		// Upload this chunk using the original client with OAuth authentication
 		chunkOpts := rest.Opts{
@@ -1931,17 +1948,20 @@ func (o *Object) uploadResume(ctx context.Context, in io.Reader, leaf, directory
 			RootURL: location,
 			Path:    "", // Empty path since RootURL contains the full URL
 			ExtraHeaders: map[string]string{
-				"Content-Range":  fmt.Sprintf("bytes %d-%d/%d", offset, end, size),
-				"Content-Length": strconv.Itoa(n),
-				"Content-Type":   mimeType,
+				"Content-Range": fmt.Sprintf("bytes %d-%d/%d", offset, end, size),
+				"Content-Type":  mimeType,
 			},
+			ContentLength: &n,
+			Body:          rw,
 		}
 
 		var info *api.File
 		var chunkResp *http.Response
 		err = o.fs.pacer.Call(func() (bool, error) {
-			chunkOpts.Body = bytes.NewReader(chunk)
-			var err error
+			_, err := rw.Seek(0, io.SeekStart)
+			if err != nil {
+				return false, err
+			}
 			chunkResp, err = srv.CallJSON(ctx, &chunkOpts, nil, &info)
 			// 308 means continue uploading (incomplete)
 			if chunkResp != nil && chunkResp.StatusCode == 308 {
@@ -1955,11 +1975,15 @@ func (o *Object) uploadResume(ctx context.Context, in io.Reader, leaf, directory
 			}
 			return shouldRetry(ctx, chunkResp, err)
 		})
+		closeErr := rw.Close()
 		if err != nil {
 			return fmt.Errorf("failed to upload chunk at offset %d: %w", offset, err)
 		}
+		if closeErr != nil {
+			return closeErr
+		}
 
-		offset += int64(n)
+		offset += n
 
 		// If we got file info back, we're done
 		if info != nil && info.ID != "" {
@@ -2090,8 +2114,8 @@ func (o *Object) SetMetadata(ctx context.Context, metadata fs.Metadata) error {
 
 	// Prepare the update request payload
 	updateReq := api.UpdateFileRequest{
-		Properties:  make(map[string]interface{}),
-		AppSettings: make(map[string]interface{}),
+		Properties:  make(map[string]any),
+		AppSettings: make(map[string]any),
 	}
 
 	// Process metadata and separate into properties and app settings
@@ -2102,7 +2126,7 @@ func (o *Object) SetMetadata(ctx context.Context, metadata fs.Metadata) error {
 			updateReq.Description = value
 		case "favorite":
 			if favorite, err := strconv.ParseBool(value); err == nil {
-				updateReq.Favorite = api.BoolPtr(favorite)
+				updateReq.Favorite = new(favorite)
 			}
 		case "content-type":
 			// Allow setting/overriding MIME type
@@ -2130,6 +2154,7 @@ func (o *Object) SetMetadata(ctx context.Context, metadata fs.Metadata) error {
 		Parameters: url.Values{
 			"fields": []string{"*"},
 		},
+		ExtraHeaders: map[string]string{"Content-Type": jsonContentType},
 	}
 
 	var info *api.File

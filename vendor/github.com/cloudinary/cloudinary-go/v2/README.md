@@ -1,137 +1,165 @@
 [![Tests](https://github.com/cloudinary/cloudinary-go/actions/workflows/test.yaml/badge.svg)](https://github.com/cloudinary/cloudinary-go/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/cloudinary/cloudinary-go/v2)](https://goreportcard.com/report/github.com/cloudinary/cloudinary-go/v2)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/cloudinary/cloudinary-go/v2)](https://pkg.go.dev/github.com/cloudinary/cloudinary-go/v2)
+[![License](https://img.shields.io/github/license/cloudinary/cloudinary-go.svg)](LICENSE)
 
-Cloudinary Go SDK
-==================
+# Cloudinary Go SDK
 
-## About
+Upload, transform, optimize, and manage images and videos with Cloudinary from Go — the `cloudinary-go` module.
 
-The Cloudinary Go SDK allows you to quickly and easily integrate your application with Cloudinary.
-Effortlessly optimize, transform, upload and manage your cloud's assets.
-
-#### Note
-
-This Readme provides basic installation and usage information.
-For the complete documentation, see the [Go SDK Guide](https://cloudinary.com/documentation/go_integration).
-
-## Table of Contents
-
-- [Key Features](#key-features)
-- [Version Support](#Version-Support)
-- [Installation](#installation)
-- [Usage](#usage)
-    - [Setup](#Setup)
-    - [Transform and Optimize Assets](#Transform-and-Optimize-Assets)
-
-## Key Features
-
-- [Transform](https://cloudinary.com/documentation/go_media_transformations) assets.
-- [Asset Management](https://cloudinary.com/documentation/go_asset_administration).
-- [Secure URLs](https://cloudinary.com/documentation/video_manipulation_and_delivery#generating_secure_https_urls_using_sdks).
-
-## Version Support
-
-| **SDK Version** | **Go 1.13 - 1.19** | **Go 1.20** | **Go 1.21** | **Go 1.22** | **Go 1.23** |
-|-----------------|--------------------|-------------|-------------|-------------|-------------|
-| **2.8 & Up**    | ❌                  | ✔️          | ✔️          | ✔️          | ✔️          |
-| **2.7**         | ✔️                 | ✔️          | ✔️          | ✔️          | ✔️          |
-| **1.x**         | ✔️                 | ✔️          | ✔️          | ✔️          | ✔️          |
-
-## Installation
+## Install
 
 ```bash
 go get github.com/cloudinary/cloudinary-go/v2
 ```
 
-# Usage
+## Quick start
 
-### Setup
+Set your API environment variable (Console > Settings > API Keys):
+
+```bash
+export CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
+```
+
+Upload an image and get an optimized delivery URL:
 
 ```go
+package main
+
 import (
-    "github.com/cloudinary/cloudinary-go/v2"
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/cloudinary/cloudinary-go/v2"
+	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 )
 
-cld, _ := cloudinary.New()
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, "Quick start failed:", err)
+		fmt.Fprintln(os.Stderr, "Check that CLOUDINARY_URL is set (Console > Settings > API Keys).")
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	cld, err := cloudinary.New()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+
+	// Upload a remote image (a local file path works the same way).
+	result, err := cld.Upload.Upload(ctx,
+		"https://res.cloudinary.com/demo/image/upload/sample.jpg",
+		uploader.UploadParams{PublicID: "quickstart-sample"})
+	if err != nil {
+		return err
+	}
+	if result.Error.Message != "" {
+		// Cloudinary rejected the request; this arrives with err == nil.
+		return fmt.Errorf("upload rejected: %s", result.Error.Message)
+	}
+	fmt.Println("Uploaded:", result.PublicID)
+
+	// Build a 400x400 auto-cropped URL with automatic format and quality.
+	image, err := cld.Image(result.PublicID)
+	if err != nil {
+		return err
+	}
+	image.Transformation = "c_fill,g_auto,h_400,w_400/f_auto,q_auto"
+	url, err := image.String()
+	if err != nil {
+		return err
+	}
+	fmt.Println("Optimized URL:", url)
+	return nil
+}
 ```
 
-- [See full documentation](https://cloudinary.com/documentation/go_integration#configuration).
+Save as `quickstart.go` and run `go run quickstart.go`. [Create a free account](https://cloudinary.com/users/register_free) if you don't have one — or run `npx @cloudinary/cloud` to [provision one without signing up](docs/get-credentials.md).
 
-### Transform and Optimize Assets
+Note the two checks in `run`: `err` reports transport, context, and decoding failures, while a Cloudinary rejection arrives with `err == nil` and a populated `result.Error.Message`. See [Handle errors](docs/handle-errors.md).
 
-- [See full documentation](https://cloudinary.com/documentation/go_media_transformations).
+## Common tasks
 
-```go
-image, err := cld.Image("sample.jpg")
-if err != nil {...}
+- [Get Cloudinary credentials](docs/get-credentials.md)
+- [Import and call the SDK](docs/import-and-call.md)
+- [Configure Cloudinary](docs/configure-cloudinary.md)
+- [Upload an image](docs/upload-image.md)
+- [Upload a large video](docs/upload-large-video.md)
+- [Sign a browser upload](docs/sign-browser-upload.md)
+- [Transform and deliver an image](docs/transform-and-deliver-image.md)
+- [Transform and deliver a video](docs/transform-and-deliver-video.md)
+- [Search and manage assets](docs/search-and-manage-assets.md)
+- [Moderate an upload](docs/moderate-upload.md)
+- [Use structured metadata](docs/use-structured-metadata.md)
+- [Serve uploads over HTTP](docs/serve-uploads-over-http.md)
+- [Handle errors](docs/handle-errors.md)
+- [Troubleshoot errors](docs/troubleshoot-errors.md)
 
-image.Transformation = "c_fill,h_150,w_100"
+Runnable versions live in [`examples/`](examples/) — each is a complete program you can run directly. It is a nested module, so run them from inside `examples/`.
 
-imageURL, err := image.String()
+## When to use this SDK
+
+Use this module in **Go server-side code**: uploads, signed operations, asset administration, search, moderation, and delivery URL generation.
+
+For other jobs, better-fitting tools exist:
+
+- Browser or frontend framework rendering: the [frontend SDKs](https://cloudinary.com/documentation/frontend_sdks) ([md](https://cloudinary.com/documentation/frontend_sdks.md)) — this module generates URLs, not markup.
+- Complete in-browser upload UI: [Upload Widget](https://cloudinary.com/documentation/upload_widget) ([md](https://cloudinary.com/documentation/upload_widget.md)), signed from Go with [Sign a browser upload](docs/sign-browser-upload.md).
+- Video playback UI: [Cloudinary Video Player](https://cloudinary.com/documentation/cloudinary_video_player) ([md](https://cloudinary.com/documentation/cloudinary_video_player.md)).
+- Text-to-image generation and image-to-video: [platform APIs](https://cloudinary.com/documentation/image_generation_addon) ([md](https://cloudinary.com/documentation/image_generation_addon.md)), not wrapped by this module.
+- Account and sub-account provisioning: [Provisioning API](https://cloudinary.com/documentation/provisioning_api) ([md](https://cloudinary.com/documentation/provisioning_api.md)) over HTTP.
+- Multi-step media workflow automation: [MediaFlows](https://cloudinary.com/documentation/mediaflows_user_guide) ([md](https://cloudinary.com/documentation/mediaflows_user_guide.md)).
+- Interactive agent-driven asset operations: [Cloudinary MCP servers and Skills](https://cloudinary.com/documentation/cloudinary_llm_mcp) ([md](https://cloudinary.com/documentation/cloudinary_llm_mcp.md)).
+
+The full capability map — plus the Skills, MCP servers, and CLI worth setting up first — is in [docs/platform-capabilities.md](docs/platform-capabilities.md).
+
+## Status and compatibility
+
+Stable, actively maintained. See [CHANGELOG.md](CHANGELOG.md).
+
+| SDK version | Go 1.13 - 1.19 | Go 1.20 - 1.23 | Go 1.24 - 1.27 |
+|-------------|----------------|----------------|----------------|
+| 2.8 and up  | ❌             | ✔️             | ✔️             |
+| 2.7         | ✔️             | ✔️             | ✔️             |
+| 1.x         | ✔️             | ✔️             | ✔️             |
+
+## Documentation
+
+- [Bundled task docs](docs/README.md) — ship inside the module, version-matched.
+- [Go SDK guide](https://cloudinary.com/documentation/go_integration) — the full documentation ([md](https://cloudinary.com/documentation/go_integration.md)).
+- [Logging](logger/README.md) — redefining the logger and adjusting the log level.
+
+Documentation links in this README point at the browsable HTML page, with an `(md)` companion link that returns the same page as raw Markdown. Inside `docs/` and `examples/` the links are Markdown-only, since those files are written to be read by coding agents. Either form works for any page: add `.md` for Markdown, drop it for HTML.
+
+## For AI coding agents
+
+- Contributing to this repo: read [AGENTS.md](AGENTS.md).
+- Using the installed module: the docs bundled in the module match your resolved version and
+  are the source of truth; start with
+  [platform-capabilities](docs/platform-capabilities.md) before assuming a feature exists.
+
+Go has no fixed install path, so locate the bundled docs with:
+
+```bash
+go list -m -f '{{.Dir}}' github.com/cloudinary/cloudinary-go/v2
+# then read <that path>/docs/README.md
 ```
 
-### Upload
+## Support
 
-- [See full documentation](https://cloudinary.com/documentation/go_image_and_video_upload).
-- [Learn more about configuring your uploads with upload presets](https://cloudinary.com/documentation/upload_presets).
+- SDK bugs and feature requests: [GitHub issues](https://github.com/cloudinary/cloudinary-go/issues)
+- Account and platform questions: [Cloudinary support](https://support.cloudinary.com)
 
-```go
-resp, err := cld.Upload.Upload(ctx, "my_picture.jpg", uploader.UploadParams{})
-```
+Contributing: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-### Security options
+## Security
 
-- [See full documentation](https://cloudinary.com/documentation/solution_overview#security).
+See [SECURITY.md](SECURITY.md) for private vulnerability reporting. Keep your `api_secret` in server-side code; for client uploads, use the server-signed pattern in [Sign a browser upload](docs/sign-browser-upload.md).
 
-### Logging
+## License
 
-Cloudinary SDK logs errors using standard `go log` functions.
-
-For details on redefining the logger or adjusting the logging level, see [Logging](logger/README.md).
-
-### Complete SDK Example
-
-See [Complete SDK Example](example/example.go).
-
-## Contributions
-
-- Ensure tests run locally
-- Open a PR and ensure Travis tests pass
-- For more information on how to contribute, take a look at the [contributing](CONTRIBUTING.md) page.
-
-## Get Help
-
-If you run into an issue or have a question, you can either:
-
-- Issues related to the SDK: [Open a GitHub issue](https://github.com/cloudinary/cloudinary-go/issues).
-- Issues related to your account: [Open a support ticket](https://cloudinary.com/contact)
-
-## About Cloudinary
-
-Cloudinary is a powerful media API for websites and mobile apps alike, Cloudinary enables developers to efficiently
-manage, transform, optimize, and deliver images and videos through multiple CDNs. Ultimately, viewers enjoy responsive
-and personalized visual-media experiences—irrespective of the viewing device.
-
-## Additional Resources
-
-- [Cloudinary Transformation and REST API References](https://cloudinary.com/documentation/cloudinary_references):
-  Comprehensive references, including syntax and examples for all SDKs.
-- [MediaJams.dev](https://mediajams.dev/): Bite-size use-case tutorials written by and for Cloudinary Developers
-- [DevJams](https://www.youtube.com/playlist?list=PL8dVGjLA2oMr09amgERARsZyrOz_sPvqw): Cloudinary developer podcasts on
-  YouTube.
-- [Cloudinary Academy](https://training.cloudinary.com/): Free self-paced courses, instructor-led virtual courses, and
-  on-site courses.
-- [Code Explorers and Feature Demos](https://cloudinary.com/documentation/code_explorers_demos_index): A one-stop shop
-  for all code explorers, Postman collections, and feature demos found in the docs.
-- [Cloudinary Roadmap](https://cloudinary.com/roadmap): Your chance to follow, vote, or suggest what Cloudinary should
-  develop next.
-- [Cloudinary Facebook Community](https://www.facebook.com/groups/CloudinaryCommunity): Learn from and offer help to
-  other Cloudinary developers.
-- [Cloudinary Account Registration](https://cloudinary.com/users/register/free): Free Cloudinary account registration.
-- [Cloudinary Website](https://cloudinary.com): Learn about Cloudinary's products, partners, customers, pricing, and
-  more.
-
-## Licence
-
-Released under the MIT license.
+Released under the MIT license — see [LICENSE](LICENSE). Copyright (c) Cloudinary Ltd.
