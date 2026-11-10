@@ -153,7 +153,7 @@ func (b *rawBridge) newInodeUnlocked(ops InodeEmbedder, id StableAttr, persisten
 	return ops.embed()
 }
 
-func (b *rawBridge) logf(format string, args ...interface{}) {
+func (b *rawBridge) logf(format string, args ...any) {
 	if b.options.Logger != nil {
 		b.options.Logger.Printf(format, args...)
 	}

@@ -250,7 +250,7 @@ E.g. the second example above should be rewritten as:
 			Name:     config.ConfigEncoding,
 			Help:     config.ConfigEncodingHelp,
 			Advanced: true,
-			Default:  encoder.Display,
+			Default:  encoder.Base,
 		}, {
 			Name:     "set_modtime",
 			Default:  true,
@@ -390,6 +390,28 @@ Normally rclone uses concurrent writes to upload files. This improves
 the performance greatly, especially for distant servers.
 
 This option disables concurrent writes should that be necessary.
+`,
+			Advanced: true,
+		}, {
+			Name:    "multithread_upload",
+			Default: false,
+			Help: `Set this to use multi-thread (multi-connection) uploads.
+
+Normally rclone uploads a single large file over one SFTP connection.
+With this set rclone uploads large files over several SFTP connections
+at once (one per chunk), which greatly improves throughput on high
+latency links, the same way multi-thread downloads already work. Each
+connection writes a different, non-overlapping byte range of the file,
+so this requires a server that allows several handles to the same file
+with writes at arbitrary offsets, which OpenSSH does.
+
+This is off by default because many SFTP servers only accept sequential
+writes (for example some object storage backed SFTP gateways) and would
+fail large uploads with "truncate failed" or "invalid offset" style
+errors.
+
+This is ignored (uploads stay single-threaded) when
+--sftp-disable-concurrent-writes or --sftp-connections is in use.
 `,
 			Advanced: true,
 		}, {
@@ -648,6 +670,7 @@ type Options struct {
 	UseFstat                bool                 `config:"use_fstat"`
 	DisableConcurrentReads  bool                 `config:"disable_concurrent_reads"`
 	DisableConcurrentWrites bool                 `config:"disable_concurrent_writes"`
+	MultithreadUpload       bool                 `config:"multithread_upload"`
 	IdleTimeout             fs.Duration          `config:"idle_timeout"`
 	ChunkSize               fs.SizeSuffix        `config:"chunk_size"`
 	Concurrency             int                  `config:"concurrency"`
@@ -1594,6 +1617,24 @@ func NewFsWithConnection(ctx context.Context, f *Fs, name string, root string, m
 		// Disable server side copy unless --sftp-copy-is-hardlink is set
 		f.features.Copy = nil
 	}
+	// Multi-thread uploads open one write handle per connection. They are off
+	// by default (many SFTP servers only take sequential writes) and turned on
+	// with --sftp-multithread-upload. Even when asked for, fall back to
+	// single-connection uploads when concurrent writes are disabled (a server
+	// that can't take out-of-order packets on one handle won't take several
+	// handles writing at arbitrary offsets either) or when connections are
+	// capped (the per-file fan-out would deadlock waiting on the pool, and a
+	// user limiting connections doesn't want it anyway).
+	switch {
+	case !opt.MultithreadUpload:
+		f.features.OpenWriterAt = nil
+	case opt.DisableConcurrentWrites:
+		fs.Logf(f, "Disabling multi-thread uploads because --sftp-disable-concurrent-writes is set")
+		f.features.OpenWriterAt = nil
+	case opt.Connections > 0:
+		fs.Logf(f, "Disabling multi-thread uploads because --sftp-connections is set")
+		f.features.OpenWriterAt = nil
+	}
 	// Make a connection and pool it to return errors early
 	c, err := f.getSftpConnection(ctx)
 	if err != nil {
@@ -1842,8 +1883,7 @@ func (f *Fs) PutStream(ctx context.Context, in io.Reader, src fs.ObjectInfo, opt
 // mkParentDir makes the parent of remote if necessary and any
 // directories above that
 func (f *Fs) mkParentDir(ctx context.Context, remote string) error {
-	parent := path.Dir(remote)
-	return f.mkdir(ctx, f.remotePath(parent))
+	return f.mkdir(ctx, path.Dir(f.remotePath(remote)))
 }
 
 // mkdir makes the directory and parents using native paths
@@ -2418,7 +2458,14 @@ func (o *Object) Hash(ctx context.Context, r hash.Type) (string, error) {
 		return "", hash.ErrUnsupported
 	}
 
-	shellPathArg, err := o.fs.quoteOrEscapeShellPath(o.shellPath())
+	shellPath := o.shellPath()
+	// Some restricted shells, such as rsync.net's, end the command at a
+	// newline even when it is quoted, which would hash a different file.
+	if o.fs.shellType == "unix" && strings.Contains(shellPath, "\n") {
+		fs.Debugf(o, "Can't calculate %v hash of a name containing a newline", r)
+		return "", nil
+	}
+	shellPathArg, err := o.fs.quoteOrEscapeShellPath(shellPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to calculate %v hash: %w", r, err)
 	}
@@ -2505,6 +2552,10 @@ func (f *Fs) remoteShellPath(remote string) string {
 		shellPath := path.Join(f.opt.PathOverride, encodedRemote)
 		if f.opt.PathOverride[0] == '@' {
 			shellPath = path.Join(strings.TrimPrefix(f.opt.PathOverride, "@"), f.absRoot, encodedRemote)
+		}
+		// A relative path starting with "-" would be parsed as an option by the hash command
+		if strings.HasPrefix(shellPath, "-") {
+			shellPath = "./" + shellPath
 		}
 		fs.Debugf(f, "Shell path redirected to %q with option path_override", shellPath)
 		return shellPath
@@ -2847,6 +2898,7 @@ var (
 	_ fs.PutStreamer    = &Fs{}
 	_ fs.Mover          = &Fs{}
 	_ fs.Copier         = &Fs{}
+	_ fs.OpenWriterAter = &Fs{}
 	_ fs.DirMover       = &Fs{}
 	_ fs.DirSetModTimer = &Fs{}
 	_ fs.Abouter        = &Fs{}

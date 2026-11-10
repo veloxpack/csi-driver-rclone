@@ -50,18 +50,19 @@ type Client interface {
 // ContextClient interface describes all routes in this namespace with context support
 type ContextClient interface {
 	Client
-	// FeaturesGetValuesContext : Get a list of feature values that may be configured
-	// for the current account.
+	// FeaturesGetValuesContext : Get a list of feature values that may be
+	// configured for the current account.
 	FeaturesGetValuesContext(ctx context.Context, arg *UserFeaturesGetValuesBatchArg) (res *UserFeaturesGetValuesBatchResult, err error)
 	// GetAccountContext : Get information about a user's account.
 	GetAccountContext(ctx context.Context, arg *GetAccountArg) (res *BasicAccount, err error)
-	// GetAccountBatchContext : Get information about multiple user accounts. At most
-	// 300 accounts may be queried per request.
+	// GetAccountBatchContext : Get information about multiple user accounts. At
+	// most 300 accounts may be queried per request.
 	GetAccountBatchContext(ctx context.Context, arg *GetAccountBatchArg) (res []*BasicAccount, err error)
-	// GetCurrentAccountContext : Get information about the current user's account.
-	GetCurrentAccountContext(ctx context.Context) (res *FullAccount, err error)
-	// GetSpaceUsageContext : Get the space usage information for the current user's
+	// GetCurrentAccountContext : Get information about the current user's
 	// account.
+	GetCurrentAccountContext(ctx context.Context) (res *FullAccount, err error)
+	// GetSpaceUsageContext : Get the space usage information for the current
+	// user's account.
 	GetSpaceUsageContext(ctx context.Context) (res *SpaceUsage, err error)
 }
 
@@ -73,8 +74,8 @@ type FeaturesGetValuesAPIError struct {
 	EndpointError *UserFeaturesGetValuesBatchError `json:"error"`
 }
 
-// FeaturesGetValuesContext : Get a list of feature values that may be configured
-// for the current account.
+// FeaturesGetValuesContext : Get a list of feature values that may be
+// configured for the current account.
 func (dbx *apiImpl) FeaturesGetValuesContext(ctx context.Context, arg *UserFeaturesGetValuesBatchArg) (res *UserFeaturesGetValuesBatchResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -160,8 +161,8 @@ type GetAccountBatchAPIError struct {
 	EndpointError *GetAccountBatchError `json:"error"`
 }
 
-// GetAccountBatchContext : Get information about multiple user accounts. At most
-// 300 accounts may be queried per request.
+// GetAccountBatchContext : Get information about multiple user accounts. At
+// most 300 accounts may be queried per request.
 func (dbx *apiImpl) GetAccountBatchContext(ctx context.Context, arg *GetAccountBatchArg) (res []*BasicAccount, err error) {
 	req := dropbox.Request{
 		Host:         "api",

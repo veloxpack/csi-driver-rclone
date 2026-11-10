@@ -63,7 +63,8 @@ The headers are only sent to the host in the configured URL. If the
 server redirects to another host (including a subdomain or a different
 port) the headers are not sent to it, or to any further hop in that
 redirect chain. When headers are set, a redirect from https to http is
-refused as it would send them in cleartext.`,
+refused as it would send them in cleartext, even with
+--allow-https-downgrade.`,
 			Default:  fs.CommaSepList{},
 			Advanced: true,
 		}, {
@@ -99,6 +100,30 @@ If you set this option, rclone will not do the HEAD request. This will mean
 that directory listings are much quicker, but rclone won't have the times or
 sizes of any files, and some files that don't exist may be in the listing.`,
 			Default:  false,
+			Advanced: true,
+		}, {
+			Name: "no_head_size",
+			Help: `Set the reported file size for --http-no-head.
+
+When HEAD requests are disabled, rclone normally reports an unknown file size.
+Set this option to a non-negative value to report that size for every file,
+including 0. Leave it unset (the default, shown as "off") to keep reporting
+an unknown size.
+
+The configured size is authoritative. If it does not match the actual file
+size, transfers may fail their size check and retry unless --ignore-size is
+used. It can also make multi-thread transfers request incorrect ranges and
+make mounted files unreadable past the reported size.`,
+			Default:  fs.SizeSuffix(-1),
+			Advanced: true,
+		}, {
+			Name: "no_head_time",
+			Help: `Set a default modification time for --http-no-head.
+
+When HEAD requests are disabled, rclone normally reports an unset modification
+time. Set this option to report the specified time for every file instead.
+Changing the configured time later makes every file appear modified to a sync.`,
+			Default:  fs.Time{},
 			Advanced: true,
 		}, {
 			Name:    "no_escape",
@@ -145,11 +170,13 @@ var systemMetadataInfo = map[string]fs.MetadataHelp{
 
 // Options defines the configuration for this backend
 type Options struct {
-	Endpoint string          `config:"url"`
-	NoSlash  bool            `config:"no_slash"`
-	NoHead   bool            `config:"no_head"`
-	Headers  fs.CommaSepList `config:"headers"`
-	NoEscape bool            `config:"no_escape"`
+	Endpoint   string          `config:"url"`
+	NoSlash    bool            `config:"no_slash"`
+	NoHead     bool            `config:"no_head"`
+	NoHeadSize fs.SizeSuffix   `config:"no_head_size"`
+	NoHeadTime fs.Time         `config:"no_head_time"`
+	Headers    fs.CommaSepList `config:"headers"`
+	NoEscape   bool            `config:"no_escape"`
 }
 
 // Fs stores the interface to the remote HTTP files
@@ -289,8 +316,9 @@ func (f *Fs) httpConnection(ctx context.Context, opt *Options) (isFile bool, err
 	}
 
 	client := fshttp.NewClient(ctx)
-	// Without configured headers keep the default policy which
-	// public mirrors that redirect from https to http rely on.
+	// Without configured headers keep the default policy so
+	// --allow-https-downgrade can follow public mirrors that
+	// redirect from https to http.
 	if len(opt.Headers) > 0 {
 		client.CheckRedirect = checkRedirect(opt)
 	}
@@ -322,7 +350,9 @@ func (f *Fs) httpConnection(ctx context.Context, opt *Options) (isFile bool, err
 // the host specified in the config file.
 func NewFs(ctx context.Context, name, root string, m configmap.Mapper) (fs.Fs, error) {
 	// Parse config into Options struct
-	opt := new(Options)
+	opt := &Options{
+		NoHeadSize: fs.SizeSuffix(-1),
+	}
 	err := configstruct.Set(m, opt)
 	if err != nil {
 		return nil, err
@@ -573,7 +603,7 @@ func (f *Fs) readDir(ctx context.Context, dir string) (names []string, err error
 		return nil, fmt.Errorf("failed to readDir: %w", err)
 	}
 
-	contentType := strings.SplitN(res.Header.Get("Content-Type"), ";", 2)[0]
+	contentType, _, _ := strings.Cut(res.Header.Get("Content-Type"), ";")
 	switch contentType {
 	case "text/html":
 		names, err = parse(u, res.Body)
@@ -717,8 +747,11 @@ func (o *Object) url() string {
 // head sends a HEAD request to update info fields in the Object
 func (o *Object) head(ctx context.Context) error {
 	if o.fs.opt.NoHead {
-		o.size = -1
+		o.size = int64(o.fs.opt.NoHeadSize)
 		o.modTime = timeUnset
+		if o.fs.opt.NoHeadTime.IsSet() {
+			o.modTime = time.Time(o.fs.opt.NoHeadTime)
+		}
 		o.contentType = fs.MimeType(ctx, o)
 		return nil
 	}

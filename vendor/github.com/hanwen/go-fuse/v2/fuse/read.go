@@ -62,10 +62,7 @@ func (r *readResultFd) Seekable() (fd uintptr, off int64, sz int) {
 // Reads raw bytes from file descriptor if necessary, using the passed
 // buffer as storage.
 func (r *readResultFd) Bytes(buf []byte) ([]byte, Status) {
-	sz := r.Sz
-	if len(buf) < sz {
-		sz = len(buf)
-	}
+	sz := min(len(buf), r.Sz)
 
 	n, err := syscall.Pread(int(r.Fd), buf[:sz], r.Off)
 	if err == io.EOF {

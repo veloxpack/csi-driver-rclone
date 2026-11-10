@@ -41,12 +41,6 @@ func GetFileLimits(ctx context.Context, cfg *config.Config) (*LimitsResponse, er
 		return nil, fmt.Errorf("failed to decode get file limits response: %w", err)
 	}
 
-	json, err := json.MarshalIndent(&limits, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal get file limits response: %w", err)
-	}
-	fmt.Println("FileLimitsResponse", string(json))
-
 	return &limits, nil
 }
 

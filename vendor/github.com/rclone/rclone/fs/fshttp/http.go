@@ -616,8 +616,32 @@ func redirectLeavesHost(req *http.Request) bool {
 	return false
 }
 
+// isHTTPSDowngrade reports whether req is a plaintext HTTP redirect
+// hop in a chain whose original request was HTTPS.
+func isHTTPSDowngrade(req *http.Request) bool {
+	if req.URL.Scheme != "http" {
+		return false
+	}
+	origin := req
+	for origin.Response != nil && origin.Response.Request != nil {
+		origin = origin.Response.Request
+	}
+	return origin.URL.Scheme == "https"
+}
+
 // RoundTrip implements the RoundTripper interface.
 func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	// Refuse HTTPS to HTTP redirects here rather than in
+	// CheckRedirect since backends and libraries replace the client's
+	// CheckRedirect but still use this transport, and any credentials
+	// they set would be sent in cleartext.
+	if !t.ci.AllowHTTPSDowngrade && isHTTPSDowngrade(req) {
+		if req.Body != nil {
+			_ = req.Body.Close()
+		}
+		return nil, fmt.Errorf("%w: redirect to %s (use --allow-https-downgrade to follow it)", rest.ErrHTTPSDowngrade, req.URL.Redacted())
+	}
+
 	// Check if certificates are being used and the certificates are expired
 	if isCertificateExpired(t.TLSClientConfig) {
 		t.reloadCertificates()
@@ -703,8 +727,11 @@ func (t *Transport) RoundTrip(req *http.Request) (resp *http.Response, err error
 	if t.dump&fs.DumpTrace != 0 {
 		traceReq = req.WithContext(httptrace.WithClientTrace(req.Context(), newClientTrace(req)))
 	}
-	// Do round trip
-	resp, err = t.Transport.RoundTrip(traceReq)
+	// Do round trip unless a fault is being injected
+	resp, err = injectFault(traceReq)
+	if resp == nil && err == nil {
+		resp, err = t.Transport.RoundTrip(traceReq)
+	}
 	// Dump response, and the request too if we deferred it for --dump errors
 	if wantDump && (!onError || isRetryableResponse(resp, err)) {
 		logMutex.Lock()

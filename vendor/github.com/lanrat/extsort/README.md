@@ -22,6 +22,8 @@ go get github.com/lanrat/extsort
 
 ## Quick Start
 
+**IMPORTANT:** All input channels **must be closed** after all data has been sent. The `Sort()` method will continue reading from the input channel until it is closed. Failure to close the input channel will cause the sorting process to hang indefinitely.
+
 ### Generic API (Recommended)
 
 The modern generic API provides type safety and improved performance:

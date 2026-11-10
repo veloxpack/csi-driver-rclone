@@ -12,11 +12,28 @@ import (
 
 // Cursor keeps track of how many bytes have been written and the furthest advanced
 // reader, letting one wait until space or bytes are available.
+//
+// A single Cursor is shared by one writer and every reader of a segment (one per
+// erasure coded piece, so potentially over a hundred). Because of that, waiters are
+// split across two condition variables rather than sharing one: a write only ever
+// unblocks readers, and a read only ever unblocks the writer. Sharing a single
+// condition variable means every reader advancing by one buffer wakes all of its
+// siblings, which immediately re-check and park again, and the resulting wakeups
+// grow with the square of the piece count.
 type Cursor struct {
 	writeAhead int64
 
-	mu   sync.Mutex
-	cond sync.Cond
+	mu      sync.Mutex
+	readers sync.Cond
+	writers sync.Cond
+
+	// readWaiting and writeWaiting count the goroutines parked on the
+	// respective condition variable. They are only mutated while holding mu,
+	// but are loaded without it so that the ReadTo and WroteTo fast paths can
+	// skip locking entirely when there is nobody to wake. See ReadTo for why
+	// that is safe.
+	readWaiting  atomic.Int64
+	writeWaiting atomic.Int64
 
 	doneReading atomic.Bool
 	doneWriting atomic.Bool
@@ -32,7 +49,8 @@ type Cursor struct {
 // into some buffer, allowing one to wait until enough data has been read or written.
 func NewCursor(writeAhead int64) *Cursor {
 	c := &Cursor{writeAhead: writeAhead}
-	c.cond.L = &c.mu
+	c.readers.L = &c.mu
+	c.writers.L = &c.mu
 	return c
 }
 
@@ -55,6 +73,12 @@ func (c *Cursor) WaitRead(n int64) (m int64, ok bool, err error) {
 	if c.doneReading.Load() {
 		return 0, false, errs.New("WaitRead called after DoneReading")
 	}
+
+	// Register as a waiter before evaluating the state below so that a
+	// concurrent WroteTo either observes us here or publishes a written value
+	// that the loop observes. The decrement runs before the deferred unlock.
+	c.readWaiting.Add(1)
+	defer c.readWaiting.Add(-1)
 
 	for {
 		doneWriting := c.doneWriting.Load()
@@ -83,7 +107,7 @@ func (c *Cursor) WaitRead(n int64) (m int64, ok bool, err error) {
 			return written, true, nil
 		}
 
-		c.cond.Wait()
+		c.readers.Wait()
 	}
 }
 
@@ -106,6 +130,11 @@ func (c *Cursor) WaitWrite(n int64) (m int64, ok bool, err error) {
 	if c.doneWriting.Load() {
 		return 0, false, errs.New("WaitWrite called after DoneWriting")
 	}
+
+	// See the equivalent comment in WaitRead. Here the concurrent call we are
+	// racing with is ReadTo.
+	c.writeWaiting.Add(1)
+	defer c.writeWaiting.Add(-1)
 
 	for {
 		doneReading := c.doneReading.Load()
@@ -139,7 +168,7 @@ func (c *Cursor) WaitWrite(n int64) (m int64, ok bool, err error) {
 			return maxRead + c.writeAhead, true, nil
 		}
 
-		c.cond.Wait()
+		c.writers.Wait()
 	}
 }
 
@@ -152,7 +181,12 @@ func (c *Cursor) DoneWriting(err error) bool {
 	if !c.doneWriting.Load() {
 		c.doneWriting.Store(true)
 		c.writeErr = err
-		c.cond.Broadcast()
+
+		// Both sides observe doneWriting: readers to unblock with EOF or the
+		// write error, and the writer in case it is parked in backpressure
+		// while the upload is being aborted from another goroutine.
+		c.readers.Broadcast()
+		c.writers.Broadcast()
 
 		return c.doneReading.Load()
 	}
@@ -169,7 +203,9 @@ func (c *Cursor) DoneReading(err error) bool {
 	if !c.doneReading.Load() {
 		c.doneReading.Store(true)
 		c.readErr = err
-		c.cond.Broadcast()
+
+		c.readers.Broadcast()
+		c.writers.Broadcast()
 
 		return c.doneWriting.Load()
 	}
@@ -178,6 +214,11 @@ func (c *Cursor) DoneReading(err error) bool {
 }
 
 // ReadTo reports to the cursor that some reader read up to byte offset n.
+//
+// Advancing maxRead can only ever unblock the writer: no case in WaitRead
+// becomes satisfiable when maxRead grows, so the readers are left alone. This is
+// the hottest call on the upload path, invoked by every piece reader for every
+// buffer it consumes, so it avoids the mutex when no writer is parked.
 func (c *Cursor) ReadTo(n int64) {
 	for {
 		maxRead := c.maxRead.Load()
@@ -185,16 +226,28 @@ func (c *Cursor) ReadTo(n int64) {
 			return
 		}
 		if c.maxRead.CompareAndSwap(maxRead, n) {
-			c.mu.Lock()
-			defer c.mu.Unlock() //nolint go-critic, this defer is immediately executed near return
+			// The store to maxRead above and the load below are both
+			// sequentially consistent, as is the writer's increment of
+			// writeWaiting, so at least one of the two goroutines observes the
+			// other: either we see the writer waiting and wake it, or the
+			// writer sees the new maxRead and never parks. The writer holds mu
+			// from the point it registers until Wait releases it, so a wakeup
+			// cannot slip in between.
+			if c.writeWaiting.Load() != 0 {
+				c.mu.Lock()
+				defer c.mu.Unlock() //nolint go-critic, this defer is immediately executed near return
 
-			c.cond.Broadcast()
+				c.writers.Broadcast()
+			}
 			return
 		}
 	}
 }
 
 // WroteTo reports to the cursor that the writer wrote up to byte offset n.
+//
+// Symmetrically to ReadTo, advancing written can only unblock readers: the
+// writer is the only producer of written, so it never needs to wake itself.
 func (c *Cursor) WroteTo(n int64) {
 	for {
 		written := c.written.Load()
@@ -202,10 +255,12 @@ func (c *Cursor) WroteTo(n int64) {
 			return
 		}
 		if c.written.CompareAndSwap(written, n) {
-			c.mu.Lock()
-			defer c.mu.Unlock() //nolint go-critic, this defer is immediately executed near return
+			if c.readWaiting.Load() != 0 {
+				c.mu.Lock()
+				defer c.mu.Unlock() //nolint go-critic, this defer is immediately executed near return
 
-			c.cond.Broadcast()
+				c.readers.Broadcast()
+			}
 			return
 		}
 	}

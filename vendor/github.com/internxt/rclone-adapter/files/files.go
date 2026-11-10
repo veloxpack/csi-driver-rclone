@@ -12,6 +12,7 @@ import (
 	"github.com/internxt/rclone-adapter/config"
 	"github.com/internxt/rclone-adapter/consistency"
 	"github.com/internxt/rclone-adapter/errors"
+	"github.com/internxt/rclone-adapter/internal/batch"
 )
 
 // FileMeta represents file metadata from GET /files/{uuid}/meta
@@ -55,6 +56,10 @@ func (f *FileExistenceResult) FileExists() bool {
 	return f.Exists || f.Status == "EXISTS"
 }
 
+// maxExistenceChecks is the most files CheckFilesExistence sends in one
+// request.
+const maxExistenceChecks = 200
+
 // CheckFilesExistenceRequest is the request payload
 type CheckFilesExistenceRequest struct {
 	Files []FileExistenceCheck `json:"files"`
@@ -65,12 +70,33 @@ type CheckFilesExistenceResponse struct {
 	Files []FileExistenceResult `json:"existentFiles"`
 }
 
-// CheckFilesExistence checks if files exist in a folder (batch operation)
+// CheckFilesExistence checks if files exist in a folder (batch operation).
+// Any number of files may be passed: they are sent in as many requests as
+// the service's request limits need.
 func CheckFilesExistence(ctx context.Context, cfg *config.Config, folderUUID string, files []FileExistenceCheck) (*CheckFilesExistenceResponse, error) {
+	batches, err := batch.Split(files, maxExistenceChecks, batch.MaxBodyBytes, func(checks []FileExistenceCheck) any {
+		return CheckFilesExistenceRequest{Files: checks}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("check files existence: %w", err)
+	}
 	if err := consistency.AwaitFolder(ctx, folderUUID); err != nil {
 		return nil, err
 	}
 
+	result := &CheckFilesExistenceResponse{}
+	for _, checks := range batches {
+		found, err := checkFilesExistence(ctx, cfg, folderUUID, checks)
+		if err != nil {
+			return nil, err
+		}
+		result.Files = append(result.Files, found.Files...)
+	}
+	return result, nil
+}
+
+// checkFilesExistence makes one existence check request for files.
+func checkFilesExistence(ctx context.Context, cfg *config.Config, folderUUID string, files []FileExistenceCheck) (*CheckFilesExistenceResponse, error) {
 	endpoint := cfg.Endpoints.Drive().Folders().CheckFilesExistence(folderUUID)
 
 	reqBody := CheckFilesExistenceRequest{Files: files}

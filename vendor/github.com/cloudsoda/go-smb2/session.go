@@ -276,19 +276,26 @@ type session struct {
 }
 
 func (s *session) logoff(ctx context.Context) error {
+	// Release the transport and the receiver goroutine however the round trip
+	// turns out.
+	defer func() {
+		// rdone tells the receiver its impending read error is expected. The
+		// send is non-blocking to defend against multiple calls to logoff().
+		select {
+		case s.conn.rdone <- struct{}{}:
+		default:
+		}
+
+		s.conn.t.Close()
+	}()
+
 	req := new(smb2.LogoffRequest)
 
 	req.CreditCharge = 1
 
 	_, err := s.sendRecv(ctx, smb2.SMB2_LOGOFF, req)
-	if err != nil {
-		return err
-	}
 
-	s.conn.rdone <- struct{}{}
-	s.conn.t.Close()
-
-	return nil
+	return err
 }
 
 func (s *session) echo(ctx context.Context) error {

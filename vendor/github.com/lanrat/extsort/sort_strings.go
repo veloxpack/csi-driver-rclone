@@ -23,14 +23,20 @@ func toBytesString(s string) ([]byte, error) {
 	return []byte(s), nil
 }
 
+// appendString is the append form of toBytesString.
+func appendString(dst []byte, s string) []byte {
+	return append(dst, s...)
+}
+
 // Strings performs external sorting on a channel of strings using lexicographic ordering.
 // Returns the sorter instance, output channel with sorted strings, and error channel.
 // This function provides backward compatibility with the legacy string-specific API.
+//
+// IMPORTANT: The input channel MUST be closed to signal the end of data.
+// Sort() will continue reading from the input channel until it is closed.
 func Strings(input <-chan string, config *Config) (*StringSorter, <-chan string, <-chan error) {
 	genericSorter, output, errChan := Generic(input, fromBytesString, toBytesString, cmp.Compare, config)
-	if genericSorter == nil {
-		return nil, output, errChan
-	}
+	genericSorter.useBuiltinCodec(appendString)
 	s := &StringSorter{GenericSorter: *genericSorter}
 	return s, output, errChan
 }
@@ -40,9 +46,7 @@ func Strings(input <-chan string, config *Config) (*StringSorter, <-chan string,
 // The parameter n specifies the maximum number of strings to process.
 func StringsMock(input <-chan string, config *Config, n int) (*StringSorter, <-chan string, <-chan error) {
 	genericSorter, output, errChan := MockGeneric(input, fromBytesString, toBytesString, cmp.Compare, config, n)
-	if genericSorter == nil {
-		return nil, output, errChan
-	}
+	genericSorter.useBuiltinCodec(appendString)
 	s := &StringSorter{GenericSorter: *genericSorter}
 	return s, output, errChan
 }

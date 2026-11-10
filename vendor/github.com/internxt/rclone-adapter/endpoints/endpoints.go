@@ -144,17 +144,22 @@ func (f *FolderEndpoints) Move(uuid string) string {
 }
 
 func (f *FolderEndpoints) ContentFolders(parentUUID string) string {
-	u, _ := url.JoinPath(f.base, "/content", parentUUID, "/folders")
+	u, _ := url.JoinPath(f.base, "/v2/content", parentUUID, "/folders")
 	return u
 }
 
 func (f *FolderEndpoints) ContentFiles(parentUUID string) string {
-	u, _ := url.JoinPath(f.base, "/content", parentUUID, "/files")
+	u, _ := url.JoinPath(f.base, "/v2/content", parentUUID, "/files")
 	return u
 }
 
 func (f *FolderEndpoints) CheckFilesExistence(parentUUID string) string {
 	u, _ := url.JoinPath(f.base, "/content", parentUUID, "/files", "/existence")
+	return u
+}
+
+func (f *FolderEndpoints) CheckFoldersExistence(parentUUID string) string {
+	u, _ := url.JoinPath(f.base, "/content", parentUUID, "/folders", "/existence")
 	return u
 }
 

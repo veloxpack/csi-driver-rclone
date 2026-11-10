@@ -41,19 +41,19 @@ func (tc *treeConn) compoundSecurityInfoBatch(
 	for off := 0; off < len(paths); {
 		remaining := len(paths) - off
 
-		// Loan credits: 3 per file (CREATE + QUERY_INFO + CLOSE).
+		// Borrow credits: 3 per file (CREATE + QUERY_INFO + CLOSE).
 		// Compute in int to avoid uint16 overflow on large directories,
 		// then clamp to the credit balance capacity.
 		wanted := min(remaining*3, cap(tc.account.balance))
 
-		granted, _, err := tc.account.loan(ctx, uint16(wanted))
+		granted, _, err := tc.account.borrow(ctx, uint16(wanted))
 		if err != nil {
 			return nil, err
 		}
 
 		batchSize := int(granted / 3)
 		if batchSize == 0 {
-			tc.chargeCredit(granted)
+			tc.refundCredits(granted)
 			return nil, &InternalError{"insufficient credits for compound request"}
 		}
 		if batchSize > remaining {
@@ -62,7 +62,7 @@ func (tc *treeConn) compoundSecurityInfoBatch(
 
 		// Return excess credits.
 		if excess := granted - uint16(batchSize*3); excess > 0 {
-			tc.chargeCredit(excess)
+			tc.refundCredits(excess)
 		}
 
 		err = tc.sendSecurityBatch(paths[off:off+batchSize], results[off:off+batchSize], access, securityInfo, mapping, ctx)
@@ -243,7 +243,10 @@ func (tc *treeConn) disconnect(ctx context.Context) error {
 
 	req.CreditCharge = 1
 
-	res, err := tc.sendRecv(ctx, smb2.SMB2_TREE_DISCONNECT, req)
+	// Sent without borrowing: disconnect runs during teardown, where waiting in
+	// borrowCredits on credits held by requests that may never return would turn
+	// a fast-failing unmount into one that blocks until the context expires.
+	res, err := tc.sendRecvUnborrowed(ctx, smb2.SMB2_TREE_DISCONNECT, req)
 	if err != nil {
 		return err
 	}
@@ -256,6 +259,14 @@ func (tc *treeConn) disconnect(ctx context.Context) error {
 	return nil
 }
 
+// send transmits a request, registering its CreditCharge as the loan borrowed
+// from the account for it.
+func (tc *treeConn) send(ctx context.Context, req smb2.Packet) (rr *requestResponse, err error) {
+	return tc.sendWith(ctx, req, tc, req.Header().CreditCharge)
+}
+
+// sendRecv sends a request via send and returns its accepted response payload.
+// A server error status surfaces as the *ResponseError synthesized by accept.
 func (tc *treeConn) sendRecv(ctx context.Context, cmd uint16, req smb2.Packet) (res []byte, err error) {
 	rr, err := tc.send(ctx, req)
 	if err != nil {
@@ -270,8 +281,23 @@ func (tc *treeConn) sendRecv(ctx context.Context, cmd uint16, req smb2.Packet) (
 	return accept(cmd, pkt)
 }
 
-func (tc *treeConn) send(ctx context.Context, req smb2.Packet) (rr *requestResponse, err error) {
-	return tc.sendWith(ctx, req, tc)
+// sendRecvUnborrowed is sendRecv for a request whose CreditCharge was not drawn
+// from the account.
+func (tc *treeConn) sendRecvUnborrowed(ctx context.Context, cmd uint16, req smb2.Packet) (res []byte, err error) {
+	// A 0 loan: nothing was borrowed, so a failure refunds nothing. The cost is
+	// that the response's grant is banked against a debt the account never
+	// incurred, inflating the balance by one credit per such request.
+	rr, err := tc.sendWith(ctx, req, tc, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	pkt, err := tc.recv(rr)
+	if err != nil {
+		return nil, err
+	}
+
+	return accept(cmd, pkt)
 }
 
 func (tc *treeConn) recv(rr *requestResponse) (pkt []byte, err error) {

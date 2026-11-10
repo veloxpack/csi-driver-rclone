@@ -8,6 +8,7 @@ import (
 	"errors"
 	"hash"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -19,10 +20,41 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/common/sync2/race2"
 	"storj.io/drpc"
 )
 
 var mon = monkit.Package()
+
+// pooledUploadBufferSize is the upload buffer size that gets pooled. It matches
+// DefaultConfig.UploadBufferSize, which is what essentially every caller uses.
+const pooledUploadBufferSize = 64 * 1024
+
+var uploadBufferPool = sync.Pool{
+	New: func() any { return new([pooledUploadBufferSize]byte) },
+}
+
+// getUploadBuffer returns a buffer of size bytes, which must be handed back to
+// putUploadBuffer once it is no longer referenced. A buffer would otherwise be
+// allocated for every single piece upload, which makes it one of the largest
+// sources of allocated bytes in upload heavy processes.
+func getUploadBuffer(size int64) []byte {
+	if size != pooledUploadBufferSize {
+		return make([]byte, size)
+	}
+	return uploadBufferPool.Get().(*[pooledUploadBufferSize]byte)[:]
+}
+
+// putUploadBuffer returns a buffer from getUploadBuffer to the pool, ignoring
+// sizes that are not pooled.
+func putUploadBuffer(buf []byte) {
+	if len(buf) != pooledUploadBufferSize {
+		return
+	}
+	// Let the race detector catch any use of the buffer past this point.
+	race2.WriteSlice(buf)
+	uploadBufferPool.Put((*[pooledUploadBufferSize]byte)(buf))
+}
 
 // Upload implements uploading to the storage node.
 type upload struct {
@@ -167,7 +199,8 @@ func (client *upload) write(ctx context.Context, data io.Reader) (hash *pb.Piece
 	// the current write requires us to send an order with a larger amount in
 	// it, only then will we sign. Most writes won't include an order.
 
-	backingArray := make([]byte, client.client.config.UploadBufferSize)
+	backingArray := getUploadBuffer(client.client.config.UploadBufferSize)
+	defer putUploadBuffer(backingArray)
 
 	var orderedSoFar int64
 

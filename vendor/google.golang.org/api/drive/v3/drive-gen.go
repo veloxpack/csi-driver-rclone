@@ -4761,7 +4761,12 @@ type ApprovalsListCall struct {
 
 // List: Lists the approvals on a file. For more information, see Manage
 // approvals
-// (https://developers.google.com/workspace/drive/api/guides/approvals).
+// (https://developers.google.com/workspace/drive/api/guides/approvals). By
+// default, this method returns a minimal response that may not include the
+// items array. To retrieve approval details, you must explicitly specify the
+// fields you want using the `fields` query parameter. To return the exact
+// fields you need, see Return specific fields
+// (https://developers.google.com/workspace/drive/api/guides/fields-parameter).
 //
 // - fileId: The ID of the file that the approval is on.
 func (r *ApprovalsService) List(fileId string) *ApprovalsListCall {
@@ -7385,6 +7390,13 @@ func (r *FilesService) Copy(fileId string, file *File) *FilesCopyCall {
 	return c
 }
 
+// CopyComments sets the optional parameter "copyComments": Whether to copy the
+// open (unresolved) comments associated with the file.
+func (c *FilesCopyCall) CopyComments(copyComments bool) *FilesCopyCall {
+	c.urlParams_.Set("copyComments", fmt.Sprint(copyComments))
+	return c
+}
+
 // EnforceSingleParent sets the optional parameter "enforceSingleParent":
 // Deprecated: Copying files into multiple folders is no longer supported. Use
 // shortcuts instead.
@@ -9668,8 +9680,9 @@ type PermissionsCreateCall struct {
 // Create: Creates a permission for a file or shared drive. For more
 // information, see Share files, folders, and drives
 // (https://developers.google.com/workspace/drive/api/guides/manage-sharing).
-// **Warning:** Concurrent permissions operations on the same file aren't
-// supported; only the last update is applied.
+// **Warning:** Concurrent permission modifications (such as update or delete)
+// on the same file, folder, or shared drive aren't supported across any users
+// or clients; only the last update is applied.
 //
 // - fileId: The ID of the file or shared drive.
 func (r *PermissionsService) Create(fileId string, permission *Permission) *PermissionsCreateCall {
@@ -9851,8 +9864,9 @@ type PermissionsDeleteCall struct {
 // Delete: Deletes a permission. For more information, see Share files,
 // folders, and drives
 // (https://developers.google.com/workspace/drive/api/guides/manage-sharing).
-// **Warning:** Concurrent permissions operations on the same file aren't
-// supported; only the last update is applied.
+// **Warning:** Concurrent permission modifications (such as update or delete)
+// on the same file, folder, or shared drive aren't supported across any users
+// or clients; only the last update is applied.
 //
 // - fileId: The ID of the file or shared drive.
 // - permissionId: The ID of the permission.
@@ -10291,8 +10305,9 @@ type PermissionsUpdateCall struct {
 // Update: Updates a permission with patch semantics. For more information, see
 // Share files, folders, and drives
 // (https://developers.google.com/workspace/drive/api/guides/manage-sharing).
-// **Warning:** Concurrent permissions operations on the same file aren't
-// supported; only the last update is applied.
+// **Warning:** Concurrent permission modifications (such as update or delete)
+// on the same file, folder, or shared drive aren't supported across any users
+// or clients; only the last update is applied.
 //
 // - fileId: The ID of the file or shared drive.
 // - permissionId: The ID of the permission.

@@ -94,8 +94,6 @@ type AddFileMemberArgs struct {
 	// AddMessageAsComment : If the custom message should be added as a comment
 	// on the file. Only meant for Paper files.
 	AddMessageAsComment bool `json:"add_message_as_comment"`
-	// FpSealedResult : The FingerprintJS Sealed Client Result value
-	FpSealedResult string `json:"fp_sealed_result,omitempty"`
 }
 
 // NewAddFileMemberArgs returns a new AddFileMemberArgs instance
@@ -166,8 +164,6 @@ type AddFolderMemberArg struct {
 	// CustomMessage : Optional message to display to added members in their
 	// invitation.
 	CustomMessage string `json:"custom_message,omitempty"`
-	// FpSealedResult : The FingerprintJS Sealed Client Result value
-	FpSealedResult string `json:"fp_sealed_result,omitempty"`
 }
 
 // NewAddFolderMemberArg returns a new AddFolderMemberArg instance
@@ -4106,7 +4102,7 @@ type SharedLinkSettings struct {
 	// specified by the link's access level specified in the `link_access_level`
 	// field of `LinkPermissions`. This is used in conjunction with team
 	// policies and shared folder policies to determine the final effective
-	// audience type in the `effective_audience` field of `LinkPermissions.
+	// audience type in the `effective_audience` field of `LinkPermissions`.
 	Audience *LinkAudience `json:"audience,omitempty"`
 	// Access : Requested access level you want the audience to gain from this
 	// link. Note, modifying access level for an existing link is not supported.

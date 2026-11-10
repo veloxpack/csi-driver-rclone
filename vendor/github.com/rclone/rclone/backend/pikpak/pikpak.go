@@ -72,6 +72,8 @@ const (
 	minSleep         = 100 * time.Millisecond
 	maxSleep         = 2 * time.Second
 	taskWaitTime     = 500 * time.Millisecond
+	taskMaxSleep     = 5 * time.Second
+	taskTimeout      = 5 * time.Minute
 	decayConstant    = 2 // bigger for slower decay, exponential
 	rootURL          = "https://api-drive.mypikpak.com"
 
@@ -224,7 +226,7 @@ Fill in for rclone to use a non root folder as its starting point.
 			Advanced: true,
 		}, {
 			Name:     "hash_memory_limit",
-			Help:     "Files bigger than this will be cached on disk to calculate hash if required.",
+			Help:     "Files bigger than this will be cached on disk to calculate hash if required.\n\nFiles of unknown size are always cached on disk.",
 			Default:  fs.SizeSuffix(10 * 1024 * 1024),
 			Advanced: true,
 		}, {
@@ -433,8 +435,7 @@ func (f *Fs) shouldRetry(ctx context.Context, resp *http.Response, err error) (b
 
 	// traceback to possible api.Error wrapped in err, and re-authorize if necessary
 	// "unauthenticated" (16): when access_token is invalid, but should be handled by oauthutil
-	var terr *oauth2.RetrieveError
-	if errors.As(err, &terr) {
+	if terr, ok := errors.AsType[*oauth2.RetrieveError](err); ok {
 		apiErr := new(api.Error)
 		if err := json.Unmarshal(terr.Body, apiErr); err == nil {
 			if apiErr.Reason == "invalid_grant" {
@@ -1389,6 +1390,8 @@ func (f *Fs) uploadByForm(ctx context.Context, in io.Reader, name string, size i
 	if err != nil {
 		return fmt.Errorf("failed to make multipart upload: %w", err)
 	}
+	// Stop the form writer reading in if the request fails before sending it all
+	defer func() { _ = formReader.Close() }()
 
 	contentLength := overhead + size
 	opts := rest.Opts{
@@ -1947,6 +1950,12 @@ func (o *Object) httpResponse(ctx context.Context, url, method string, options [
 	}
 	err = o.fs.pacer.Call(func() (bool, error) {
 		res, err = o.fs.client.Do(req)
+		// client.Do does not fail a completed non-2xx response, so the
+		// HTML error page would be returned as the file. errorHandler
+		// closes the body; shouldRetry then retries retryErrorCodes.
+		if err == nil && (res.StatusCode < 200 || res.StatusCode > 299) {
+			err = errorHandler(res)
+		}
 		return o.fs.shouldRetry(ctx, res, err)
 	})
 	if err != nil {

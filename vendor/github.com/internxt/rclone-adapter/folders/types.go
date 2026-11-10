@@ -125,13 +125,39 @@ type File struct {
 	Status           string          `json:"status"`
 }
 
-// ListOptions defines common pagination and sorting parameters
-// for list endpoints.
+const (
+	// MinPageSize and MaxPageSize are the page size bounds accepted by the
+	// cursor based list endpoints.
+	MinPageSize = 50
+	MaxPageSize = 1000
+)
+
+// maxExistenceNames is the most names CheckFoldersExistence sends in one
+// request.
+const maxExistenceNames = 200
+
+// CheckFoldersExistenceRequest is the request payload for CheckFoldersExistence.
+type CheckFoldersExistenceRequest struct {
+	PlainNames []string `json:"plainNames"`
+}
+
+// CheckFoldersExistenceResponse is the response of CheckFoldersExistence.
+type CheckFoldersExistenceResponse struct {
+	Folders []Folder `json:"existentFolders"`
+}
+
+// ListOptions defines cursor pagination parameters for list endpoints.
+// Results are always sorted by plainName.
 type ListOptions struct {
-	Limit  int
-	Offset int
-	Sort   string
-	Order  string
+	// Limit is the page size. Zero or negative means MaxPageSize; other
+	// values are clamped to [MinPageSize, MaxPageSize].
+	Limit int
+	// Order is "ASC" (default) or "DESC". A cursor is only valid for the
+	// order it was issued with.
+	Order string
+	// Cursor is the nextCursor returned by the previous page. Leave empty
+	// to fetch the first page.
+	Cursor string
 }
 
 // TreeNode is a recursive structure representing a folder, its files, and its child folders.

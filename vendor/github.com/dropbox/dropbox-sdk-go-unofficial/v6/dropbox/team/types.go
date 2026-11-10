@@ -332,6 +332,245 @@ func (u *BaseTeamFolderError) UnmarshalJSON(body []byte) error {
 	return nil
 }
 
+// BulkSuspendArg : Launches one action-specific bulk suspend job.
+type BulkSuspendArg struct {
+	// Members : Must contain between 1 and 500 targets. The launch handler also
+	// rejects duplicate client item IDs and duplicate member selectors.
+	Members []*BulkSuspendMemberTarget `json:"members"`
+}
+
+// NewBulkSuspendArg returns a new BulkSuspendArg instance
+func NewBulkSuspendArg(Members []*BulkSuspendMemberTarget) *BulkSuspendArg {
+	s := new(BulkSuspendArg)
+	s.Members = Members
+	return s
+}
+
+// BulkSuspendComplete : has no documentation (yet)
+type BulkSuspendComplete struct {
+	// Requested : has no documentation (yet)
+	Requested int64 `json:"requested"`
+	// Suspended : has no documentation (yet)
+	Suspended int64 `json:"suspended"`
+	// Failed : has no documentation (yet)
+	Failed int64 `json:"failed"`
+	// Unknown : has no documentation (yet)
+	Unknown int64 `json:"unknown"`
+	// ReportDelivery : has no documentation (yet)
+	ReportDelivery *BulkSuspendReportDeliveryStatus `json:"report_delivery"`
+}
+
+// NewBulkSuspendComplete returns a new BulkSuspendComplete instance
+func NewBulkSuspendComplete(Requested int64, Suspended int64, Failed int64, Unknown int64, ReportDelivery *BulkSuspendReportDeliveryStatus) *BulkSuspendComplete {
+	s := new(BulkSuspendComplete)
+	s.Requested = Requested
+	s.Suspended = Suspended
+	s.Failed = Failed
+	s.Unknown = Unknown
+	s.ReportDelivery = ReportDelivery
+	return s
+}
+
+// BulkSuspendError : A typed launch rejection. Authorization failures continue
+// to use the API v2 authentication/permission error surface.
+type BulkSuspendError struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for BulkSuspendError
+const (
+	BulkSuspendErrorInvalidRequest        = "invalid_request"
+	BulkSuspendErrorTooManyMembers        = "too_many_members"
+	BulkSuspendErrorDuplicateClientItemId = "duplicate_client_item_id"
+	BulkSuspendErrorDuplicateTeamMemberId = "duplicate_team_member_id"
+	BulkSuspendErrorActingAdmin           = "acting_admin"
+	BulkSuspendErrorLastAdmin             = "last_admin"
+	BulkSuspendErrorOther                 = "other"
+)
+
+// BulkSuspendJobStatus : Coarse job state. Live row progress and report
+// contents are intentionally omitted; callers receive row details in the
+// terminal email report.
+type BulkSuspendJobStatus struct {
+	dropbox.Tagged
+	// Complete : has no documentation (yet)
+	Complete *BulkSuspendComplete `json:"complete,omitempty"`
+	// Failed : has no documentation (yet)
+	Failed *BulkSuspendTaskFailure `json:"failed,omitempty"`
+}
+
+// Valid tag values for BulkSuspendJobStatus
+const (
+	BulkSuspendJobStatusInProgress = "in_progress"
+	BulkSuspendJobStatusComplete   = "complete"
+	BulkSuspendJobStatusFailed     = "failed"
+	BulkSuspendJobStatusOther      = "other"
+)
+
+// UnmarshalJSON deserializes into a BulkSuspendJobStatus instance
+func (u *BulkSuspendJobStatus) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+		// Failed : has no documentation (yet)
+		Failed *BulkSuspendTaskFailure `json:"failed,omitempty"`
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "complete":
+		if err = json.Unmarshal(body, &u.Complete); err != nil {
+			return err
+		}
+
+	case "failed":
+		u.Failed = w.Failed
+
+	}
+	return nil
+}
+
+// BulkSuspendMemberTarget : One member selected for suspension. The opaque
+// client item ID correlates the eventual report row with the caller's input
+// without sending CSV data.
+type BulkSuspendMemberTarget struct {
+	// ClientItemId : has no documentation (yet)
+	ClientItemId string `json:"client_item_id"`
+	// SuspendArg : has no documentation (yet)
+	SuspendArg *MembersDeactivateArg `json:"suspend_arg"`
+}
+
+// NewBulkSuspendMemberTarget returns a new BulkSuspendMemberTarget instance
+func NewBulkSuspendMemberTarget(ClientItemId string, SuspendArg *MembersDeactivateArg) *BulkSuspendMemberTarget {
+	s := new(BulkSuspendMemberTarget)
+	s.ClientItemId = ClientItemId
+	s.SuspendArg = SuspendArg
+	return s
+}
+
+// BulkSuspendReportDeliveryStatus : has no documentation (yet)
+type BulkSuspendReportDeliveryStatus struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for BulkSuspendReportDeliveryStatus
+const (
+	BulkSuspendReportDeliveryStatusBulkSuspendReportDeliveryStatusUnspecified = "bulk_suspend_report_delivery_status_unspecified"
+	BulkSuspendReportDeliveryStatusBulkSuspendReportDeliveryStatusPending     = "bulk_suspend_report_delivery_status_pending"
+	BulkSuspendReportDeliveryStatusBulkSuspendReportDeliveryStatusDelivered   = "bulk_suspend_report_delivery_status_delivered"
+	BulkSuspendReportDeliveryStatusBulkSuspendReportDeliveryStatusFailed      = "bulk_suspend_report_delivery_status_failed"
+	BulkSuspendReportDeliveryStatusOther                                      = "other"
+)
+
+// UserSelectorError : Error that can be returned whenever a struct derived from
+// `UserSelectorArg` is used.
+type UserSelectorError struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for UserSelectorError
+const (
+	UserSelectorErrorUserNotFound = "user_not_found"
+)
+
+// MembersDeactivateError : has no documentation (yet)
+type MembersDeactivateError struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for MembersDeactivateError
+const (
+	MembersDeactivateErrorUserNotFound  = "user_not_found"
+	MembersDeactivateErrorUserNotInTeam = "user_not_in_team"
+	MembersDeactivateErrorOther         = "other"
+)
+
+// MembersSuspendError : has no documentation (yet)
+type MembersSuspendError struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for MembersSuspendError
+const (
+	MembersSuspendErrorUserNotFound        = "user_not_found"
+	MembersSuspendErrorUserNotInTeam       = "user_not_in_team"
+	MembersSuspendErrorOther               = "other"
+	MembersSuspendErrorSuspendInactiveUser = "suspend_inactive_user"
+	MembersSuspendErrorSuspendLastAdmin    = "suspend_last_admin"
+	MembersSuspendErrorTeamLicenseLimit    = "team_license_limit"
+)
+
+// BulkSuspendRowFailure : Stable machine-readable reasons used by the terminal
+// row report.
+type BulkSuspendRowFailure struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for BulkSuspendRowFailure
+const (
+	BulkSuspendRowFailureUserNotFound         = "user_not_found"
+	BulkSuspendRowFailureUserNotInTeam        = "user_not_in_team"
+	BulkSuspendRowFailureOther                = "other"
+	BulkSuspendRowFailureSuspendInactiveUser  = "suspend_inactive_user"
+	BulkSuspendRowFailureSuspendLastAdmin     = "suspend_last_admin"
+	BulkSuspendRowFailureTeamLicenseLimit     = "team_license_limit"
+	BulkSuspendRowFailureProtectedActingAdmin = "protected_acting_admin"
+	BulkSuspendRowFailurePermissionChanged    = "permission_changed"
+	BulkSuspendRowFailureSuspendFailed        = "suspend_failed"
+)
+
+// BulkSuspendRowOutcome : The terminal outcome for one requested member. Row
+// outcomes are delivered in the report rather than embedded in the status
+// response.
+type BulkSuspendRowOutcome struct {
+	dropbox.Tagged
+	// Failed : has no documentation (yet)
+	Failed *BulkSuspendRowFailure `json:"failed,omitempty"`
+}
+
+// Valid tag values for BulkSuspendRowOutcome
+const (
+	BulkSuspendRowOutcomeSuspended = "suspended"
+	BulkSuspendRowOutcomeFailed    = "failed"
+	BulkSuspendRowOutcomeUnknown   = "unknown"
+	BulkSuspendRowOutcomeOther     = "other"
+)
+
+// UnmarshalJSON deserializes into a BulkSuspendRowOutcome instance
+func (u *BulkSuspendRowOutcome) UnmarshalJSON(body []byte) error {
+	type wrap struct {
+		dropbox.Tagged
+		// Failed : has no documentation (yet)
+		Failed *BulkSuspendRowFailure `json:"failed,omitempty"`
+	}
+	var w wrap
+	var err error
+	if err = json.Unmarshal(body, &w); err != nil {
+		return err
+	}
+	u.Tag = w.Tag
+	switch u.Tag {
+	case "failed":
+		u.Failed = w.Failed
+
+	}
+	return nil
+}
+
+// BulkSuspendTaskFailure : has no documentation (yet)
+type BulkSuspendTaskFailure struct {
+	dropbox.Tagged
+}
+
+// Valid tag values for BulkSuspendTaskFailure
+const (
+	BulkSuspendTaskFailureUnusableResult = "unusable_result"
+	BulkSuspendTaskFailureOther          = "other"
+)
+
 // CustomQuotaError : Error returned when getting member custom quota.
 type CustomQuotaError struct {
 	dropbox.Tagged
@@ -3067,17 +3306,6 @@ func NewMemberProfile(TeamMemberId string, Email string, EmailVerified bool, Sta
 	return s
 }
 
-// UserSelectorError : Error that can be returned whenever a struct derived from
-// `UserSelectorArg` is used.
-type UserSelectorError struct {
-	dropbox.Tagged
-}
-
-// Valid tag values for UserSelectorError
-const (
-	UserSelectorErrorUserNotFound = "user_not_found"
-)
-
 // MemberSelectorError : has no documentation (yet)
 type MemberSelectorError struct {
 	dropbox.Tagged
@@ -3369,18 +3597,6 @@ func NewMembersDeactivateArg(User *UserSelectorArg) *MembersDeactivateArg {
 	s.WipeData = true
 	return s
 }
-
-// MembersDeactivateError : has no documentation (yet)
-type MembersDeactivateError struct {
-	dropbox.Tagged
-}
-
-// Valid tag values for MembersDeactivateError
-const (
-	MembersDeactivateErrorUserNotFound  = "user_not_found"
-	MembersDeactivateErrorUserNotInTeam = "user_not_in_team"
-	MembersDeactivateErrorOther         = "other"
-)
 
 // MembersPermanentlyDeleteFilesError : has no documentation (yet)
 type MembersPermanentlyDeleteFilesError struct {
@@ -4103,21 +4319,6 @@ func (u *MembersSetProfilePhotoError) UnmarshalJSON(body []byte) error {
 	}
 	return nil
 }
-
-// MembersSuspendError : has no documentation (yet)
-type MembersSuspendError struct {
-	dropbox.Tagged
-}
-
-// Valid tag values for MembersSuspendError
-const (
-	MembersSuspendErrorUserNotFound        = "user_not_found"
-	MembersSuspendErrorUserNotInTeam       = "user_not_in_team"
-	MembersSuspendErrorOther               = "other"
-	MembersSuspendErrorSuspendInactiveUser = "suspend_inactive_user"
-	MembersSuspendErrorSuspendLastAdmin    = "suspend_last_admin"
-	MembersSuspendErrorTeamLicenseLimit    = "team_license_limit"
-)
 
 // MembersTransferFormerMembersFilesError : has no documentation (yet)
 type MembersTransferFormerMembersFilesError struct {
@@ -4893,7 +5094,7 @@ const (
 	TeamFolderAccessErrorOther               = "other"
 )
 
-// TeamFolderActivateError :
+// TeamFolderActivateError : has no documentation (yet)
 type TeamFolderActivateError struct {
 	dropbox.Tagged
 	// AccessError : has no documentation (yet)
@@ -4906,10 +5107,11 @@ type TeamFolderActivateError struct {
 
 // Valid tag values for TeamFolderActivateError
 const (
-	TeamFolderActivateErrorAccessError            = "access_error"
-	TeamFolderActivateErrorStatusError            = "status_error"
-	TeamFolderActivateErrorTeamSharedDropboxError = "team_shared_dropbox_error"
-	TeamFolderActivateErrorOther                  = "other"
+	TeamFolderActivateErrorAccessError              = "access_error"
+	TeamFolderActivateErrorStatusError              = "status_error"
+	TeamFolderActivateErrorTeamSharedDropboxError   = "team_shared_dropbox_error"
+	TeamFolderActivateErrorOther                    = "other"
+	TeamFolderActivateErrorFolderCountLimitExceeded = "folder_count_limit_exceeded"
 )
 
 // UnmarshalJSON deserializes into a TeamFolderActivateError instance
@@ -5136,11 +5338,12 @@ type TeamFolderCreateError struct {
 
 // Valid tag values for TeamFolderCreateError
 const (
-	TeamFolderCreateErrorInvalidFolderName     = "invalid_folder_name"
-	TeamFolderCreateErrorFolderNameAlreadyUsed = "folder_name_already_used"
-	TeamFolderCreateErrorFolderNameReserved    = "folder_name_reserved"
-	TeamFolderCreateErrorSyncSettingsError     = "sync_settings_error"
-	TeamFolderCreateErrorOther                 = "other"
+	TeamFolderCreateErrorInvalidFolderName        = "invalid_folder_name"
+	TeamFolderCreateErrorFolderNameAlreadyUsed    = "folder_name_already_used"
+	TeamFolderCreateErrorFolderNameReserved       = "folder_name_reserved"
+	TeamFolderCreateErrorSyncSettingsError        = "sync_settings_error"
+	TeamFolderCreateErrorFolderCountLimitExceeded = "folder_count_limit_exceeded"
+	TeamFolderCreateErrorOther                    = "other"
 )
 
 // UnmarshalJSON deserializes into a TeamFolderCreateError instance
@@ -5457,7 +5660,7 @@ func (u *TeamFolderRenameError) UnmarshalJSON(body []byte) error {
 	return nil
 }
 
-// TeamFolderRestoreError :
+// TeamFolderRestoreError : has no documentation (yet)
 type TeamFolderRestoreError struct {
 	dropbox.Tagged
 	// AccessError : has no documentation (yet)
@@ -5470,10 +5673,11 @@ type TeamFolderRestoreError struct {
 
 // Valid tag values for TeamFolderRestoreError
 const (
-	TeamFolderRestoreErrorAccessError            = "access_error"
-	TeamFolderRestoreErrorStatusError            = "status_error"
-	TeamFolderRestoreErrorTeamSharedDropboxError = "team_shared_dropbox_error"
-	TeamFolderRestoreErrorOther                  = "other"
+	TeamFolderRestoreErrorAccessError              = "access_error"
+	TeamFolderRestoreErrorStatusError              = "status_error"
+	TeamFolderRestoreErrorTeamSharedDropboxError   = "team_shared_dropbox_error"
+	TeamFolderRestoreErrorOther                    = "other"
+	TeamFolderRestoreErrorFolderCountLimitExceeded = "folder_count_limit_exceeded"
 )
 
 // UnmarshalJSON deserializes into a TeamFolderRestoreError instance

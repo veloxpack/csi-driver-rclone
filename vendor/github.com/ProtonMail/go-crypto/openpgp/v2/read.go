@@ -26,6 +26,9 @@ import (
 // SignatureType is the armor type for a PGP signature.
 var SignatureType = "PGP SIGNATURE"
 
+// MessageType is the armor type for a PGP message.
+var MessageType = "PGP MESSAGE"
+
 // readArmored reads an armored block with the given type.
 func readArmored(r io.Reader, expectedType string) (body io.Reader, err error) {
 	block, err := armor.Decode(r)
@@ -136,9 +139,9 @@ ParsePackets:
 			// This packet contains the decryption key encrypted to a public key.
 			md.EncryptedToKeyIds = append(md.EncryptedToKeyIds, p.KeyId)
 			switch p.Algo {
-			case packet.PubKeyAlgoRSA, packet.PubKeyAlgoRSAEncryptOnly,
-				packet.PubKeyAlgoElGamal, packet.PubKeyAlgoECDH,
-				packet.PubKeyAlgoX25519, packet.PubKeyAlgoX448:
+			case packet.PubKeyAlgoRSA, packet.PubKeyAlgoRSAEncryptOnly, packet.PubKeyAlgoElGamal, packet.PubKeyAlgoECDH,
+				packet.PubKeyAlgoX25519, packet.PubKeyAlgoX448,
+				packet.PubKeyAlgoMlkem768X25519, packet.PubKeyAlgoMlkem1024X448:
 				break
 			default:
 				continue
@@ -297,8 +300,8 @@ func newSignatureCandidate(ops *packet.OnePassSignature) (sigCandidate *Signatur
 		HashAlgorithm:     ops.Hash,
 		PubKeyAlgo:        ops.PubKeyAlgo,
 		IssuerKeyId:       ops.KeyId,
-		Salt:              ops.Salt,
 		IssuerFingerprint: ops.KeyFingerprint,
+		Salt:              ops.Salt,
 	}
 	sigCandidate.Hash, sigCandidate.WrappedHash, sigCandidate.SignatureError = hashForSignature(
 		sigCandidate.HashAlgorithm,
@@ -308,7 +311,11 @@ func newSignatureCandidate(ops *packet.OnePassSignature) (sigCandidate *Signatur
 	return
 }
 
-func newSignatureCandidateFromSignature(sig *packet.Signature) (sigCandidate *SignatureCandidate) {
+func newSignatureCandidateFromSignature(sig *packet.Signature) (sigCandidate *SignatureCandidate, err error) {
+	if sig.IssuerKeyId == nil {
+		return nil, errors.StructuralError("signature doesn't have an issuer")
+	}
+
 	sigCandidate = &SignatureCandidate{
 		SigType:           sig.SigType,
 		HashAlgorithm:     sig.Hash,
@@ -331,18 +338,21 @@ func newSignatureCandidateFromSignature(sig *packet.Signature) (sigCandidate *Si
 }
 
 func (sc *SignatureCandidate) validate() bool {
+	if sc.CorrespondingSig == nil {
+		return false
+	}
 	correspondingSig := sc.CorrespondingSig
 	invalidV3 := sc.OPSVersion == 3 && correspondingSig.Version == 6
-	invalidV6 := (sc.OPSVersion == 6 && correspondingSig.Version != 6) ||
-		(sc.OPSVersion == 6 && !bytes.Equal(sc.IssuerFingerprint, correspondingSig.IssuerFingerprint)) ||
-		(sc.OPSVersion == 6 && !bytes.Equal(sc.Salt, correspondingSig.Salt()))
-	return correspondingSig != nil &&
+	invalidV6 := sc.OPSVersion == 6 &&
+		(correspondingSig.Version != 6 ||
+			!bytes.Equal(sc.IssuerFingerprint, correspondingSig.IssuerFingerprint) ||
+			!bytes.Equal(sc.Salt, correspondingSig.Salt()))
+	return !invalidV3 && !invalidV6 &&
 		sc.SigType == correspondingSig.SigType &&
 		sc.HashAlgorithm == correspondingSig.Hash &&
 		sc.PubKeyAlgo == correspondingSig.PubKeyAlgo &&
-		sc.IssuerKeyId == *correspondingSig.IssuerKeyId &&
-		!invalidV3 &&
-		!invalidV6
+		correspondingSig.IssuerKeyId != nil &&
+		sc.IssuerKeyId == *correspondingSig.IssuerKeyId
 }
 
 // readSignedMessage reads a possibly signed message if mdin is non-zero then
@@ -388,7 +398,10 @@ FindLiteralData:
 			md.SignatureCandidates = append([]*SignatureCandidate{sigCandidate}, md.SignatureCandidates...)
 		case *packet.Signature:
 			// Old style signature i.e., sig | literal
-			sigCandidate := newSignatureCandidateFromSignature(p)
+			sigCandidate, err := newSignatureCandidateFromSignature(p)
+			if err != nil {
+				return nil, err
+			}
 			md.IsSigned = true
 			if keyring != nil {
 				keys := keyring.EntitiesById(sigCandidate.IssuerKeyId)
@@ -709,10 +722,10 @@ func verifyDetachedSignatureReader(keyring KeyRing, signed, signature io.Reader,
 		if !ok {
 			continue
 		}
-		if sig.IssuerKeyId == nil {
-			return nil, errors.StructuralError("signature doesn't have an issuer")
+		candidate, err := newSignatureCandidateFromSignature(sig)
+		if err != nil {
+			return nil, err
 		}
-		candidate := newSignatureCandidateFromSignature(sig)
 		md.SignatureCandidates = append(md.SignatureCandidates, candidate)
 
 		keys := keyring.EntitiesById(candidate.IssuerKeyId)

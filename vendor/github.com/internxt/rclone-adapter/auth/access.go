@@ -11,7 +11,7 @@ import (
 	"github.com/internxt/rclone-adapter/config"
 	"github.com/internxt/rclone-adapter/crypto"
 	"github.com/internxt/rclone-adapter/errors"
-	"github.com/tyler-smith/go-bip39"
+	"github.com/internxt/rclone-adapter/internal/bip39"
 )
 
 type LoginRequest struct {

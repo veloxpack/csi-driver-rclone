@@ -18,6 +18,8 @@ type Sorter interface {
 // The function should be the inverse of the corresponding ToBytesGeneric function.
 // It returns an error for any deserialization failures, which will be wrapped
 // in a DeserializationError by the external sorter.
+// The parallel merge calls it from several goroutines at once, so it must be safe
+// for concurrent use.
 type FromBytesGeneric[E any] func([]byte) (E, error)
 
 // ToBytesGeneric is a function type for serializing type E to bytes.
@@ -25,6 +27,7 @@ type FromBytesGeneric[E any] func([]byte) (E, error)
 // The function should produce deterministic output that can be read back
 // by the corresponding FromBytesGeneric function. It returns an error for any
 // serialization failures, which will be wrapped in a SerializationError by the external sorter.
+// It may be called from several goroutines at once, so it must be safe for concurrent use.
 type ToBytesGeneric[E any] func(E) ([]byte, error)
 
 // CompareGeneric is a function type for comparing two items of type E.
@@ -33,4 +36,6 @@ type ToBytesGeneric[E any] func(E) ([]byte, error)
 // and a positive integer if a should be ordered after b in the final sorted output.
 // The function must be consistent and must handle any errors by panicking.
 // This follows the same semantics as cmp.Compare and can be implemented using cmp.Compare[T] for ordered types.
+// The sort and merge workers call it from several goroutines at once, so it must be
+// safe for concurrent use.
 type CompareGeneric[E any] func(a, b E) int

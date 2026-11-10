@@ -1166,3 +1166,7 @@ func isStatusCommitted(status pb.Object_Status) bool {
 		return false
 	}
 }
+
+func isStatusDeleteMarker(status pb.Object_Status) bool {
+	return status == pb.Object_DELETE_MARKER_UNVERSIONED || status == pb.Object_DELETE_MARKER_VERSIONED
+}

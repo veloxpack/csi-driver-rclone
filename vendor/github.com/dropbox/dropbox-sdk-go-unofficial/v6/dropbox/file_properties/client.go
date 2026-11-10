@@ -107,18 +107,18 @@ type ContextClient interface {
 	// PropertiesAddContext : Add property groups to a Dropbox file. See
 	// `templatesAddForUser` or `templatesAddForTeam` to create new templates.
 	PropertiesAddContext(ctx context.Context, arg *AddPropertiesArg) (err error)
-	// PropertiesOverwriteContext : Overwrite property groups associated with a file.
-	// This endpoint should be used instead of `propertiesUpdate` when property
-	// groups are being updated via a "snapshot" instead of via a "delta". In
-	// other words, this endpoint will delete all omitted fields from a property
-	// group, whereas `propertiesUpdate` will only delete fields that are
-	// explicitly marked for deletion.
+	// PropertiesOverwriteContext : Overwrite property groups associated with a
+	// file. This endpoint should be used instead of `propertiesUpdate` when
+	// property groups are being updated via a "snapshot" instead of via a
+	// "delta". In other words, this endpoint will delete all omitted fields
+	// from a property group, whereas `propertiesUpdate` will only delete fields
+	// that are explicitly marked for deletion.
 	PropertiesOverwriteContext(ctx context.Context, arg *OverwritePropertyGroupArg) (err error)
-	// PropertiesRemoveContext : Permanently removes the specified property group from
-	// the file. To remove specific property field key value pairs, see
-	// `propertiesUpdate`. To update a template, see `templatesUpdateForUser` or
-	// `templatesUpdateForTeam`. To remove a template, see
-	// `templatesRemoveForUser` or `templatesRemoveForTeam`.
+	// PropertiesRemoveContext : Permanently removes the specified property
+	// group from the file. To remove specific property field key value pairs,
+	// see `propertiesUpdate`. To update a template, see
+	// `templatesUpdateForUser` or `templatesUpdateForTeam`. To remove a
+	// template, see `templatesRemoveForUser` or `templatesRemoveForTeam`.
 	PropertiesRemoveContext(ctx context.Context, arg *RemovePropertiesArg) (err error)
 	// PropertiesSearchContext : Search across property templates for particular
 	// property field values.
@@ -126,11 +126,11 @@ type ContextClient interface {
 	// PropertiesSearchContinueContext : Once a cursor has been retrieved from
 	// `propertiesSearch`, use this to paginate through all search results.
 	PropertiesSearchContinueContext(ctx context.Context, arg *PropertiesSearchContinueArg) (res *PropertiesSearchResult, err error)
-	// PropertiesUpdateContext : Add, update or remove properties associated with the
-	// supplied file and templates. This endpoint should be used instead of
-	// `propertiesOverwrite` when property groups are being updated via a
-	// "delta" instead of via a "snapshot" . In other words, this endpoint will
-	// not delete any omitted fields from a property group, whereas
+	// PropertiesUpdateContext : Add, update or remove properties associated
+	// with the supplied file and templates. This endpoint should be used
+	// instead of `propertiesOverwrite` when property groups are being updated
+	// via a "delta" instead of via a "snapshot" . In other words, this endpoint
+	// will not delete any omitted fields from a property group, whereas
 	// `propertiesOverwrite` will delete any fields that are omitted from a
 	// property group.
 	PropertiesUpdateContext(ctx context.Context, arg *UpdatePropertiesArg) (err error)
@@ -144,30 +144,30 @@ type ContextClient interface {
 	TemplatesAddForUserContext(ctx context.Context, arg *AddTemplateArg) (res *AddTemplateResult, err error)
 	// TemplatesGetForTeamContext : Get the schema for a specified template.
 	TemplatesGetForTeamContext(ctx context.Context, arg *GetTemplateArg) (res *GetTemplateResult, err error)
-	// TemplatesGetForUserContext : Get the schema for a specified template. This
-	// endpoint can't be called on a team member or admin's behalf.
+	// TemplatesGetForUserContext : Get the schema for a specified template.
+	// This endpoint can't be called on a team member or admin's behalf.
 	TemplatesGetForUserContext(ctx context.Context, arg *GetTemplateArg) (res *GetTemplateResult, err error)
-	// TemplatesListForTeamContext : Get the template identifiers for a team. To get
-	// the schema of each template use `templatesGetForTeam`.
+	// TemplatesListForTeamContext : Get the template identifiers for a team. To
+	// get the schema of each template use `templatesGetForTeam`.
 	TemplatesListForTeamContext(ctx context.Context) (res *ListTemplateResult, err error)
-	// TemplatesListForUserContext : Get the template identifiers for a team. To get
-	// the schema of each template use `templatesGetForUser`. This endpoint
+	// TemplatesListForUserContext : Get the template identifiers for a team. To
+	// get the schema of each template use `templatesGetForUser`. This endpoint
 	// can't be called on a team member or admin's behalf.
 	TemplatesListForUserContext(ctx context.Context) (res *ListTemplateResult, err error)
-	// TemplatesRemoveForTeamContext : Permanently removes the specified template
-	// created from `templatesAddForUser`. All properties associated with the
-	// template will also be removed. This action cannot be undone.
+	// TemplatesRemoveForTeamContext : Permanently removes the specified
+	// template created from `templatesAddForUser`. All properties associated
+	// with the template will also be removed. This action cannot be undone.
 	TemplatesRemoveForTeamContext(ctx context.Context, arg *RemoveTemplateArg) (err error)
-	// TemplatesRemoveForUserContext : Permanently removes the specified template
-	// created from `templatesAddForUser`. All properties associated with the
-	// template will also be removed. This action cannot be undone.
+	// TemplatesRemoveForUserContext : Permanently removes the specified
+	// template created from `templatesAddForUser`. All properties associated
+	// with the template will also be removed. This action cannot be undone.
 	TemplatesRemoveForUserContext(ctx context.Context, arg *RemoveTemplateArg) (err error)
-	// TemplatesUpdateForTeamContext : Update a template associated with a team. This
-	// route can update the template name, the template description and add
+	// TemplatesUpdateForTeamContext : Update a template associated with a team.
+	// This route can update the template name, the template description and add
 	// optional properties to templates.
 	TemplatesUpdateForTeamContext(ctx context.Context, arg *UpdateTemplateArg) (res *UpdateTemplateResult, err error)
-	// TemplatesUpdateForUserContext : Update a template associated with a user. This
-	// route can update the template name, the template description and add
+	// TemplatesUpdateForUserContext : Update a template associated with a user.
+	// This route can update the template name, the template description and add
 	// optional properties to templates. This endpoint can't be called on a team
 	// member or admin's behalf.
 	TemplatesUpdateForUserContext(ctx context.Context, arg *UpdateTemplateArg) (res *UpdateTemplateResult, err error)
@@ -221,12 +221,12 @@ type PropertiesOverwriteAPIError struct {
 	EndpointError *InvalidPropertyGroupError `json:"error"`
 }
 
-// PropertiesOverwriteContext : Overwrite property groups associated with a file.
-// This endpoint should be used instead of `propertiesUpdate` when property
-// groups are being updated via a "snapshot" instead of via a "delta". In
-// other words, this endpoint will delete all omitted fields from a property
-// group, whereas `propertiesUpdate` will only delete fields that are
-// explicitly marked for deletion.
+// PropertiesOverwriteContext : Overwrite property groups associated with a
+// file. This endpoint should be used instead of `propertiesUpdate` when
+// property groups are being updated via a "snapshot" instead of via a "delta".
+// In other words, this endpoint will delete all omitted fields from a property
+// group, whereas `propertiesUpdate` will only delete fields that are explicitly
+// marked for deletion.
 func (dbx *apiImpl) PropertiesOverwriteContext(ctx context.Context, arg *OverwritePropertyGroupArg) (err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -265,11 +265,11 @@ type PropertiesRemoveAPIError struct {
 	EndpointError *RemovePropertiesError `json:"error"`
 }
 
-// PropertiesRemoveContext : Permanently removes the specified property group from
-// the file. To remove specific property field key value pairs, see
+// PropertiesRemoveContext : Permanently removes the specified property group
+// from the file. To remove specific property field key value pairs, see
 // `propertiesUpdate`. To update a template, see `templatesUpdateForUser` or
-// `templatesUpdateForTeam`. To remove a template, see
-// `templatesRemoveForUser` or `templatesRemoveForTeam`.
+// `templatesUpdateForTeam`. To remove a template, see `templatesRemoveForUser`
+// or `templatesRemoveForTeam`.
 func (dbx *apiImpl) PropertiesRemoveContext(ctx context.Context, arg *RemovePropertiesArg) (err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -396,13 +396,12 @@ type PropertiesUpdateAPIError struct {
 	EndpointError *UpdatePropertiesError `json:"error"`
 }
 
-// PropertiesUpdateContext : Add, update or remove properties associated with the
-// supplied file and templates. This endpoint should be used instead of
-// `propertiesOverwrite` when property groups are being updated via a
-// "delta" instead of via a "snapshot" . In other words, this endpoint will
-// not delete any omitted fields from a property group, whereas
-// `propertiesOverwrite` will delete any fields that are omitted from a
-// property group.
+// PropertiesUpdateContext : Add, update or remove properties associated with
+// the supplied file and templates. This endpoint should be used instead of
+// `propertiesOverwrite` when property groups are being updated via a "delta"
+// instead of via a "snapshot" . In other words, this endpoint will not delete
+// any omitted fields from a property group, whereas `propertiesOverwrite` will
+// delete any fields that are omitted from a property group.
 func (dbx *apiImpl) PropertiesUpdateContext(ctx context.Context, arg *UpdatePropertiesArg) (err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -442,8 +441,8 @@ type TemplatesAddForTeamAPIError struct {
 }
 
 // TemplatesAddForTeamContext : Add a template associated with a team. See
-// `propertiesAdd` to add properties to a file or folder. Note: this
-// endpoint will create team-owned templates.
+// `propertiesAdd` to add properties to a file or folder. Note: this endpoint
+// will create team-owned templates.
 func (dbx *apiImpl) TemplatesAddForTeamContext(ctx context.Context, arg *AddTemplateArg) (res *AddTemplateResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -487,8 +486,8 @@ type TemplatesAddForUserAPIError struct {
 }
 
 // TemplatesAddForUserContext : Add a template associated with a user. See
-// `propertiesAdd` to add properties to a file. This endpoint can't be
-// called on a team member or admin's behalf.
+// `propertiesAdd` to add properties to a file. This endpoint can't be called on
+// a team member or admin's behalf.
 func (dbx *apiImpl) TemplatesAddForUserContext(ctx context.Context, arg *AddTemplateArg) (res *AddTemplateResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -663,8 +662,8 @@ type TemplatesListForUserAPIError struct {
 }
 
 // TemplatesListForUserContext : Get the template identifiers for a team. To get
-// the schema of each template use `templatesGetForUser`. This endpoint
-// can't be called on a team member or admin's behalf.
+// the schema of each template use `templatesGetForUser`. This endpoint can't be
+// called on a team member or admin's behalf.
 func (dbx *apiImpl) TemplatesListForUserContext(ctx context.Context) (res *ListTemplateResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -789,8 +788,8 @@ type TemplatesUpdateForTeamAPIError struct {
 	EndpointError *ModifyTemplateError `json:"error"`
 }
 
-// TemplatesUpdateForTeamContext : Update a template associated with a team. This
-// route can update the template name, the template description and add
+// TemplatesUpdateForTeamContext : Update a template associated with a team.
+// This route can update the template name, the template description and add
 // optional properties to templates.
 func (dbx *apiImpl) TemplatesUpdateForTeamContext(ctx context.Context, arg *UpdateTemplateArg) (res *UpdateTemplateResult, err error) {
 	req := dropbox.Request{
@@ -834,8 +833,8 @@ type TemplatesUpdateForUserAPIError struct {
 	EndpointError *ModifyTemplateError `json:"error"`
 }
 
-// TemplatesUpdateForUserContext : Update a template associated with a user. This
-// route can update the template name, the template description and add
+// TemplatesUpdateForUserContext : Update a template associated with a user.
+// This route can update the template name, the template description and add
 // optional properties to templates. This endpoint can't be called on a team
 // member or admin's behalf.
 func (dbx *apiImpl) TemplatesUpdateForUserContext(ctx context.Context, arg *UpdateTemplateArg) (res *UpdateTemplateResult, err error) {

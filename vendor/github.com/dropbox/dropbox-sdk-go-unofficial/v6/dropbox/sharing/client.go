@@ -219,30 +219,30 @@ type ContextClient interface {
 	Client
 	// AddFileMemberContext : Adds specified members to a file.
 	AddFileMemberContext(ctx context.Context, arg *AddFileMemberArgs) (res []*FileMemberActionResult, err error)
-	// AddFolderMemberContext : Allows an owner or editor (if the ACL update policy
-	// allows) of a shared folder to add another member. For the new member to
-	// get access to all the functionality for this folder, you will need to
-	// call `mountFolder` on their behalf.
+	// AddFolderMemberContext : Allows an owner or editor (if the ACL update
+	// policy allows) of a shared folder to add another member. For the new
+	// member to get access to all the functionality for this folder, you will
+	// need to call `mountFolder` on their behalf.
 	AddFolderMemberContext(ctx context.Context, arg *AddFolderMemberArg) (err error)
 	// CheckJobStatusContext : Returns the status of an asynchronous job.
 	CheckJobStatusContext(ctx context.Context, arg *async.PollArg) (res *JobStatus, err error)
-	// CheckRemoveMemberJobStatusContext : Returns the status of an asynchronous job
-	// for sharing a folder.
+	// CheckRemoveMemberJobStatusContext : Returns the status of an asynchronous
+	// job for sharing a folder.
 	CheckRemoveMemberJobStatusContext(ctx context.Context, arg *async.PollArg) (res *RemoveMemberJobStatus, err error)
-	// CheckShareJobStatusContext : Returns the status of an asynchronous job for
-	// sharing a folder.
+	// CheckShareJobStatusContext : Returns the status of an asynchronous job
+	// for sharing a folder.
 	CheckShareJobStatusContext(ctx context.Context, arg *async.PollArg) (res *ShareFolderJobStatus, err error)
-	// CreateSharedLinkContext : Create a shared link. If a shared link already exists
-	// for the given path, that link is returned. Previously, it was technically
-	// possible to break a shared link by moving or renaming the corresponding
-	// file or folder. In the future, this will no longer be the case, so your
-	// app shouldn't rely on this behavior. Instead, if your app needs to revoke
-	// a shared link, use revoke_shared_link. DEPRECATED: Use
+	// CreateSharedLinkContext : Create a shared link. If a shared link already
+	// exists for the given path, that link is returned. Previously, it was
+	// technically possible to break a shared link by moving or renaming the
+	// corresponding file or folder. In the future, this will no longer be the
+	// case, so your app shouldn't rely on this behavior. Instead, if your app
+	// needs to revoke a shared link, use revoke_shared_link. DEPRECATED: Use
 	// create_shared_link_with_settings instead.
 	// Deprecated:
 	CreateSharedLinkContext(ctx context.Context, arg *CreateSharedLinkArg) (res *PathLinkMetadata, err error)
-	// CreateSharedLinkWithSettingsContext : Create a shared link with custom settings.
-	// If no settings are given then the default visibility is
+	// CreateSharedLinkWithSettingsContext : Create a shared link with custom
+	// settings. If no settings are given then the default visibility is
 	// RequestedVisibility.public (The resolved visibility, though, may depend
 	// on other aspects such as team and shared folder settings).
 	CreateSharedLinkWithSettingsContext(ctx context.Context, arg *CreateSharedLinkWithSettingsArg) (res IsSharedLinkMetadata, err error)
@@ -250,24 +250,25 @@ type ContextClient interface {
 	GetFileMetadataContext(ctx context.Context, arg *GetFileMetadataArg) (res *SharedFileMetadata, err error)
 	// GetFileMetadataBatchContext : Returns shared file metadata.
 	GetFileMetadataBatchContext(ctx context.Context, arg *GetFileMetadataBatchArg) (res []*GetFileMetadataBatchResult, err error)
-	// GetFolderMetadataContext : Returns shared folder metadata by its folder ID.
+	// GetFolderMetadataContext : Returns shared folder metadata by its folder
+	// ID.
 	GetFolderMetadataContext(ctx context.Context, arg *GetMetadataArgs) (res *SharedFolderMetadata, err error)
 	// GetSharedLinkFileContext : Download the shared link's file from a user's
 	// Dropbox. This is a download-style endpoint that returns the file content.
 	GetSharedLinkFileContext(ctx context.Context, arg *GetSharedLinkMetadataArg) (res IsSharedLinkMetadata, content io.ReadCloser, err error)
 	// GetSharedLinkMetadataContext : Get the shared link's metadata.
 	GetSharedLinkMetadataContext(ctx context.Context, arg *GetSharedLinkMetadataArg) (res IsSharedLinkMetadata, err error)
-	// GetSharedLinksContext : DEPRECATED: Use list_shared_links instead. This endpoint
-	// will be retired in October 2026. Returns a list of `LinkMetadata` objects
-	// for this user, including collection links. If no path is given, returns a
-	// list of all shared links for the current user, including collection
-	// links, up to a maximum of 1000 links. If a non-empty path is given,
-	// returns a list of all shared links that allow access to the given path.
-	// Collection links are never returned in this case.
+	// GetSharedLinksContext : DEPRECATED: Use list_shared_links instead. This
+	// endpoint will be retired in October 2026. Returns a list of
+	// `LinkMetadata` objects for this user, including collection links. If no
+	// path is given, returns a list of all shared links for the current user,
+	// including collection links, up to a maximum of 1000 links. If a non-empty
+	// path is given, returns a list of all shared links that allow access to
+	// the given path. Collection links are never returned in this case.
 	// Deprecated:
 	GetSharedLinksContext(ctx context.Context, arg *GetSharedLinksArg) (res *GetSharedLinksResult, err error)
-	// ListFileMembersContext : Use to obtain the members who have been invited to a
-	// file, both inherited and uninherited members.
+	// ListFileMembersContext : Use to obtain the members who have been invited
+	// to a file, both inherited and uninherited members.
 	ListFileMembersContext(ctx context.Context, arg *ListFileMembersArg) (res *SharedFileMembers, err error)
 	// ListFileMembersBatchContext : Get members of multiple files at once. The
 	// arguments to this route are more limited, and the limit on query result
@@ -279,60 +280,63 @@ type ContextClient interface {
 	// `listFileMembers` or `listFileMembersBatch`, use this to paginate through
 	// all shared file members.
 	ListFileMembersContinueContext(ctx context.Context, arg *ListFileMembersContinueArg) (res *SharedFileMembers, err error)
-	// ListFolderMembersContext : Returns shared folder membership by its folder ID.
+	// ListFolderMembersContext : Returns shared folder membership by its folder
+	// ID.
 	ListFolderMembersContext(ctx context.Context, arg *ListFolderMembersArgs) (res *SharedFolderMembers, err error)
 	// ListFolderMembersContinueContext : Once a cursor has been retrieved from
 	// `listFolderMembers`, use this to paginate through all shared folder
 	// members.
 	ListFolderMembersContinueContext(ctx context.Context, arg *ListFolderMembersContinueArg) (res *SharedFolderMembers, err error)
-	// ListFoldersContext : Return the list of all shared folders the current user has
-	// access to.
+	// ListFoldersContext : Return the list of all shared folders the current
+	// user has access to.
 	ListFoldersContext(ctx context.Context, arg *ListFoldersArgs) (res *ListFoldersResult, err error)
 	// ListFoldersContinueContext : Once a cursor has been retrieved from
 	// `listFolders`, use this to paginate through all shared folders. The
 	// cursor must come from a previous call to `listFolders` or
 	// `listFoldersContinue`.
 	ListFoldersContinueContext(ctx context.Context, arg *ListFoldersContinueArg) (res *ListFoldersResult, err error)
-	// ListMountableFoldersContext : Return the list of all shared folders the current
-	// user can mount or unmount.
+	// ListMountableFoldersContext : Return the list of all shared folders the
+	// current user can mount or unmount.
 	ListMountableFoldersContext(ctx context.Context, arg *ListFoldersArgs) (res *ListFoldersResult, err error)
-	// ListMountableFoldersContinueContext : Once a cursor has been retrieved from
-	// `listMountableFolders`, use this to paginate through all mountable shared
-	// folders. The cursor must come from a previous call to
+	// ListMountableFoldersContinueContext : Once a cursor has been retrieved
+	// from `listMountableFolders`, use this to paginate through all mountable
+	// shared folders. The cursor must come from a previous call to
 	// `listMountableFolders` or `listMountableFoldersContinue`.
 	ListMountableFoldersContinueContext(ctx context.Context, arg *ListFoldersContinueArg) (res *ListFoldersResult, err error)
-	// ListReceivedFilesContext : Returns a list of all files shared with current user.
+	// ListReceivedFilesContext : Returns a list of all files shared with
+	// current user.
 	ListReceivedFilesContext(ctx context.Context, arg *ListFilesArg) (res *ListFilesResult, err error)
 	// ListReceivedFilesContinueContext : Get more results with a cursor from
 	// `listReceivedFiles`.
 	ListReceivedFilesContinueContext(ctx context.Context, arg *ListFilesContinueArg) (res *ListFilesResult, err error)
-	// ListSharedLinksContext : List shared links of this user. If no path is given,
-	// returns a list of all shared links for the current user. For members of
-	// business teams using team space and member folders, returns all shared
-	// links in the team member's home folder unless the team space ID is
-	// specified in the request header. If a non-empty path is given, returns a
-	// list of all shared links that allow access to the given path - direct
-	// links to the given path and links to parent folders of the given path.
-	// Links to parent folders can be suppressed by setting direct_only to true.
+	// ListSharedLinksContext : List shared links of this user. If no path is
+	// given, returns a list of all shared links for the current user. For
+	// members of business teams using team space and member folders, returns
+	// all shared links in the team member's home folder unless the team space
+	// ID is specified in the request header. If a non-empty path is given,
+	// returns a list of all shared links that allow access to the given path -
+	// direct links to the given path and links to parent folders of the given
+	// path. Links to parent folders can be suppressed by setting direct_only to
+	// true.
 	ListSharedLinksContext(ctx context.Context, arg *ListSharedLinksArg) (res *ListSharedLinksResult, err error)
-	// ModifySharedLinkSettingsContext : Modify the shared link's settings. If the
-	// requested visibility conflict with the shared links policy of the team or
-	// the shared folder (in case the linked file is part of a shared folder)
-	// then the LinkPermissions.resolved_visibility of the returned
+	// ModifySharedLinkSettingsContext : Modify the shared link's settings. If
+	// the requested visibility conflict with the shared links policy of the
+	// team or the shared folder (in case the linked file is part of a shared
+	// folder) then the LinkPermissions.resolved_visibility of the returned
 	// SharedLinkMetadata will reflect the actual visibility of the shared link
 	// and the LinkPermissions.requested_visibility will reflect the requested
 	// visibility.
 	ModifySharedLinkSettingsContext(ctx context.Context, arg *ModifySharedLinkSettingsArgs) (res IsSharedLinkMetadata, err error)
-	// MountFolderContext : The current user mounts the designated folder. Mount a
-	// shared folder for a user after they have been added as a member. Once
+	// MountFolderContext : The current user mounts the designated folder. Mount
+	// a shared folder for a user after they have been added as a member. Once
 	// mounted, the shared folder will appear in their Dropbox.
 	MountFolderContext(ctx context.Context, arg *MountFolderArg) (res *SharedFolderMetadata, err error)
-	// RelinquishAccessContext : Removes all self-removable access from a file or
-	// folder for the current user. Best-effort and idempotent: attempts to drop
-	// link-visitor associations and explicit ACL membership.
+	// RelinquishAccessContext : Removes all self-removable access from a file
+	// or folder for the current user. Best-effort and idempotent: attempts to
+	// drop link-visitor associations and explicit ACL membership.
 	RelinquishAccessContext(ctx context.Context, arg *RelinquishAccessArg) (res *RelinquishAccessResult, err error)
-	// RelinquishFileMembershipContext : The current user relinquishes their membership
-	// in the designated file.
+	// RelinquishFileMembershipContext : The current user relinquishes their
+	// membership in the designated file.
 	RelinquishFileMembershipContext(ctx context.Context, arg *RelinquishFileMembershipArg) (err error)
 	// RelinquishFolderMembershipContext : The current user relinquishes their
 	// membership in the designated shared folder and will no longer have access
@@ -346,54 +350,54 @@ type ContextClient interface {
 	RemoveFileMemberContext(ctx context.Context, arg *RemoveFileMemberArg) (res *FileMemberActionIndividualResult, err error)
 	// RemoveFileMember2Context : Removes a specified member from the file.
 	RemoveFileMember2Context(ctx context.Context, arg *RemoveFileMemberArg) (res *FileMemberRemoveActionResult, err error)
-	// RemoveFolderMemberContext : Allows an owner or editor (if the ACL update policy
-	// allows) of a shared folder to remove another member.
+	// RemoveFolderMemberContext : Allows an owner or editor (if the ACL update
+	// policy allows) of a shared folder to remove another member.
 	RemoveFolderMemberContext(ctx context.Context, arg *RemoveFolderMemberArg) (res *async.LaunchResultBase, err error)
-	// RevokeSharedLinkContext : Revoke a shared link. Note that even after revoking a
-	// shared link to a file, the file may be accessible if there are shared
-	// links leading to any of the file parent folders. To list all shared links
-	// that enable access to a specific file, you can use the list_shared_links
-	// with the file as the ListSharedLinksArg.path argument.
+	// RevokeSharedLinkContext : Revoke a shared link. Note that even after
+	// revoking a shared link to a file, the file may be accessible if there are
+	// shared links leading to any of the file parent folders. To list all
+	// shared links that enable access to a specific file, you can use the
+	// list_shared_links with the file as the ListSharedLinksArg.path argument.
 	RevokeSharedLinkContext(ctx context.Context, arg *RevokeSharedLinkArg) (err error)
-	// SetAccessInheritanceContext : Change the inheritance policy of an existing
-	// Shared Folder. Only permitted for shared folders in a shared team root.
-	// If a `ShareFolderLaunch.async_job_id` is returned, you'll need to call
-	// `checkShareJobStatus` until the action completes to get the metadata for
-	// the folder.
+	// SetAccessInheritanceContext : Change the inheritance policy of an
+	// existing Shared Folder. Only permitted for shared folders in a shared
+	// team root. If a `ShareFolderLaunch.async_job_id` is returned, you'll need
+	// to call `checkShareJobStatus` until the action completes to get the
+	// metadata for the folder.
 	SetAccessInheritanceContext(ctx context.Context, arg *SetAccessInheritanceArg) (res *ShareFolderLaunch, err error)
-	// ShareFolderContext : Share a folder with collaborators. Most sharing will be
-	// completed synchronously. Large folders will be completed asynchronously.
-	// To make testing the async case repeatable, set
+	// ShareFolderContext : Share a folder with collaborators. Most sharing will
+	// be completed synchronously. Large folders will be completed
+	// asynchronously. To make testing the async case repeatable, set
 	// `ShareFolderArg.force_async`. If a `ShareFolderLaunch.async_job_id` is
 	// returned, you'll need to call `checkShareJobStatus` until the action
 	// completes to get the metadata for the folder.
 	ShareFolderContext(ctx context.Context, arg *ShareFolderArg) (res *ShareFolderLaunch, err error)
-	// TransferFolderContext : Transfer ownership of a shared folder to a member of the
-	// shared folder. User must have `AccessLevel.owner` access to the shared
-	// folder to perform a transfer.
+	// TransferFolderContext : Transfer ownership of a shared folder to a member
+	// of the shared folder. User must have `AccessLevel.owner` access to the
+	// shared folder to perform a transfer.
 	TransferFolderContext(ctx context.Context, arg *TransferFolderArg) (err error)
-	// UnmountFolderContext : The current user unmounts the designated folder. They can
-	// re-mount the folder at a later time using `mountFolder`.
+	// UnmountFolderContext : The current user unmounts the designated folder.
+	// They can re-mount the folder at a later time using `mountFolder`.
 	UnmountFolderContext(ctx context.Context, arg *UnmountFolderArg) (err error)
 	// UnshareFileContext : Remove all members from this file. Does not remove
 	// inherited members.
 	UnshareFileContext(ctx context.Context, arg *UnshareFileArg) (err error)
-	// UnshareFolderContext : Allows a shared folder owner to unshare the folder.
-	// Unshare will not work in following cases: The shared folder contains
-	// shared folders OR the shared folder is inside another shared folder.
-	// You'll need to call `checkJobStatus` to determine if the action has
-	// completed successfully.
+	// UnshareFolderContext : Allows a shared folder owner to unshare the
+	// folder. Unshare will not work in following cases: The shared folder
+	// contains shared folders OR the shared folder is inside another shared
+	// folder. You'll need to call `checkJobStatus` to determine if the action
+	// has completed successfully.
 	UnshareFolderContext(ctx context.Context, arg *UnshareFolderArg) (res *async.LaunchEmptyResult, err error)
 	// UpdateFileMemberContext : Changes a member's access on a shared file.
 	UpdateFileMemberContext(ctx context.Context, arg *UpdateFileMemberArgs) (res *MemberAccessLevelResult, err error)
 	// UpdateFilePolicyContext : Update the viewer info policy of a file.
 	UpdateFilePolicyContext(ctx context.Context, arg *UpdateFilePolicyArg) (res *SharedFileMetadata, err error)
-	// UpdateFolderMemberContext : Allows an owner or editor of a shared folder to
-	// update another member's permissions.
+	// UpdateFolderMemberContext : Allows an owner or editor of a shared folder
+	// to update another member's permissions.
 	UpdateFolderMemberContext(ctx context.Context, arg *UpdateFolderMemberArg) (res *MemberAccessLevelResult, err error)
-	// UpdateFolderPolicyContext : Update the sharing policies for a shared folder.
-	// User must have `AccessLevel.owner` access to the shared folder to update
-	// its policies.
+	// UpdateFolderPolicyContext : Update the sharing policies for a shared
+	// folder. User must have `AccessLevel.owner` access to the shared folder to
+	// update its policies.
 	UpdateFolderPolicyContext(ctx context.Context, arg *UpdateFolderPolicyArg) (res *SharedFolderMetadata, err error)
 }
 
@@ -449,9 +453,9 @@ type AddFolderMemberAPIError struct {
 }
 
 // AddFolderMemberContext : Allows an owner or editor (if the ACL update policy
-// allows) of a shared folder to add another member. For the new member to
-// get access to all the functionality for this folder, you will need to
-// call `mountFolder` on their behalf.
+// allows) of a shared folder to add another member. For the new member to get
+// access to all the functionality for this folder, you will need to call
+// `mountFolder` on their behalf.
 func (dbx *apiImpl) AddFolderMemberContext(ctx context.Context, arg *AddFolderMemberArg) (err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -621,12 +625,12 @@ type CreateSharedLinkAPIError struct {
 	EndpointError *CreateSharedLinkError `json:"error"`
 }
 
-// CreateSharedLinkContext : Create a shared link. If a shared link already exists
-// for the given path, that link is returned. Previously, it was technically
-// possible to break a shared link by moving or renaming the corresponding
-// file or folder. In the future, this will no longer be the case, so your
-// app shouldn't rely on this behavior. Instead, if your app needs to revoke
-// a shared link, use revoke_shared_link. DEPRECATED: Use
+// CreateSharedLinkContext : Create a shared link. If a shared link already
+// exists for the given path, that link is returned. Previously, it was
+// technically possible to break a shared link by moving or renaming the
+// corresponding file or folder. In the future, this will no longer be the case,
+// so your app shouldn't rely on this behavior. Instead, if your app needs to
+// revoke a shared link, use revoke_shared_link. DEPRECATED: Use
 // create_shared_link_with_settings instead.
 // Deprecated:
 func (dbx *apiImpl) CreateSharedLinkContext(ctx context.Context, arg *CreateSharedLinkArg) (res *PathLinkMetadata, err error) {
@@ -673,10 +677,10 @@ type CreateSharedLinkWithSettingsAPIError struct {
 	EndpointError *CreateSharedLinkWithSettingsError `json:"error"`
 }
 
-// CreateSharedLinkWithSettingsContext : Create a shared link with custom settings.
-// If no settings are given then the default visibility is
-// RequestedVisibility.public (The resolved visibility, though, may depend
-// on other aspects such as team and shared folder settings).
+// CreateSharedLinkWithSettingsContext : Create a shared link with custom
+// settings. If no settings are given then the default visibility is
+// RequestedVisibility.public (The resolved visibility, though, may depend on
+// other aspects such as team and shared folder settings).
 func (dbx *apiImpl) CreateSharedLinkWithSettingsContext(ctx context.Context, arg *CreateSharedLinkWithSettingsArg) (res IsSharedLinkMetadata, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -959,13 +963,13 @@ type GetSharedLinksAPIError struct {
 	EndpointError *GetSharedLinksError `json:"error"`
 }
 
-// GetSharedLinksContext : DEPRECATED: Use list_shared_links instead. This endpoint
-// will be retired in October 2026. Returns a list of `LinkMetadata` objects
-// for this user, including collection links. If no path is given, returns a
-// list of all shared links for the current user, including collection
-// links, up to a maximum of 1000 links. If a non-empty path is given,
-// returns a list of all shared links that allow access to the given path.
-// Collection links are never returned in this case.
+// GetSharedLinksContext : DEPRECATED: Use list_shared_links instead. This
+// endpoint will be retired in October 2026. Returns a list of `LinkMetadata`
+// objects for this user, including collection links. If no path is given,
+// returns a list of all shared links for the current user, including collection
+// links, up to a maximum of 1000 links. If a non-empty path is given, returns a
+// list of all shared links that allow access to the given path. Collection
+// links are never returned in this case.
 // Deprecated:
 func (dbx *apiImpl) GetSharedLinksContext(ctx context.Context, arg *GetSharedLinksArg) (res *GetSharedLinksResult, err error) {
 	log.Printf("WARNING: API `GetSharedLinks` is deprecated")
@@ -1056,10 +1060,10 @@ type ListFileMembersBatchAPIError struct {
 }
 
 // ListFileMembersBatchContext : Get members of multiple files at once. The
-// arguments to this route are more limited, and the limit on query result
-// size per file is more strict. To customize the results more, use the
-// individual file endpoint. Inherited users and groups are not included in
-// the result, and permissions are not returned for this endpoint.
+// arguments to this route are more limited, and the limit on query result size
+// per file is more strict. To customize the results more, use the individual
+// file endpoint. Inherited users and groups are not included in the result, and
+// permissions are not returned for this endpoint.
 func (dbx *apiImpl) ListFileMembersBatchContext(ctx context.Context, arg *ListFileMembersBatchArg) (res []*ListFileMembersBatchResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1103,8 +1107,8 @@ type ListFileMembersContinueAPIError struct {
 }
 
 // ListFileMembersContinueContext : Once a cursor has been retrieved from
-// `listFileMembers` or `listFileMembersBatch`, use this to paginate through
-// all shared file members.
+// `listFileMembers` or `listFileMembersBatch`, use this to paginate through all
+// shared file members.
 func (dbx *apiImpl) ListFileMembersContinueContext(ctx context.Context, arg *ListFileMembersContinueArg) (res *SharedFileMembers, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1191,8 +1195,7 @@ type ListFolderMembersContinueAPIError struct {
 }
 
 // ListFolderMembersContinueContext : Once a cursor has been retrieved from
-// `listFolderMembers`, use this to paginate through all shared folder
-// members.
+// `listFolderMembers`, use this to paginate through all shared folder members.
 func (dbx *apiImpl) ListFolderMembersContinueContext(ctx context.Context, arg *ListFolderMembersContinueArg) (res *SharedFolderMembers, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1235,8 +1238,8 @@ type ListFoldersAPIError struct {
 	EndpointError struct{} `json:"error"`
 }
 
-// ListFoldersContext : Return the list of all shared folders the current user has
-// access to.
+// ListFoldersContext : Return the list of all shared folders the current user
+// has access to.
 func (dbx *apiImpl) ListFoldersContext(ctx context.Context, arg *ListFoldersArgs) (res *ListFoldersResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1280,9 +1283,8 @@ type ListFoldersContinueAPIError struct {
 }
 
 // ListFoldersContinueContext : Once a cursor has been retrieved from
-// `listFolders`, use this to paginate through all shared folders. The
-// cursor must come from a previous call to `listFolders` or
-// `listFoldersContinue`.
+// `listFolders`, use this to paginate through all shared folders. The cursor
+// must come from a previous call to `listFolders` or `listFoldersContinue`.
 func (dbx *apiImpl) ListFoldersContinueContext(ctx context.Context, arg *ListFoldersContinueArg) (res *ListFoldersResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1325,8 +1327,8 @@ type ListMountableFoldersAPIError struct {
 	EndpointError struct{} `json:"error"`
 }
 
-// ListMountableFoldersContext : Return the list of all shared folders the current
-// user can mount or unmount.
+// ListMountableFoldersContext : Return the list of all shared folders the
+// current user can mount or unmount.
 func (dbx *apiImpl) ListMountableFoldersContext(ctx context.Context, arg *ListFoldersArgs) (res *ListFoldersResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1371,8 +1373,8 @@ type ListMountableFoldersContinueAPIError struct {
 
 // ListMountableFoldersContinueContext : Once a cursor has been retrieved from
 // `listMountableFolders`, use this to paginate through all mountable shared
-// folders. The cursor must come from a previous call to
-// `listMountableFolders` or `listMountableFoldersContinue`.
+// folders. The cursor must come from a previous call to `listMountableFolders`
+// or `listMountableFoldersContinue`.
 func (dbx *apiImpl) ListMountableFoldersContinueContext(ctx context.Context, arg *ListFoldersContinueArg) (res *ListFoldersResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1415,7 +1417,8 @@ type ListReceivedFilesAPIError struct {
 	EndpointError *SharingUserError `json:"error"`
 }
 
-// ListReceivedFilesContext : Returns a list of all files shared with current user.
+// ListReceivedFilesContext : Returns a list of all files shared with current
+// user.
 func (dbx *apiImpl) ListReceivedFilesContext(ctx context.Context, arg *ListFilesArg) (res *ListFilesResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1504,12 +1507,12 @@ type ListSharedLinksAPIError struct {
 
 // ListSharedLinksContext : List shared links of this user. If no path is given,
 // returns a list of all shared links for the current user. For members of
-// business teams using team space and member folders, returns all shared
-// links in the team member's home folder unless the team space ID is
-// specified in the request header. If a non-empty path is given, returns a
-// list of all shared links that allow access to the given path - direct
-// links to the given path and links to parent folders of the given path.
-// Links to parent folders can be suppressed by setting direct_only to true.
+// business teams using team space and member folders, returns all shared links
+// in the team member's home folder unless the team space ID is specified in the
+// request header. If a non-empty path is given, returns a list of all shared
+// links that allow access to the given path - direct links to the given path
+// and links to parent folders of the given path. Links to parent folders can be
+// suppressed by setting direct_only to true.
 func (dbx *apiImpl) ListSharedLinksContext(ctx context.Context, arg *ListSharedLinksArg) (res *ListSharedLinksResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1553,12 +1556,11 @@ type ModifySharedLinkSettingsAPIError struct {
 }
 
 // ModifySharedLinkSettingsContext : Modify the shared link's settings. If the
-// requested visibility conflict with the shared links policy of the team or
-// the shared folder (in case the linked file is part of a shared folder)
-// then the LinkPermissions.resolved_visibility of the returned
-// SharedLinkMetadata will reflect the actual visibility of the shared link
-// and the LinkPermissions.requested_visibility will reflect the requested
-// visibility.
+// requested visibility conflict with the shared links policy of the team or the
+// shared folder (in case the linked file is part of a shared folder) then the
+// LinkPermissions.resolved_visibility of the returned SharedLinkMetadata will
+// reflect the actual visibility of the shared link and the
+// LinkPermissions.requested_visibility will reflect the requested visibility.
 func (dbx *apiImpl) ModifySharedLinkSettingsContext(ctx context.Context, arg *ModifySharedLinkSettingsArgs) (res IsSharedLinkMetadata, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1699,8 +1701,8 @@ type RelinquishFileMembershipAPIError struct {
 	EndpointError *RelinquishFileMembershipError `json:"error"`
 }
 
-// RelinquishFileMembershipContext : The current user relinquishes their membership
-// in the designated file.
+// RelinquishFileMembershipContext : The current user relinquishes their
+// membership in the designated file.
 func (dbx *apiImpl) RelinquishFileMembershipContext(ctx context.Context, arg *RelinquishFileMembershipArg) (err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1740,10 +1742,10 @@ type RelinquishFolderMembershipAPIError struct {
 }
 
 // RelinquishFolderMembershipContext : The current user relinquishes their
-// membership in the designated shared folder and will no longer have access
-// to the folder.  A folder owner cannot relinquish membership in their own
-// folder. This will run synchronously if leave_a_copy is false, and
-// asynchronously if leave_a_copy is true.
+// membership in the designated shared folder and will no longer have access to
+// the folder.  A folder owner cannot relinquish membership in their own folder.
+// This will run synchronously if leave_a_copy is false, and asynchronously if
+// leave_a_copy is true.
 func (dbx *apiImpl) RelinquishFolderMembershipContext(ctx context.Context, arg *RelinquishFolderMembershipArg) (res *async.LaunchEmptyResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1876,8 +1878,8 @@ type RemoveFolderMemberAPIError struct {
 	EndpointError *RemoveFolderMemberError `json:"error"`
 }
 
-// RemoveFolderMemberContext : Allows an owner or editor (if the ACL update policy
-// allows) of a shared folder to remove another member.
+// RemoveFolderMemberContext : Allows an owner or editor (if the ACL update
+// policy allows) of a shared folder to remove another member.
 func (dbx *apiImpl) RemoveFolderMemberContext(ctx context.Context, arg *RemoveFolderMemberArg) (res *async.LaunchResultBase, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1920,11 +1922,11 @@ type RevokeSharedLinkAPIError struct {
 	EndpointError *RevokeSharedLinkError `json:"error"`
 }
 
-// RevokeSharedLinkContext : Revoke a shared link. Note that even after revoking a
-// shared link to a file, the file may be accessible if there are shared
-// links leading to any of the file parent folders. To list all shared links
-// that enable access to a specific file, you can use the list_shared_links
-// with the file as the ListSharedLinksArg.path argument.
+// RevokeSharedLinkContext : Revoke a shared link. Note that even after revoking
+// a shared link to a file, the file may be accessible if there are shared links
+// leading to any of the file parent folders. To list all shared links that
+// enable access to a specific file, you can use the list_shared_links with the
+// file as the ListSharedLinksArg.path argument.
 func (dbx *apiImpl) RevokeSharedLinkContext(ctx context.Context, arg *RevokeSharedLinkArg) (err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -1964,10 +1966,10 @@ type SetAccessInheritanceAPIError struct {
 }
 
 // SetAccessInheritanceContext : Change the inheritance policy of an existing
-// Shared Folder. Only permitted for shared folders in a shared team root.
-// If a `ShareFolderLaunch.async_job_id` is returned, you'll need to call
-// `checkShareJobStatus` until the action completes to get the metadata for
-// the folder.
+// Shared Folder. Only permitted for shared folders in a shared team root. If a
+// `ShareFolderLaunch.async_job_id` is returned, you'll need to call
+// `checkShareJobStatus` until the action completes to get the metadata for the
+// folder.
 func (dbx *apiImpl) SetAccessInheritanceContext(ctx context.Context, arg *SetAccessInheritanceArg) (res *ShareFolderLaunch, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2011,11 +2013,11 @@ type ShareFolderAPIError struct {
 }
 
 // ShareFolderContext : Share a folder with collaborators. Most sharing will be
-// completed synchronously. Large folders will be completed asynchronously.
-// To make testing the async case repeatable, set
-// `ShareFolderArg.force_async`. If a `ShareFolderLaunch.async_job_id` is
-// returned, you'll need to call `checkShareJobStatus` until the action
-// completes to get the metadata for the folder.
+// completed synchronously. Large folders will be completed asynchronously. To
+// make testing the async case repeatable, set `ShareFolderArg.force_async`. If
+// a `ShareFolderLaunch.async_job_id` is returned, you'll need to call
+// `checkShareJobStatus` until the action completes to get the metadata for the
+// folder.
 func (dbx *apiImpl) ShareFolderContext(ctx context.Context, arg *ShareFolderArg) (res *ShareFolderLaunch, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2058,8 +2060,8 @@ type TransferFolderAPIError struct {
 	EndpointError *TransferFolderError `json:"error"`
 }
 
-// TransferFolderContext : Transfer ownership of a shared folder to a member of the
-// shared folder. User must have `AccessLevel.owner` access to the shared
+// TransferFolderContext : Transfer ownership of a shared folder to a member of
+// the shared folder. User must have `AccessLevel.owner` access to the shared
 // folder to perform a transfer.
 func (dbx *apiImpl) TransferFolderContext(ctx context.Context, arg *TransferFolderArg) (err error) {
 	req := dropbox.Request{
@@ -2099,8 +2101,8 @@ type UnmountFolderAPIError struct {
 	EndpointError *UnmountFolderError `json:"error"`
 }
 
-// UnmountFolderContext : The current user unmounts the designated folder. They can
-// re-mount the folder at a later time using `mountFolder`.
+// UnmountFolderContext : The current user unmounts the designated folder. They
+// can re-mount the folder at a later time using `mountFolder`.
 func (dbx *apiImpl) UnmountFolderContext(ctx context.Context, arg *UnmountFolderArg) (err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2180,10 +2182,9 @@ type UnshareFolderAPIError struct {
 }
 
 // UnshareFolderContext : Allows a shared folder owner to unshare the folder.
-// Unshare will not work in following cases: The shared folder contains
-// shared folders OR the shared folder is inside another shared folder.
-// You'll need to call `checkJobStatus` to determine if the action has
-// completed successfully.
+// Unshare will not work in following cases: The shared folder contains shared
+// folders OR the shared folder is inside another shared folder. You'll need to
+// call `checkJobStatus` to determine if the action has completed successfully.
 func (dbx *apiImpl) UnshareFolderContext(ctx context.Context, arg *UnshareFolderArg) (res *async.LaunchEmptyResult, err error) {
 	req := dropbox.Request{
 		Host:         "api",
@@ -2357,8 +2358,8 @@ type UpdateFolderPolicyAPIError struct {
 }
 
 // UpdateFolderPolicyContext : Update the sharing policies for a shared folder.
-// User must have `AccessLevel.owner` access to the shared folder to update
-// its policies.
+// User must have `AccessLevel.owner` access to the shared folder to update its
+// policies.
 func (dbx *apiImpl) UpdateFolderPolicyContext(ctx context.Context, arg *UpdateFolderPolicyArg) (res *SharedFolderMetadata, err error) {
 	req := dropbox.Request{
 		Host:         "api",

@@ -58,6 +58,11 @@ func (s *unsafeRSScheme) Rebuild(in []infectious.Share, out func(infectious.Shar
 	return s.fc.Rebuild(in, out)
 }
 
+// NewRebuilder implements RebuilderScheme.
+func (s *unsafeRSScheme) NewRebuilder(shareNums []int) (Rebuilder, error) {
+	return newRSRebuilder(s.fc, shareNums)
+}
+
 func (s *unsafeRSScheme) ErasureShareSize() int {
 	return s.erasureShareSize
 }

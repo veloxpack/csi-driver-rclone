@@ -33,14 +33,14 @@ func setStatxBlocks(out *fuse.Statx) {
 }
 
 func (f *LoopbackFile) Statx(ctx context.Context, flags uint32, mask uint32, out *fuse.StatxOut) syscall.Errno {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	st := unix.Statx_t{}
-	err := unix.Statx(f.fd, "", int(flags), int(mask), &st)
-	if err != nil {
-		return ToErrno(err)
-	}
-	out.FromStatx(&st)
+	return f.withFd(func(fd int) syscall.Errno {
+		st := unix.Statx_t{}
+		err := unix.Statx(fd, "", int(flags), int(mask), &st)
+		if err != nil {
+			return ToErrno(err)
+		}
+		out.FromStatx(&st)
 
-	return OK
+		return OK
+	})
 }

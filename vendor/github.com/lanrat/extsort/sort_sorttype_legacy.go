@@ -1,5 +1,7 @@
 package extsort
 
+import "sync"
+
 // SortType defines the interface required by the extsort library to be able to sort the items
 //
 // Deprecated: Use Generic() with custom types instead for new code. This interface is maintained for backward compatibility.
@@ -44,15 +46,21 @@ func sortTypeToBytes(a SortType) (result []byte, err error) {
 // makeSortTypeFromBytes creates a generic-compatible deserialization function from a legacy FromBytes function.
 // It wraps the legacy function to catch any panics and convert them to DeserializationError instances,
 // enabling graceful error handling during the merge phase of external sorting.
+// Calls are serialized with a mutex: FromBytes functions written for v1.0 were only called from one
+// goroutine, and the parallel merge added in v1.1.0 broke those that are not safe for concurrent use.
 func makeSortTypeFromBytes(fromBytes FromBytes) func([]byte) (SortType, error) {
-	return func(d []byte) (SortType, error) {
-		var err error
+	var mu sync.Mutex
+	return func(d []byte) (result SortType, err error) {
+		// named results: the deferred recover must be able to set the returned error
 		defer func() {
 			if r := recover(); r != nil {
+				result = nil
 				err = NewDeserializationError(r, len(d), "FromBytes")
 			}
 		}()
-		return fromBytes(d), err
+		mu.Lock()
+		defer mu.Unlock()
+		return fromBytes(d), nil
 	}
 }
 
@@ -69,6 +77,11 @@ func makeCompareSortType(lessFunc CompareLessFunc) func(a, b SortType) int {
 // It takes a FromBytes function for deserialization and a CompareLessFunc for comparison.
 // Returns the sorter instance, output channel with sorted items, and error channel.
 // This function provides backward compatibility with the original extsort API.
+// Calls to fromBytes are serialized, so it need not be safe for concurrent use,
+// but lessFunc is called from several goroutines at once and must be.
+//
+// IMPORTANT: The input channel MUST be closed to signal the end of data.
+// Sort() will continue reading from the input channel until it is closed.
 //
 // Deprecated: Use Generic() instead for new code. This function is maintained for backward compatibility.
 func New(input <-chan SortType, fromBytes FromBytes, lessFunc CompareLessFunc, config *Config) (*SortTypeSorter, <-chan SortType, <-chan error) {
@@ -77,9 +90,6 @@ func New(input <-chan SortType, fromBytes FromBytes, lessFunc CompareLessFunc, c
 	compareGeneric := makeCompareSortType(lessFunc)
 
 	genericSorter, output, errChan := Generic(input, fromBytesGeneric, sortTypeToBytes, compareGeneric, config)
-	if genericSorter == nil {
-		return nil, output, errChan
-	}
 	s := &SortTypeSorter{GenericSorter: *genericSorter}
 	return s, output, errChan
 }
@@ -87,7 +97,8 @@ func New(input <-chan SortType, fromBytes FromBytes, lessFunc CompareLessFunc, c
 // NewMock performs external sorting on SortType items with a mock implementation that limits
 // the number of items to sort. Useful for testing with a controlled dataset size.
 // The parameter n specifies the maximum number of items to process.
-// Uses the same interface-based API as New for backward compatibility.
+// Uses the same interface-based API as New for backward compatibility, with the same
+// concurrency rules: fromBytes calls are serialized, lessFunc must be safe for concurrent use.
 //
 // Deprecated: Use MockGeneric() instead for new code. This function is maintained for backward compatibility.
 func NewMock(input <-chan SortType, fromBytes FromBytes, lessFunc CompareLessFunc, config *Config, n int) (*SortTypeSorter, <-chan SortType, <-chan error) {
@@ -96,9 +107,6 @@ func NewMock(input <-chan SortType, fromBytes FromBytes, lessFunc CompareLessFun
 	compareGeneric := makeCompareSortType(lessFunc)
 
 	genericSorter, output, errChan := MockGeneric(input, fromBytesGeneric, sortTypeToBytes, compareGeneric, config, n)
-	if genericSorter == nil {
-		return nil, output, errChan
-	}
 	s := &SortTypeSorter{GenericSorter: *genericSorter}
 	return s, output, errChan
 }

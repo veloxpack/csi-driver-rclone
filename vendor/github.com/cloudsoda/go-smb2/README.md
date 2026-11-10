@@ -59,6 +59,26 @@ func main() {
 }
 ```
 
+### List shares with their type and description ###
+
+`ListShares` returns the same shares as `ListSharenames`, along with the type
+and the description that the server reports for each one.
+
+```go
+	shares, err := s.ListShares()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, share := range shares {
+		// Skip printers, IPC, and shares reserved for remote administration.
+		if share.Type() != smb2.ShareTypeDiskTree || share.IsSpecial() {
+			continue
+		}
+		fmt.Printf("%s\t%s\n", share.Name, share.Comment)
+	}
+```
+
 ### File manipulation ###
 
 ```go

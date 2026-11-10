@@ -4,7 +4,6 @@ package s3
 //go:generate go run gen_setfrom.go -o setfrom.go
 
 import (
-	"bytes"
 	"context"
 	"crypto/md5"
 	"crypto/tls"
@@ -191,7 +190,7 @@ header is added and the default (private) will be used.
 			Name: "sse_customer_key",
 			Help: `To use SSE-C you may provide the secret encryption key used to encrypt/decrypt your data.
 
-Alternatively you can provide --sse-customer-key-base64.`,
+Alternatively you can provide --s3-sse-customer-key-base64.`,
 			Advanced: true,
 			Examples: []fs.OptionExample{{
 				Value: "",
@@ -202,7 +201,7 @@ Alternatively you can provide --sse-customer-key-base64.`,
 			Name: "sse_customer_key_base64",
 			Help: `If using SSE-C you must provide the secret encryption key encoded in base64 format to encrypt/decrypt your data.
 
-Alternatively you can provide --sse-customer-key.`,
+Alternatively you can provide --s3-sse-customer-key.`,
 			Advanced: true,
 			Examples: []fs.OptionExample{{
 				Value: "",
@@ -1279,8 +1278,7 @@ func (f *Fs) shouldRetry(ctx context.Context, err error) (bool, error) {
 	}
 	// https://github.com/aws/aws-sdk-go-v2/blob/main/CHANGELOG.md#error-handling
 	// If this is an awserr object, try and extract more useful information to determine if we should retry
-	var awsError smithy.APIError
-	if errors.As(err, &awsError) {
+	if awsError, ok := errors.AsType[smithy.APIError](err); ok {
 		// Simple case, check the original embedded error in case it's generically retryable
 		if fserrors.ShouldRetry(awsError) {
 			return true, err
@@ -1448,10 +1446,15 @@ func fixupRequest(o *s3.Options, opt *Options) {
 	)
 
 	o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
-		if err := stack.Finalize.Insert(fixup, "Signing", middleware.Before); err != nil {
+		// Presigning replaces the "Signing" middleware before APIOptions run
+		signing := "Signing"
+		if _, ok := stack.Finalize.Get(signing); !ok {
+			signing = "PresignHTTPRequest"
+		}
+		if err := stack.Finalize.Insert(fixup, signing, middleware.Before); err != nil {
 			return err
 		}
-		if err := stack.Finalize.Insert(restore, "Signing", middleware.After); err != nil {
+		if err := stack.Finalize.Insert(restore, signing, middleware.After); err != nil {
 			return err
 		}
 		return nil
@@ -1906,6 +1909,12 @@ func NewFs(ctx context.Context, name, root string, m configmap.Mapper) (fs.Fs, e
 	}
 	if opt.Provider == "Rabata" {
 		f.features.Copy = nil
+	}
+	if opt.Provider == "Autonomys" {
+		// Versions are permanent, so Purge's version deletes are always refused.
+		f.features.Purge = nil
+		// There are no bucket endpoints: CreateBucket would be stored as an object.
+		f.opt.NoCheckBucket = true
 	}
 	if opt.Provider == "TencentCOS" && strings.Contains(opt.Endpoint, "cos.accelerate.myqcloud.com") {
 		// Global Acceleration endpoint does not support bucket creation.
@@ -2512,8 +2521,7 @@ func (f *Fs) list(ctx context.Context, opt listOpt, fn listFn) error {
 			listBucket.URLEncodeListings(urlEncodeListings)
 			resp, versionIDs, err = listBucket.List(ctx)
 			if err != nil && !urlEncodeListings {
-				var xmlErr *xml.SyntaxError
-				if errors.As(err, &xmlErr) {
+				if _, ok := errors.AsType[*xml.SyntaxError](err); ok {
 					// Retry the listing with URL encoding as there were characters that XML can't encode
 					urlEncodeListings = true
 					fs.Debugf(f, "Retrying listing because of characters which can't be XML encoded")
@@ -2950,8 +2958,7 @@ func (f *Fs) makeBucket(ctx context.Context, bucket string) error {
 		if err == nil {
 			fs.Infof(f, "Bucket %q created with ACL %q", bucket, f.opt.BucketACL)
 		}
-		var awsErr smithy.APIError
-		if errors.As(err, &awsErr) {
+		if awsErr, ok := errors.AsType[smithy.APIError](err); ok {
 			switch awsErr.ErrorCode() {
 			case "BucketAlreadyOwnedByYou":
 				err = nil
@@ -2976,8 +2983,9 @@ func (f *Fs) makeBucket(ctx context.Context, bucket string) error {
 // Returns an error if it isn't empty
 func (f *Fs) Rmdir(ctx context.Context, dir string) error {
 	bucket, directory := f.split(dir)
-	// Remove directory marker file
-	if f.opt.DirectoryMarkers && bucket != "" && dir != "" {
+	// Remove directory marker file, including the one of the root
+	// when it is a directory in the bucket
+	if f.opt.DirectoryMarkers && bucket != "" && directory != "" {
 		o := &Object{
 			fs:     f,
 			remote: dir + "/",
@@ -3312,6 +3320,10 @@ func (f *Fs) Hashes() hash.Set {
 
 // PublicLink generates a public link to the remote path (usually readable by anyone)
 func (f *Fs) PublicLink(ctx context.Context, remote string, expire fs.Duration, unlink bool) (link string, err error) {
+	return f.publicLink(ctx, remote, expire, &s3.GetObjectInput{})
+}
+
+func (f *Fs) publicLink(ctx context.Context, remote string, expire fs.Duration, req *s3.GetObjectInput) (link string, err error) {
 	if strings.HasSuffix(remote, "/") {
 		return "", fs.ErrorCantShareDirectories
 	}
@@ -3325,11 +3337,10 @@ func (f *Fs) PublicLink(ctx context.Context, remote string, expire fs.Duration, 
 		expire = maxExpireDuration
 	}
 	bucket, bucketPath := f.split(remote)
-	httpReq, err := s3.NewPresignClient(f.c).PresignGetObject(ctx, &s3.GetObjectInput{
-		Bucket:    &bucket,
-		Key:       &bucketPath,
-		VersionId: o.versionID,
-	}, s3.WithPresignExpires(time.Duration(expire)))
+	req.Bucket = &bucket
+	req.Key = &bucketPath
+	req.VersionId = o.versionID
+	httpReq, err := s3.NewPresignClient(f.c).PresignGetObject(ctx, req, s3.WithPresignExpires(time.Duration(expire)))
 	if err != nil {
 		return "", err
 	}
@@ -3337,6 +3348,40 @@ func (f *Fs) PublicLink(ctx context.Context, remote string, expire fs.Duration, 
 }
 
 var commandHelp = []fs.CommandHelp{{
+	Name:  "link",
+	Short: "Generate a signed link with response header overrides.",
+	Long: `This command generates a signed download link for one file, with optional
+overrides for the HTTP response headers. Pass the file path as a separate
+argument, relative to the remote path.
+
+Usage examples:
+
+` + "```console" + `
+rclone backend link s3:bucket path/to/file -o expire=1h
+rclone backend link s3:bucket path/to/file -o response-expires="Thu, 01 Jan 1970 00:00:00 GMT"
+rclone backend link s3:bucket path/to/file -o response-content-disposition='attachment; filename="download.txt"'
+` + "```" + `
+
+The link expires after 7 days by default. Use ` + "`-o expire=1h`" + ` to change
+its lifetime. Durations must be at least 1 second; values above 7 days are
+limited to 7 days, as with ` + "`rclone link`" + `.
+
+The ` + "`response-expires`" + ` option sets the HTTP Expires response header,
+not the lifetime of the signed link. It must be an HTTP date, such as
+` + "`Thu, 01 Jan 1970 00:00:00 GMT`" + `.
+
+The overrides are included in the signature and must not be changed in the
+returned URL. They do not modify the object's stored metadata.`,
+	Opts: map[string]string{
+		"expire":                       "How long the link will be valid (default 7d, maximum 7d).",
+		"response-cache-control":       "Set the Cache-Control response header.",
+		"response-content-disposition": "Set the Content-Disposition response header.",
+		"response-content-encoding":    "Set the Content-Encoding response header.",
+		"response-content-language":    "Set the Content-Language response header.",
+		"response-content-type":        "Set the Content-Type response header.",
+		"response-expires":             "Set the Expires response header to an HTTP date.",
+	},
+}, {
 	Name:  "restore",
 	Short: "Restore objects from GLACIER or INTELLIGENT-TIERING archive tier.",
 	Long: `This command can be used to restore one or more objects from GLACIER to normal
@@ -3564,6 +3609,44 @@ It doesn't return anything.`,
 // otherwise it will be JSON encoded and shown to the user like that
 func (f *Fs) Command(ctx context.Context, name string, arg []string, opt map[string]string) (out any, err error) {
 	switch name {
+	case "link":
+		if len(arg) != 1 || arg[0] == "" {
+			return nil, errors.New("link requires exactly one file path argument")
+		}
+		req := s3.GetObjectInput{}
+		expire := maxExpireDuration
+		for key, value := range opt {
+			switch key {
+			case "expire":
+				duration, err := fs.ParseDuration(value)
+				if err != nil {
+					return nil, fmt.Errorf("invalid expire: %w", err)
+				}
+				if duration < time.Second {
+					return nil, errors.New("expire must be at least 1 second")
+				}
+				expire = fs.Duration(duration)
+			case "response-cache-control":
+				req.ResponseCacheControl = aws.String(value)
+			case "response-content-disposition":
+				req.ResponseContentDisposition = aws.String(value)
+			case "response-content-encoding":
+				req.ResponseContentEncoding = aws.String(value)
+			case "response-content-language":
+				req.ResponseContentLanguage = aws.String(value)
+			case "response-content-type":
+				req.ResponseContentType = aws.String(value)
+			case "response-expires":
+				date, err := http.ParseTime(value)
+				if err != nil {
+					return nil, fmt.Errorf("invalid response-expires: %w", err)
+				}
+				req.ResponseExpires = &date
+			default:
+				return nil, fmt.Errorf("unknown link option %q", key)
+			}
+		}
+		return f.publicLink(ctx, arg[0], expire, &req)
 	case "restore":
 		req := s3.RestoreObjectInput{
 			//Bucket:         &f.rootBucket,
@@ -4430,10 +4513,18 @@ func (o *Object) Open(ctx context.Context, options ...fs.OpenOption) (in io.Read
 		resp, err = o.fs.c.GetObject(ctx, &req, s3.WithAPIOptions(APIOptions...))
 		return o.fs.shouldRetry(ctx, err)
 	})
-	var awsError smithy.APIError
-	if errors.As(err, &awsError) {
+	if awsError, ok := errors.AsType[smithy.APIError](err); ok {
 		if awsError.ErrorCode() == "InvalidObjectState" {
-			return nil, fmt.Errorf("Object in GLACIER, restore first: bucket=%q, key=%q", bucket, bucketPath)
+			storageClass := "GLACIER"
+			if stateErr, ok := errors.AsType[*types.InvalidObjectState](err); ok && stateErr.StorageClass != "" {
+				storageClass = string(stateErr.StorageClass)
+				if stateErr.AccessTier != "" {
+					storageClass += " (" + string(stateErr.AccessTier) + " tier)"
+				}
+			} else if o.storageClass != nil && *o.storageClass != "" {
+				storageClass = *o.storageClass
+			}
+			return nil, fmt.Errorf("Object in %s, restore first: bucket=%q, key=%q", storageClass, bucket, bucketPath)
 		}
 	}
 	if err != nil {
@@ -4622,8 +4713,23 @@ func (w *s3ChunkWriter) WriteChunk(ctx context.Context, chunkNumber int, reader 
 	// create checksum of buffer for integrity checking
 	// currently there is no way to calculate the md5 without reading the chunk a 2nd time (1st read is in uploadMultipart)
 	// possible in AWS SDK v2 with trailers?
+	//
+	// io.Copy reads with a 32 KiB buffer from a reader that implements
+	// neither WriterTo nor a memory backed Read - which is what a local
+	// file opened by a multi-thread copy is - so give it a bigger one to
+	// keep the source reads a useful size. It isn't taken from the pool,
+	// where it could wait for ever on --max-buffer-memory. A reader with
+	// WriterTo, such as a pool.RW, doesn't need one.
 	m := md5.New()
-	currentChunkSize, err := io.Copy(m, reader)
+	var (
+		currentChunkSize int64
+		err              error
+	)
+	if _, ok := reader.(io.WriterTo); ok {
+		currentChunkSize, err = io.Copy(m, reader)
+	} else {
+		currentChunkSize, err = io.CopyBuffer(m, reader, make([]byte, multipart.BufferSize))
+	}
 	if err != nil {
 		return -1, err
 	}
@@ -4690,7 +4796,7 @@ func (w *s3ChunkWriter) WriteChunk(ctx context.Context, chunkNumber int, reader 
 
 	w.addCompletedPart(s3PartNumber, uout.ETag)
 
-	fs.Debugf(w.o, "multipart upload wrote chunk %d with %v bytes and etag %v", chunkNumber+1, currentChunkSize, *uout.ETag)
+	fs.Debugf(w.o, "multipart upload wrote chunk %d with %v bytes, etag %v and md5 %v", chunkNumber+1, currentChunkSize, *uout.ETag, hex.EncodeToString(md5sumBinary))
 	return currentChunkSize, err
 }
 
@@ -4771,27 +4877,36 @@ func (o *Object) uploadMultipart(ctx context.Context, src fs.ObjectInfo, in io.R
 }
 
 // bufferForObjectLockMD5 buffers the body and computes Content-MD5 when
-// Object Lock parameters are set on the request. AWS S3 requires Content-MD5
-// for PutObject with Object Lock params and cannot compute it automatically
+// Object Lock parameters are set on the request and Content-MD5 isn't
+// already known from the source. AWS S3 requires Content-MD5 for
+// PutObject with Object Lock params and cannot compute it automatically
 // from a non-seekable io.Reader.
 // See: https://github.com/aws/aws-sdk-go-v2/discussions/2960
-func bufferForObjectLockMD5(req *s3.PutObjectInput, in io.Reader) (io.Reader, error) {
-	if req.ObjectLockMode == "" && req.ObjectLockRetainUntilDate == nil && req.ObjectLockLegalHoldStatus == "" {
-		return in, nil
+//
+// The returned body must not be closed by the transport and cleanup must
+// be called once the upload has finished with it.
+func bufferForObjectLockMD5(req *s3.PutObjectInput, in io.Reader) (body io.Reader, cleanup func(), err error) {
+	cleanup = func() {}
+	if req.ContentMD5 != nil || (req.ObjectLockMode == "" && req.ObjectLockRetainUntilDate == nil && req.ObjectLockLegalHoldStatus == "") {
+		return in, cleanup, nil
 	}
-	buf, err := io.ReadAll(in)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read body for Content-MD5: %w", err)
+	rw := multipart.NewRW()
+	cleanup = func() {
+		_ = rw.Close()
 	}
-	md5sum := md5.Sum(buf)
-	md5base64 := base64.StdEncoding.EncodeToString(md5sum[:])
+	hasher := md5.New()
+	if _, err = io.Copy(rw, io.TeeReader(in, hasher)); err != nil {
+		return nil, cleanup, fmt.Errorf("failed to read body for Content-MD5: %w", err)
+	}
+	md5base64 := base64.StdEncoding.EncodeToString(hasher.Sum(nil))
 	req.ContentMD5 = &md5base64
-	return bytes.NewReader(buf), nil
+	return rw, cleanup, nil
 }
 
 // Upload a single part using PutObject
 func (o *Object) uploadSinglepartPutObject(ctx context.Context, req *s3.PutObjectInput, size int64, in io.Reader) (etag string, lastModified time.Time, versionID *string, err error) {
-	in, err = bufferForObjectLockMD5(req, in)
+	in, cleanup, err := bufferForObjectLockMD5(req, in)
+	defer cleanup()
 	if err != nil {
 		return etag, lastModified, nil, err
 	}
@@ -4826,7 +4941,8 @@ func (o *Object) uploadSinglepartPutObject(ctx context.Context, req *s3.PutObjec
 // Upload a single part using a presigned request
 func (o *Object) uploadSinglepartPresignedRequest(ctx context.Context, req *s3.PutObjectInput, size int64, in io.Reader) (etag string, lastModified time.Time, versionID *string, err error) {
 	// Content-MD5 must be set before signing so it's included in the presigned URL.
-	in, err = bufferForObjectLockMD5(req, in)
+	in, cleanup, err := bufferForObjectLockMD5(req, in)
+	defer cleanup()
 	if err != nil {
 		return etag, lastModified, nil, err
 	}
@@ -4841,8 +4957,9 @@ func (o *Object) uploadSinglepartPresignedRequest(ctx context.Context, req *s3.P
 		in = nil
 	}
 
-	// create the vanilla http request
-	httpReq, err := http.NewRequestWithContext(ctx, "PUT", putReq.URL, in)
+	// create the vanilla http request, making sure the transport can't
+	// close a pooled body
+	httpReq, err := http.NewRequestWithContext(ctx, "PUT", putReq.URL, readers.NoCloser(in))
 	if err != nil {
 		return etag, lastModified, nil, fmt.Errorf("s3 upload: new request: %w", err)
 	}
@@ -4850,6 +4967,13 @@ func (o *Object) uploadSinglepartPresignedRequest(ctx context.Context, req *s3.P
 	// set the headers we signed and the length
 	httpReq.Header = putReq.SignedHeader
 	httpReq.ContentLength = size
+	// let the client resend a seekable body when following a redirect
+	if seeker, ok := in.(io.Seeker); ok {
+		httpReq.GetBody = func() (io.ReadCloser, error) {
+			_, err := seeker.Seek(0, io.SeekStart)
+			return io.NopCloser(readers.NoCloser(in)), err
+		}
+	}
 
 	var resp *http.Response
 	err = o.fs.pacer.CallNoRetry(func() (bool, error) {

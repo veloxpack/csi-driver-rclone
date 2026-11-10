@@ -3101,21 +3101,23 @@ type RelocationError struct {
 
 // Valid tag values for RelocationError
 const (
-	RelocationErrorFromLookup               = "from_lookup"
-	RelocationErrorFromWrite                = "from_write"
-	RelocationErrorTo                       = "to"
-	RelocationErrorCantCopySharedFolder     = "cant_copy_shared_folder"
-	RelocationErrorCantNestSharedFolder     = "cant_nest_shared_folder"
-	RelocationErrorCantMoveFolderIntoItself = "cant_move_folder_into_itself"
-	RelocationErrorTooManyFiles             = "too_many_files"
-	RelocationErrorDuplicatedOrNestedPaths  = "duplicated_or_nested_paths"
-	RelocationErrorCantTransferOwnership    = "cant_transfer_ownership"
-	RelocationErrorInsufficientQuota        = "insufficient_quota"
-	RelocationErrorInternalError            = "internal_error"
-	RelocationErrorCantMoveSharedFolder     = "cant_move_shared_folder"
-	RelocationErrorCantMoveIntoVault        = "cant_move_into_vault"
-	RelocationErrorCantMoveIntoFamily       = "cant_move_into_family"
-	RelocationErrorOther                    = "other"
+	RelocationErrorFromLookup                    = "from_lookup"
+	RelocationErrorFromWrite                     = "from_write"
+	RelocationErrorTo                            = "to"
+	RelocationErrorCantCopySharedFolder          = "cant_copy_shared_folder"
+	RelocationErrorCantNestSharedFolder          = "cant_nest_shared_folder"
+	RelocationErrorCantMoveFolderIntoItself      = "cant_move_folder_into_itself"
+	RelocationErrorTooManyFiles                  = "too_many_files"
+	RelocationErrorDuplicatedOrNestedPaths       = "duplicated_or_nested_paths"
+	RelocationErrorCantTransferOwnership         = "cant_transfer_ownership"
+	RelocationErrorInsufficientQuota             = "insufficient_quota"
+	RelocationErrorInternalError                 = "internal_error"
+	RelocationErrorCantMoveSharedFolder          = "cant_move_shared_folder"
+	RelocationErrorCantMoveIntoVault             = "cant_move_into_vault"
+	RelocationErrorCantMoveIntoFamily            = "cant_move_into_family"
+	RelocationErrorTeamFolderInsufficientQuota   = "team_folder_insufficient_quota"
+	RelocationErrorMemberFolderInsufficientQuota = "member_folder_insufficient_quota"
+	RelocationErrorOther                         = "other"
 )
 
 // UnmarshalJSON deserializes into a RelocationError instance
@@ -3180,22 +3182,24 @@ type RelocationBatchError struct {
 
 // Valid tag values for RelocationBatchError
 const (
-	RelocationBatchErrorFromLookup               = "from_lookup"
-	RelocationBatchErrorFromWrite                = "from_write"
-	RelocationBatchErrorTo                       = "to"
-	RelocationBatchErrorCantCopySharedFolder     = "cant_copy_shared_folder"
-	RelocationBatchErrorCantNestSharedFolder     = "cant_nest_shared_folder"
-	RelocationBatchErrorCantMoveFolderIntoItself = "cant_move_folder_into_itself"
-	RelocationBatchErrorTooManyFiles             = "too_many_files"
-	RelocationBatchErrorDuplicatedOrNestedPaths  = "duplicated_or_nested_paths"
-	RelocationBatchErrorCantTransferOwnership    = "cant_transfer_ownership"
-	RelocationBatchErrorInsufficientQuota        = "insufficient_quota"
-	RelocationBatchErrorInternalError            = "internal_error"
-	RelocationBatchErrorCantMoveSharedFolder     = "cant_move_shared_folder"
-	RelocationBatchErrorCantMoveIntoVault        = "cant_move_into_vault"
-	RelocationBatchErrorCantMoveIntoFamily       = "cant_move_into_family"
-	RelocationBatchErrorOther                    = "other"
-	RelocationBatchErrorTooManyWriteOperations   = "too_many_write_operations"
+	RelocationBatchErrorFromLookup                    = "from_lookup"
+	RelocationBatchErrorFromWrite                     = "from_write"
+	RelocationBatchErrorTo                            = "to"
+	RelocationBatchErrorCantCopySharedFolder          = "cant_copy_shared_folder"
+	RelocationBatchErrorCantNestSharedFolder          = "cant_nest_shared_folder"
+	RelocationBatchErrorCantMoveFolderIntoItself      = "cant_move_folder_into_itself"
+	RelocationBatchErrorTooManyFiles                  = "too_many_files"
+	RelocationBatchErrorDuplicatedOrNestedPaths       = "duplicated_or_nested_paths"
+	RelocationBatchErrorCantTransferOwnership         = "cant_transfer_ownership"
+	RelocationBatchErrorInsufficientQuota             = "insufficient_quota"
+	RelocationBatchErrorInternalError                 = "internal_error"
+	RelocationBatchErrorCantMoveSharedFolder          = "cant_move_shared_folder"
+	RelocationBatchErrorCantMoveIntoVault             = "cant_move_into_vault"
+	RelocationBatchErrorCantMoveIntoFamily            = "cant_move_into_family"
+	RelocationBatchErrorTeamFolderInsufficientQuota   = "team_folder_insufficient_quota"
+	RelocationBatchErrorMemberFolderInsufficientQuota = "member_folder_insufficient_quota"
+	RelocationBatchErrorOther                         = "other"
+	RelocationBatchErrorTooManyWriteOperations        = "too_many_write_operations"
 )
 
 // UnmarshalJSON deserializes into a RelocationBatchError instance
@@ -4402,8 +4406,6 @@ type ThumbnailArg struct {
 	Size *ThumbnailSize `json:"size"`
 	// Mode : How to resize and crop the image to achieve the desired size.
 	Mode *ThumbnailMode `json:"mode"`
-	// Quality : Quality of the thumbnail image.
-	Quality *ThumbnailQuality `json:"quality"`
 	// ExcludeMediaInfo : Normally, `FileMetadata.media_info` is set for photo
 	// and video. When this flag is true, `FileMetadata.media_info` is not
 	// populated. This improves latency for use cases where `media_info` is not
@@ -4418,7 +4420,6 @@ func NewThumbnailArg(Path string) *ThumbnailArg {
 	s.Format = &ThumbnailFormat{Tagged: dropbox.Tagged{Tag: "jpeg"}}
 	s.Size = &ThumbnailSize{Tagged: dropbox.Tagged{Tag: "w64h64"}}
 	s.Mode = &ThumbnailMode{Tagged: dropbox.Tagged{Tag: "strict"}}
-	s.Quality = &ThumbnailQuality{Tagged: dropbox.Tagged{Tag: "quality_80"}}
 	return s
 }
 
@@ -4511,7 +4512,6 @@ const (
 	ThumbnailSizeW960h640   = "w960h640"
 	ThumbnailSizeW1024h768  = "w1024h768"
 	ThumbnailSizeW2048h1536 = "w2048h1536"
-	ThumbnailSizeW3200h2400 = "w3200h2400"
 )
 
 // ThumbnailV2Arg : has no documentation (yet)
@@ -4528,8 +4528,6 @@ type ThumbnailV2Arg struct {
 	Size *ThumbnailSize `json:"size"`
 	// Mode : How to resize and crop the image to achieve the desired size.
 	Mode *ThumbnailMode `json:"mode"`
-	// Quality : Quality of the thumbnail image.
-	Quality *ThumbnailQuality `json:"quality"`
 	// ExcludeMediaInfo : Normally, `FileMetadata.media_info` is set for photo
 	// and video. When this flag is true, `FileMetadata.media_info` is not
 	// populated. This improves latency for use cases where `media_info` is not
@@ -4544,7 +4542,6 @@ func NewThumbnailV2Arg(Resource *PathOrLink) *ThumbnailV2Arg {
 	s.Format = &ThumbnailFormat{Tagged: dropbox.Tagged{Tag: "jpeg"}}
 	s.Size = &ThumbnailSize{Tagged: dropbox.Tagged{Tag: "w64h64"}}
 	s.Mode = &ThumbnailMode{Tagged: dropbox.Tagged{Tag: "strict"}}
-	s.Quality = &ThumbnailQuality{Tagged: dropbox.Tagged{Tag: "quality_80"}}
 	return s
 }
 
@@ -5373,16 +5370,18 @@ type WriteError struct {
 
 // Valid tag values for WriteError
 const (
-	WriteErrorMalformedPath          = "malformed_path"
-	WriteErrorConflict               = "conflict"
-	WriteErrorNoWritePermission      = "no_write_permission"
-	WriteErrorInsufficientSpace      = "insufficient_space"
-	WriteErrorDisallowedName         = "disallowed_name"
-	WriteErrorTeamFolder             = "team_folder"
-	WriteErrorOperationSuppressed    = "operation_suppressed"
-	WriteErrorTooManyWriteOperations = "too_many_write_operations"
-	WriteErrorAccessRestricted       = "access_restricted"
-	WriteErrorOther                  = "other"
+	WriteErrorMalformedPath                 = "malformed_path"
+	WriteErrorConflict                      = "conflict"
+	WriteErrorNoWritePermission             = "no_write_permission"
+	WriteErrorInsufficientSpace             = "insufficient_space"
+	WriteErrorDisallowedName                = "disallowed_name"
+	WriteErrorTeamFolder                    = "team_folder"
+	WriteErrorOperationSuppressed           = "operation_suppressed"
+	WriteErrorTooManyWriteOperations        = "too_many_write_operations"
+	WriteErrorAccessRestricted              = "access_restricted"
+	WriteErrorTeamFolderInsufficientSpace   = "team_folder_insufficient_space"
+	WriteErrorMemberFolderInsufficientSpace = "member_folder_insufficient_space"
+	WriteErrorOther                         = "other"
 )
 
 // UnmarshalJSON deserializes into a WriteError instance

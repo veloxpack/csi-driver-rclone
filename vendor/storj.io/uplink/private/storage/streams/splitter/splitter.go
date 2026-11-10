@@ -59,6 +59,14 @@ type SegmentInfo struct {
 	EncryptedSize int64
 }
 
+// defaultWriteAhead is the write ahead window used when Options.WriteAhead is
+// unset. It matches the chunk size the buffer backend allocates in, and is
+// large enough that readers consuming a stripe at a time almost never have to
+// wait on the writer. Raising it does not raise the peak memory of a segment
+// upload: the backend holds every chunk it has written until the segment is
+// closed regardless, so this only affects how early those chunks are filled.
+const defaultWriteAhead = 1 << 20
+
 // Options controls parameters of how an incoming stream of bytes is
 // split into segments, remote and inline.
 type Options struct {
@@ -68,6 +76,19 @@ type Options struct {
 	// Minimum is the plaintext number of bytes necessary to create
 	// a remote segment.
 	Minimum int64
+
+	// WriteAhead is how many encrypted bytes the writer filling a segment may
+	// run ahead of the furthest advanced reader of that segment. It exists to
+	// keep the writer from racing arbitrarily far in front of the readers, and
+	// is unrelated to Minimum, which only decides whether a segment is stored
+	// inline.
+	//
+	// It must be comfortably larger than the erasure stripe size, because every
+	// reader is one erasure coded piece and consumes a whole stripe at a time: a
+	// window smaller than a stripe means no reader can ever be satisfied without
+	// parking, so each write wakes every reader and they all contend on the
+	// cursor lock. If unset, defaultWriteAhead is used.
+	WriteAhead int64
 
 	// Params controls the encryption used on the plaintext bytes.
 	Params storj.EncryptionParameters
@@ -103,6 +124,10 @@ func New(opts Options) (*Splitter, error) {
 	split, err := newBaseSplitter(opts.Split, opts.Minimum)
 	if err != nil {
 		return nil, errs.Wrap(err)
+	}
+
+	if opts.WriteAhead <= 0 {
+		opts.WriteAhead = defaultWriteAhead
 	}
 
 	return &Splitter{
@@ -166,7 +191,7 @@ func (s *Splitter) Next(ctx context.Context) (Segment, error) {
 		return nil, errs.Wrap(err)
 	}
 
-	buf := buffer.New(backend, s.opts.Minimum)
+	buf := buffer.New(backend, s.opts.WriteAhead)
 	wrc := encryption.TransformWriterPadded(buf, enc)
 	encBuf := newEncryptedBuffer(buf, wrc)
 	segEncryption := metaclient.SegmentEncryption{

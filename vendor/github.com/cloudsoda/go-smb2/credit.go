@@ -25,7 +25,7 @@ func (a *account) initRequest() uint16 {
 	return uint16(cap(a.balance) - len(a.balance))
 }
 
-func (a *account) loan(ctx context.Context, creditCharge uint16) (uint16, bool, error) {
+func (a *account) borrow(ctx context.Context, creditCharge uint16) (uint16, bool, error) {
 	select {
 	case <-a.balance:
 	case <-ctx.Done():
@@ -54,7 +54,7 @@ func (a *account) opening() uint16 {
 	return ret
 }
 
-func (a *account) charge(granted, requested uint16) {
+func (a *account) settle(granted, requested uint16) {
 	if granted == 0 && requested == 0 {
 		return
 	}
