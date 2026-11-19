@@ -28,15 +28,32 @@
 
 ### Configuration Methods
 
-The driver supports three methods for providing rclone configuration:
+The driver accepts rclone configuration (`remote`, `remotePath`, `configData`, and mount options) from three places: a Kubernetes Secret, StorageClass `parameters`, and PersistentVolume `volumeAttributes`. Keep credentials in a Secret. The other two are stored in plain text in the cluster API.
 
 #### 1. Kubernetes Secrets (Recommended for Sensitive Data)
+
+##### How a Secret is linked to a volume
+
+The driver doesn't look for a Secret by a fixed name. The StorageClass (dynamic provisioning) or the PersistentVolume (static provisioning) references it with the standard CSI node-publish secret fields. When a pod mounts the volume, the kubelet reads that Secret and passes its keys to the driver's `NodePublishVolume` call, where they are merged with the other parameters (see [Parameter Priority](#parameter-priority)).
+
+```
+StorageClass ──(node-publish-secret-name/namespace)──▶ Secret
+     ▲                                                    │
+     │ storageClassName                                   │ keys merged at mount time
+     │                                                    ▼
+    PVC ──────────────▶ PV (created by the provisioner) ──▶ rclone mount
+```
+
+- The Secret can have **any name** and live in **any namespace**. `rclone-secret` / `default` in the examples are only placeholders.
+- Any parameter can go in the Secret, including `remote` and `remotePath`. Then the StorageClass only needs the Secret reference.
+- The CSI node plugin needs no extra RBAC. The kubelet fetches the Secret.
+
 ```yaml
 apiVersion: v1
 kind: Secret
 metadata:
-  name: rclone-secret
-  namespace: default
+  name: my-s3-creds
+  namespace: my-namespace
 type: Opaque
 stringData:
   remote: "s3"
@@ -50,7 +67,88 @@ stringData:
     region = us-east-1
 ```
 
+##### Option A: One Secret per StorageClass
+
+Every PVC that uses this StorageClass mounts with the same credentials. For several backends, create one StorageClass per backend.
+
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-s3
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  csi.storage.k8s.io/node-publish-secret-name: "my-s3-creds"
+  csi.storage.k8s.io/node-publish-secret-namespace: "my-namespace"
+```
+
+> Full example: [`rclone-secret-storageclass.yaml`](../deploy/example/rclone-secret-storageclass.yaml)
+
+##### Option B: Each PVC selects its own Secret (multiple endpoints, one StorageClass)
+
+The CSI external-provisioner resolves template variables in the secret reference when the volume is provisioned. This lets each PVC name its own Secret with an annotation, and keeps the Secret in the PVC's namespace:
+
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rclone-csi-dynamic
+provisioner: rclone.csi.veloxpack.io
+parameters:
+  csi.storage.k8s.io/node-publish-secret-name: ${pvc.annotations['rclone.csi.veloxpack.io/secret-name']}
+  csi.storage.k8s.io/node-publish-secret-namespace: ${pvc.namespace}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: team-a-data
+  namespace: team-a
+  annotations:
+    rclone.csi.veloxpack.io/secret-name: team-a-s3   # Secret in namespace team-a
+spec:
+  storageClassName: rclone-csi-dynamic
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+```
+
+Supported templates for `node-publish-secret-name`: `${pv.name}`, `${pvc.namespace}`, `${pvc.name}`, `${pvc.annotations['<key>']}`. For `node-publish-secret-namespace`: `${pv.name}`, `${pvc.namespace}`. See the [external-provisioner documentation](https://kubernetes-csi.github.io/docs/secrets-and-credentials-storage-class.html) for details.
+
+The secret reference is resolved once, when the PV is created. Changing the annotation on an existing PVC has no effect. Changing the *contents* of the referenced Secret takes effect on the next mount.
+
+> Full example with two independent backends: [`multi-tenant.yaml`](../deploy/example/multi-tenant.yaml)
+
+##### Static provisioning: `nodePublishSecretRef`
+
+For a PersistentVolume you create yourself, reference the Secret directly and keep only non-sensitive values in `volumeAttributes`:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-rclone
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  csi:
+    driver: rclone.csi.veloxpack.io
+    volumeHandle: unique-volume-id
+    volumeAttributes:
+      remote: "s3"
+      remotePath: "my-bucket/folder"
+    nodePublishSecretRef:
+      name: my-s3-creds
+      namespace: my-namespace
+```
+
 #### 2. Inline Configuration in StorageClass
+
+> **Not recommended for credentials.** Any user who can read StorageClasses can read StorageClass parameters, and they are copied into each PV's `volumeAttributes`. Use this for non-sensitive settings, or for backends that need no credentials, and put secrets in a Secret (see above).
+
 ```yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -69,6 +167,9 @@ parameters:
 ```
 
 #### 3. PersistentVolume volumeAttributes
+
+> **Not recommended for credentials.** Like StorageClass parameters, `volumeAttributes` are stored in plain text on the PV object. Prefer `nodePublishSecretRef` (see above) outside of testing.
+
 ```yaml
 apiVersion: v1
 kind: PersistentVolume
@@ -99,6 +200,8 @@ Configuration parameters are merged in the following order (later values overrid
 1. **Secrets** (lowest priority)
 2. **StorageClass parameters** (medium priority)
 3. **PersistentVolume volumeAttributes** (highest priority)
+
+> With dynamic provisioning, StorageClass parameters are copied into the PV's `volumeAttributes`, so a key set in both the StorageClass and the Secret always takes the StorageClass value. If each PVC's Secret should control `remote`/`remotePath` (Option B above), leave those keys out of the StorageClass.
 
 ### Dynamic Path Substitution
 The `remotePath` parameter supports template variables that are replaced with PVC/PV metadata:
